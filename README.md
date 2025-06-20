@@ -1,9 +1,24 @@
-# SSSR
-
-Significant Shared Science Research
+# Academate
 
 ## 运行方法
 ```
 npm run serve
 ```
 
+## 项目文件夹介绍
+
+`main.ts`：运行起始点
+
+`store/`：状态管理，浏览器本地存取信息
+
+`router/`：路由管理，管理页面跳转逻辑
+
+`page/`：页面，每个人一个文件夹，不要相互干扰
+
+`nav/`：全局导航条
+
+`call/`：提示信息调用，例如“返回学术成果成功”
+
+`asset/`：图片资源使用，例如自己的按钮样式
+
+`api/`：与后端对接的接口编写
