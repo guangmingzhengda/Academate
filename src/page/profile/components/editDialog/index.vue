@@ -126,12 +126,10 @@
                 </div>
                 <div class="form-row">
                     <label class="form-label">发表论文数：</label>
-                    <el-input-number 
-                        v-model="formData.paperCount" 
-                        :min="0"
-                        :max="9999"
-                        style="width: 100%;"
-                    />
+                    <div class="readonly-field">
+                        <span class="readonly-value">{{ formData.paperCount || 0 }}</span>
+                        <span class="readonly-note">（此数据由系统根据学术成果自动计算）</span>
+                    </div>
                 </div>
             </div>
 
@@ -229,6 +227,11 @@ export default {
                     callWarning('请至少添加一个研究领域')
                     return
                 }
+                // 保存时保留原始的论文数量，不允许编辑
+                const saveData = { ...formData.value }
+                saveData.paperCount = props.data.paperCount
+                emit('save', props.type, saveData)
+                return
             }
 
             emit('save', props.type, formData.value)
@@ -269,6 +272,7 @@ export default {
     font-weight: 600;
     color: #2c3e50;
     margin-bottom: 8px;
+    text-align: left;
 }
 
 .research-fields-editor {
@@ -315,6 +319,30 @@ export default {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
+}
+
+.readonly-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background-color: #f5f7fa;
+    border: 1px solid #e4e7ed;
+    border-radius: 4px;
+    color: #606266;
+}
+
+.readonly-value {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 16px;
+    font-weight: bold;
+    color: #409eff;
+}
+
+.readonly-note {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 12px;
+    color: #909399;
 }
 
 .dialog-footer {

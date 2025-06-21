@@ -15,98 +15,136 @@
                 </div>
                 
                 <div class="basic-info">
-                    <div class="user-name">{{ userInfo.name }}</div>
+                    <div class="name-follow-row">
+                        <div class="user-name">{{ userInfo.name }}</div>
+                        <el-button 
+                            class="follow-btn" 
+                            :type="isFollowing ? 'info' : 'default'"
+                            :icon="isFollowing ? 'Check' : 'Plus'"
+                            @click="toggleFollow"
+                            size="small"
+                        >
+                            {{ isFollowing ? '已关注' : '关注' }}
+                        </el-button>
+                    </div>
                     <div class="user-email">{{ userInfo.email }}</div>
                     <div class="user-role">{{ userInfo.role }}</div>
                 </div>
+
+                <div class="stats-section">
+                    <div class="stat-item">
+                        <span class="stat-number">{{ userInfo.followersCount }}</span>
+                        <span class="stat-label">关注者</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{{ userInfo.likesCount }}</span>
+                        <span class="stat-label">获赞</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{{ userInfo.research.paperCount }}</span>
+                        <span class="stat-label">论文</span>
+                    </div>
+                </div>
             </div>
 
-            <!-- 学术信息区域 -->
-            <div class="academic-info">
-                <div class="info-card">
-                    <div class="card-header">
-                        <h3>学历信息</h3>
-                        <el-button type="primary" plain size="small" @click="openEditDialog('education')">
-                            <el-icon><Edit /></el-icon>
-                            编辑
-                        </el-button>
-                    </div>
-                    <div class="card-content">
-                        <div class="info-item">
-                            <span class="info-label">最高学历：</span>
-                            <span class="info-value">{{ userInfo.education.degree }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">毕业院校：</span>
-                            <span class="info-value">{{ userInfo.education.university }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">专业：</span>
-                            <span class="info-value">{{ userInfo.education.major }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">毕业时间：</span>
-                            <span class="info-value">{{ userInfo.education.graduationYear }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="info-card">
-                    <div class="card-header">
-                        <h3>职称信息</h3>
-                        <el-button type="primary" plain size="small" @click="openEditDialog('title')">
-                            <el-icon><Edit /></el-icon>
-                            编辑
-                        </el-button>
-                    </div>
-                    <div class="card-content">
-                        <div class="info-item">
-                            <span class="info-label">当前职称：</span>
-                            <span class="info-value">{{ userInfo.title.current }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">工作单位：</span>
-                            <span class="info-value">{{ userInfo.title.organization }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">部门：</span>
-                            <span class="info-value">{{ userInfo.title.department }}</span>
-                        </div>
-                        <div class="info-item">
-                            <span class="info-label">任职时间：</span>
-                            <span class="info-value">{{ userInfo.title.startDate }}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="info-card">
-                    <div class="card-header">
-                        <h3>研究领域</h3>
-                        <el-button type="primary" plain size="small" @click="openEditDialog('research')">
-                            <el-icon><Edit /></el-icon>
-                            编辑
-                        </el-button>
-                    </div>
-                    <div class="card-content">
-                        <div class="info-item research-fields">
-                            <span class="info-label">主要研究方向：</span>
-                            <div class="research-tags">
-                                <div v-for="field in userInfo.research.fields" :key="field" class="research-tag">
-                                    {{ field }}
+                            <!-- 主要内容区域 -->
+                <div class="main-content">
+                    <!-- 左侧学术信息 -->
+                    <div class="left-sidebar">
+                        <div class="info-card">
+                            <div class="card-header">
+                                <h3>学历信息</h3>
+                                <el-button type="primary" plain size="small" @click="openEditDialog('education')">
+                                    <el-icon><Edit /></el-icon>
+                                    编辑
+                                </el-button>
+                            </div>
+                            <div class="card-content">
+                                <div class="info-item">
+                                    <span class="info-label">最高学历：</span>
+                                    <span class="info-value">{{ userInfo.education.degree }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">毕业院校：</span>
+                                    <span class="info-value">{{ userInfo.education.university }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">专业：</span>
+                                    <span class="info-value">{{ userInfo.education.major }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">毕业时间：</span>
+                                    <span class="info-value">{{ userInfo.education.graduationYear }}</span>
                                 </div>
                             </div>
                         </div>
-                        <div class="info-item">
-                            <span class="info-label">研究兴趣：</span>
-                            <span class="info-value">{{ userInfo.research.interests }}</span>
+
+                        <div class="info-card">
+                            <div class="card-header">
+                                <h3>职称信息</h3>
+                                <el-button type="primary" plain size="small" @click="openEditDialog('title')">
+                                    <el-icon><Edit /></el-icon>
+                                    编辑
+                                </el-button>
+                            </div>
+                            <div class="card-content">
+                                <div class="info-item">
+                                    <span class="info-label">当前职称：</span>
+                                    <span class="info-value">{{ userInfo.title.current }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">工作单位：</span>
+                                    <span class="info-value">{{ userInfo.title.organization }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">部门：</span>
+                                    <span class="info-value">{{ userInfo.title.department }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">任职时间：</span>
+                                    <span class="info-value">{{ userInfo.title.startDate }}</span>
+                                </div>
+                            </div>
                         </div>
-                        <div class="info-item">
-                            <span class="info-label">发表论文数：</span>
-                            <span class="info-value">{{ userInfo.research.paperCount }}</span>
+
+                        <div class="info-card">
+                            <div class="card-header">
+                                <h3>研究领域</h3>
+                                <el-button type="primary" plain size="small" @click="openEditDialog('research')">
+                                    <el-icon><Edit /></el-icon>
+                                    编辑
+                                </el-button>
+                            </div>
+                            <div class="card-content">
+                                <div class="info-item research-fields">
+                                    <span class="info-label">主要研究方向：</span>
+                                    <div class="research-tags">
+                                        <div v-for="field in userInfo.research.fields" :key="field" class="research-tag">
+                                            {{ field }}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">研究兴趣：</span>
+                                    <span class="info-value">{{ userInfo.research.interests }}</span>
+                                </div>
+                                <div class="info-item">
+                                    <span class="info-label">发表论文数：</span>
+                                    <span class="info-value">{{ userInfo.research.paperCount }}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- 右侧管理区域 -->
+                    <div class="right-content">
+                        <!-- 项目管理 -->
+                        <project-manager />
+                        
+                        <!-- 学术成果管理 -->
+                        <achievement-manager />
+                    </div>
                 </div>
-            </div>
 
         </div>
     </div>
@@ -124,14 +162,18 @@
 
 <script>
 import { ref, computed } from 'vue'
-import { Camera, Edit } from '@element-plus/icons-vue'
+import { Camera, Edit, Plus, Check } from '@element-plus/icons-vue'
 import editDialog from './components/editDialog/index.vue'
+import projectManager from './components/projectManager/index.vue'
+import achievementManager from './components/achievementManager/index.vue'
 import { callSuccess, callInfo } from '@/call'
 
 export default {
     name: 'profile',
     components: {
-        editDialog
+        editDialog,
+        projectManager,
+        achievementManager
     },
     setup() {
         // 用户信息测试数据
@@ -140,6 +182,8 @@ export default {
             email: '00000000@buaa.edu.cn',
             role: '教授/博士生导师',
             avatar: require('@/asset/home/user.png'),
+            followersCount: 1248,
+            likesCount: 3567,
             education: {
                 degree: '博士',
                 university: '北京航空航天大学',
@@ -163,6 +207,9 @@ export default {
         const editDialogVisible = ref(false)
         const editType = ref('')
         const editData = ref({})
+
+        // 关注相关
+        const isFollowing = ref(false)
 
         // 头像错误处理
         const altImg = () => {
@@ -195,16 +242,30 @@ export default {
             closeEditDialog()
         }
 
+        // 切换关注状态
+        const toggleFollow = () => {
+            isFollowing.value = !isFollowing.value
+            if (isFollowing.value) {
+                userInfo.value.followersCount++
+                callSuccess('关注成功！')
+            } else {
+                userInfo.value.followersCount--
+                callInfo('已取消关注')
+            }
+        }
+
         return {
             userInfo,
             editDialogVisible,
             editType,
             editData,
+            isFollowing,
             altImg,
             changeAvatar,
             openEditDialog,
             closeEditDialog,
-            saveData
+            saveData,
+            toggleFollow
         }
     }
 }
@@ -219,6 +280,7 @@ export default {
     z-index: -2;
     top: 0;
     left: 0;
+    background-size: cover;
 }
 
 .profile-container {
@@ -243,6 +305,7 @@ export default {
     display: flex;
     align-items: center;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    position: relative;
 }
 
 .avatar-section {
@@ -288,12 +351,20 @@ export default {
     flex: 1;
 }
 
+.name-follow-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
 .user-name {
     font-family: 'Meiryo', sans-serif;
     font-size: 32px;
     font-weight: bold;
     color: #2c3e50;
-    margin-bottom: 10px;
+    text-align: left;
+    margin: 0;
 }
 
 .user-email {
@@ -301,6 +372,7 @@ export default {
     font-size: 18px;
     color: #409eff;
     margin-bottom: 8px;
+    text-align: left;
 }
 
 .user-role {
@@ -310,13 +382,92 @@ export default {
     background-color: rgba(64, 158, 255, 0.1);
     padding: 8px 16px;
     border-radius: 20px;
-    display: inline-block;
+    display: block;
+    text-align: left;
+    width: fit-content;
 }
 
-/* 学术信息区域 */
-.academic-info {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+/* 关注按钮 */
+.follow-btn {
+    font-family: 'Meiryo', sans-serif;
+    border-radius: 16px;
+    padding: 6px 16px;
+    font-size: 13px;
+    transition: all 0.3s ease;
+    border: 1px solid #d0d0d0;
+    background-color: #f5f5f5;
+    color: #666;
+    height: 32px;
+}
+
+.follow-btn:hover {
+    background-color: #e8e8e8;
+    border-color: #bbb;
+    transform: translateY(-1px);
+}
+
+.follow-btn.is-info {
+    background-color: #909399;
+    border-color: #909399;
+    color: white;
+}
+
+.follow-btn.is-info:hover {
+    background-color: #82848a;
+    border-color: #82848a;
+}
+
+/* 统计信息区域 */
+.stats-section {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    margin-left: 20px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.stat-number {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 20px;
+    font-weight: bold;
+    color: #2c3e50;
+    line-height: 1;
+}
+
+.stat-label {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 12px;
+    color: #8e8e8e;
+    margin-top: 4px;
+}
+
+/* 主要内容区域 */
+.main-content {
+    display: flex;
+    gap: 30px;
+    width: 100%;
+}
+
+/* 左侧学术信息栏 */
+.left-sidebar {
+    width: 350px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* 右侧内容区域 */
+.right-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     gap: 30px;
 }
 
@@ -373,6 +524,7 @@ export default {
     font-weight: 600;
     min-width: 100px;
     margin-right: 10px;
+    text-align: left;
 }
 
 .info-value {
@@ -380,6 +532,7 @@ export default {
     font-size: 14px;
     color: #2c3e50;
     flex: 1;
+    text-align: left;
 }
 
 .research-tags {
@@ -400,10 +553,24 @@ export default {
 }
 
 /* 响应式设计 */
+@media (max-width: 1024px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .left-sidebar {
+        width: 100%;
+    }
+    
+    .right-content {
+        width: 100%;
+    }
+}
+
 @media (max-width: 768px) {
     .user-basic-info {
         flex-direction: column;
-        text-align: center;
+        text-align: left;
         padding: 30px 20px;
     }
     
@@ -412,8 +579,35 @@ export default {
         margin-bottom: 20px;
     }
     
-    .academic-info {
-        grid-template-columns: 1fr;
+    .name-follow-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .user-name {
+        font-size: 24px;
+    }
+    
+    .stats-section {
+        margin-left: 0;
+        gap: 20px;
+        margin-top: 15px;
+        justify-content: center;
+    }
+    
+    .stat-number {
+        font-size: 16px;
+    }
+    
+    .stat-label {
+        font-size: 11px;
+    }
+    
+    .follow-btn {
+        padding: 6px 14px;
+        font-size: 12px;
+        height: 28px;
     }
     
     .info-card {
