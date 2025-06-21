@@ -14,7 +14,7 @@
 
             </div>
 
-            <div class="search-container">
+            <!-- <div class="search-container">
 
                 <el-input v-model="searchInput" style="width: 350px"
                           :suffix-icon="Search" placeholder="Search by Academate!"
@@ -29,7 +29,7 @@
                     </template>
                 </el-input>
 
-            </div>
+            </div> -->
 
         </div>
 

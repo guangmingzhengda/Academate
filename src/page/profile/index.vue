@@ -138,11 +138,43 @@
 
                     <!-- 右侧管理区域 -->
                     <div class="right-content">
-                        <!-- 项目管理 -->
-                        <project-manager />
-                        
-                        <!-- 学术成果管理 -->
-                        <achievement-manager />
+                        <!-- 翻页选项 -->
+                        <div class="tab-selector">
+                            <div class="tab-buttons">
+                                <button 
+                                    v-for="tab in tabs" 
+                                    :key="tab.key"
+                                    :class="['tab-button', { active: activeTab === tab.key }]"
+                                    @click="switchTab(tab.key)"
+                                >
+                                    {{ tab.label }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 内容区域 -->
+                        <div class="tab-content">
+                            <!-- 项目/学术成果 -->
+                            <div v-if="activeTab === 'projects'" class="tab-panel">
+                                <project-manager />
+                                <achievement-manager />
+                            </div>
+                            
+                            <!-- 关注列表 -->
+                            <div v-if="activeTab === 'following'" class="tab-panel">
+                                <follow-manager :default-tab="'following'" />
+                            </div>
+                            
+                            <!-- 被关注列表 -->
+                            <div v-if="activeTab === 'followers'" class="tab-panel">
+                                <follow-manager :default-tab="'followers'" />
+                            </div>
+                            
+                            <!-- 我的文献库 -->
+                            <div v-if="activeTab === 'library'" class="tab-panel">
+                                <library-manager />
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -166,6 +198,8 @@ import { Camera, Edit, Plus, Check } from '@element-plus/icons-vue'
 import editDialog from './components/editDialog/index.vue'
 import projectManager from './components/projectManager/index.vue'
 import achievementManager from './components/achievementManager/index.vue'
+import followManager from './components/followManager/index.vue'
+import libraryManager from './components/libraryManager/index.vue'
 import { callSuccess, callInfo } from '@/call'
 
 export default {
@@ -173,7 +207,9 @@ export default {
     components: {
         editDialog,
         projectManager,
-        achievementManager
+        achievementManager,
+        followManager,
+        libraryManager
     },
     setup() {
         // 用户信息测试数据
@@ -210,6 +246,15 @@ export default {
 
         // 关注相关
         const isFollowing = ref(false)
+
+        // 标签页相关
+        const activeTab = ref('projects')
+        const tabs = [
+            { key: 'projects', label: '项目/学术成果' },
+            { key: 'following', label: '关注列表' },
+            { key: 'followers', label: '被关注列表' },
+            { key: 'library', label: '文献库' }
+        ]
 
         // 头像错误处理
         const altImg = () => {
@@ -254,18 +299,26 @@ export default {
             }
         }
 
+        // 切换标签页
+        const switchTab = (tabKey) => {
+            activeTab.value = tabKey
+        }
+
         return {
             userInfo,
             editDialogVisible,
             editType,
             editData,
             isFollowing,
+            activeTab,
+            tabs,
             altImg,
             changeAvatar,
             openEditDialog,
             closeEditDialog,
             saveData,
-            toggleFollow
+            toggleFollow,
+            switchTab
         }
     }
 }
@@ -301,7 +354,7 @@ export default {
     background-color: rgba(255, 255, 255, 0.95);
     border-radius: 0;
     padding: 40px;
-    margin-bottom: 30px;
+    margin-bottom: 15px;
     display: flex;
     align-items: center;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
@@ -450,7 +503,7 @@ export default {
 /* 主要内容区域 */
 .main-content {
     display: flex;
-    gap: 30px;
+    gap: 20px;
     width: 100%;
 }
 
@@ -460,7 +513,7 @@ export default {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 10px;
 }
 
 /* 右侧内容区域 */
@@ -468,7 +521,56 @@ export default {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 30px;
+    gap: 15px;
+}
+
+/* 标签页选择器 */
+.tab-selector {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 0;
+    padding: 5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    margin-bottom: 5px;
+}
+
+.tab-buttons {
+    display: flex;
+    gap: 0;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background-color: transparent;
+    color: #666;
+    font-family: 'Meiryo', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 0;
+}
+
+.tab-button:hover {
+    background-color: rgba(64, 158, 255, 0.1);
+    color: #409eff;
+}
+
+.tab-button.active {
+    background-color: #409eff;
+    color: white;
+    font-weight: bold;
+}
+
+.tab-content {
+    width: 100%;
+}
+
+.tab-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
 .info-card {

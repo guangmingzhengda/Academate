@@ -356,7 +356,7 @@ export default {
 .project-list {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 0px;
 }
 
 .project-item {

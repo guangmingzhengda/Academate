@@ -17,50 +17,120 @@
             </div>
 
             <div class="content-right">
-
+                <!-- 项目展示区域 -->
                 <fade-box>
-                    <div style="width: 100%; display: flex; flex-direction: row;
-                    justify-content: left; align-items: center">
-                        <el-select
-                            v-model="sel_value"
-                            placeholder="Select"
-                            size="large"
-                            style="width: 120px"
-                        >
-                            <el-option
-                                v-for="item in options"
-                                :key="item.value"
-                                :label="item.label"
-                                :value="item.value"
-                            />
-                        </el-select>
-
-                        <div style="margin-left: 10px;
-                            font-family: 'Meiryo', sans-serif;
-                            font-weight: bold; color: black; font-size: 24px;">
-                            Connect using Academate!
+                <div class="project-section">
+                    <div class="section-card">
+                        <div class="card-header">
+                            <h3>全部项目</h3>
                         </div>
-
-                        <img style="width: 28px; height: 28px; margin-left: 10px"
-                             src="@/asset/home/star-swirl-white.png" >
-
+                        
+                        <div class="card-content">
+                            <div v-if="projects.length === 0" class="empty-state">
+                                暂无项目数据
+                            </div>
+                            
+                            <div v-else class="project-list">
+                                <div 
+                                    v-for="project in currentPageProjects" 
+                                    :key="project.id" 
+                                    class="project-item"
+                                >
+                                    <div class="project-info">
+                                        <div class="project-title">{{ project.name }}</div>
+                                        <div class="project-desc">{{ project.description }}</div>
+                                        <div class="project-meta">
+                                            <div class="meta-row">
+                                                <span class="meta-item">开始时间：{{ project.startDate }}</span>
+                                                <span class="meta-item">状态：{{ project.status }}</span>
+                                            </div>
+                                            <div class="meta-row">
+                                                <span class="meta-item">负责人：{{ project.leader }}</span>
+                                                <span v-if="project.endDate" class="meta-item">结束时间：{{ project.endDate }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 项目分页 -->
+                            <el-pagination
+                                v-if="projects.length > projectPageSize"
+                                v-model:current-page="projectCurrentPage"
+                                :page-size="projectPageSize"
+                                :total="projects.length"
+                                layout="prev, pager, next"
+                                class="pagination"
+                                small
+                                @current-change="handleProjectPageChange"
+                            />
+                        </div>
                     </div>
+                </div>
                 </fade-box>
-
-                <fade-box>
-                    <article-box v-for="item in articleList" :abstract="item.abstract"
-                    :title="item.title" :post-time="item.postTime"
-                    :author="item.author" :tag="item.type" :id="item.id"/>
+                <!-- 学术成果展示区域 -->
+                 <fade-box>
+                <div class="achievement-section">
+                    <div class="section-card">
+                        <div class="card-header">
+                            <h3>文献阅读</h3>
+                        </div>
+                        
+                        <div class="card-content">
+                            <div v-if="achievements.length === 0" class="empty-state">
+                                暂无学术成果数据
+                            </div>
+                            
+                            <div v-else class="achievement-list">
+                                <div 
+                                    v-for="achievement in currentPageAchievements" 
+                                    :key="achievement.id" 
+                                    class="achievement-item"
+                                >
+                                    <div class="achievement-info">
+                                        <div class="achievement-header">
+                                            <div class="title-type-row">
+                                                <span class="achievement-type-tag" :class="achievement.type">
+                                                    {{ typeLabels[achievement.type] }}
+                                                </span>
+                                                <div class="achievement-title">{{ achievement.title }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="achievement-meta">
+                                            <div class="meta-row">
+                                                <span class="meta-label">作者：</span>
+                                                <span class="meta-value">{{ achievement.authors || '暂无' }}</span>
+                                                <span v-if="achievement.publishDate" class="meta-label">发表时间：</span>
+                                                <span v-if="achievement.publishDate" class="meta-value">{{ achievement.publishDate }}</span>
+                                            </div>
+                                            <div v-if="achievement.journal || achievement.conference || achievement.patentNumber" class="meta-row">
+                                                <span v-if="achievement.journal" class="meta-label">期刊：</span>
+                                                <span v-if="achievement.journal" class="meta-value">{{ achievement.journal }}</span>
+                                                <span v-if="achievement.conference" class="meta-label">会议：</span>
+                                                <span v-if="achievement.conference" class="meta-value">{{ achievement.conference }}</span>
+                                                <span v-if="achievement.patentNumber" class="meta-label">专利号：</span>
+                                                <span v-if="achievement.patentNumber" class="meta-value">{{ achievement.patentNumber }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 学术成果分页 -->
+                            <el-pagination
+                                v-if="achievements.length > achievementPageSize"
+                                v-model:current-page="achievementCurrentPage"
+                                :page-size="achievementPageSize"
+                                :total="achievements.length"
+                                layout="prev, pager, next"
+                                class="pagination"
+                                small
+                                @current-change="handleAchievementPageChange"
+                            />
+                        </div>
+                    </div>
+                </div>
                 </fade-box>
-
-                <el-pagination class="pagination-style"
-                               v-model:current-page="currentPos"
-                               ref="bottomPagination"
-                               layout="prev, pager, next"
-                               @current-change="pageChange()"
-                               :total="10*totalPage"
-                               background
-                />
 
             </div>
         </div>
@@ -77,178 +147,212 @@
 
 <script>
 
-import Search_title from "@/page/home/component/search_title/index.vue";
-import {onMounted, onUnmounted, reactive, ref, watch} from "vue";
-import articleBox from "@/page/home/component/articleBox/index.vue";
+import {onMounted, ref, computed} from "vue";
 import fadeBox from "@/page/home/component/fadeBox/index.vue";
 import logo from "@/page/home/component/logo/index.vue"
 import homeBottom from "@/page/home/component/homeBottom/index.vue"
 import leftPin from "@/page/home/component/leftPin/index.vue";
-import homeMsg from "@/page/home/component/homeMsg/index.vue";
-import {setNav} from "@/nav/set";
-import {getHomePage, getRecommend, getTotalAuthor, getTotalPaper, obj} from "@/api/home";
-import TestAI from "@/page/achievement-detail/testAI/index.vue";
 
 
 export default {
     name: "home",
-    components: {TestAI, Search_title, articleBox, fadeBox, logo, homeBottom, leftPin, homeMsg},
+    components: {fadeBox, logo, homeBottom, leftPin},
     setup(){
 
-        const currentPos = ref(1);
+        // 项目相关数据
+        const projectCurrentPage = ref(1);
+        const projectPageSize = ref(5);
+        const projects = ref([
+            {
+                id: 1,
+                name: '智能教育平台开发',
+                description: '基于人工智能技术的个性化教育平台，支持自适应学习和智能推荐功能。',
+                startDate: '2023-01-15',
+                endDate: '2023-12-31',
+                status: '进行中',
+                leader: 'HHH'
+            },
+            {
+                id: 2,
+                name: '深度学习算法优化研究',
+                description: '针对计算机视觉领域的深度学习算法进行性能优化和准确性提升研究。',
+                startDate: '2022-06-01',
+                endDate: '2023-05-31',
+                status: '已完成',
+                leader: 'HHH'
+            },
+            {
+                id: 3,
+                name: '知识图谱构建系统',
+                description: '构建面向特定领域的知识图谱系统，实现知识的自动抽取和推理。',
+                startDate: '2023-09-01',
+                endDate: '2024-08-31',
+                status: '进行中',
+                leader: 'HHH'
+            },
+            {
+                id: 4,
+                name: '智能推荐系统优化',
+                description: '基于用户行为分析的智能推荐算法研究与实现。',
+                startDate: '2023-03-01',
+                endDate: '2024-02-29',
+                status: '进行中',
+                leader: 'HHH'
+            },
+            {
+                id: 5,
+                name: '区块链技术应用研究',
+                description: '探索区块链技术在学术诚信和版权保护方面的应用。',
+                startDate: '2022-09-01',
+                endDate: '2023-08-31',
+                status: '已完成',
+                leader: 'HHH'
+            },
+            {
+                id: 6,
+                name: '机器学习框架优化',
+                description: '研究和开发高效的机器学习框架，提升模型训练和推理效率。',
+                startDate: '2023-07-01',
+                endDate: '2024-06-30',
+                status: '进行中',
+                leader: 'HHH'
+            },
+            {
+                id: 7,
+                name: '自然语言处理系统',
+                description: '开发面向中文的自然语言处理系统，支持文本分析和语义理解。',
+                startDate: '2023-05-01',
+                endDate: '2024-04-30',
+                status: '进行中',
+                leader: 'HHH'
+            }
+        ]);
 
-        const totalPage = ref(10);
+        // 学术成果相关数据
+        const achievementCurrentPage = ref(1);
+        const achievementPageSize = ref(5);
+        const achievements = ref([
+            {
+                id: 1,
+                type: 'journal',
+                title: '基于深度学习的图像识别算法研究',
+                authors: 'HHH, 张三, 李四',
+                journal: 'IEEE Transactions on Image Processing',
+                volume: '32',
+                issue: '5',
+                pages: '1234-1245',
+                publishDate: '2023-05-15',
+                doi: '10.1109/TIP.2023.1234567'
+            },
+            {
+                id: 2,
+                type: 'conference',
+                title: '智能教育系统中的个性化推荐算法',
+                authors: 'HHH, 王五, 赵六',
+                conference: 'International Conference on Educational Technology',
+                location: '北京',
+                publishDate: '2023-08-20'
+            },
+            {
+                id: 3,
+                type: 'patent',
+                title: '一种基于人工智能的学习路径推荐方法',
+                authors: 'HHH, 孙七',
+                patentNumber: 'CN202310123456.7',
+                patentType: 'invention',
+                publishDate: '2023-06-10'
+            },
+            {
+                id: 4,
+                type: 'journal',
+                title: '知识图谱在教育领域的应用研究',
+                authors: 'HHH, 周八',
+                journal: 'Computers & Education',
+                volume: '195',
+                issue: '3',
+                pages: '456-467',
+                publishDate: '2023-07-01'
+            },
+            {
+                id: 5,
+                type: 'conference',
+                title: '基于强化学习的智能推荐系统',
+                authors: 'HHH, 吴九, 郑十',
+                conference: 'AAAI Conference on Artificial Intelligence',
+                location: '华盛顿',
+                publishDate: '2023-09-12'
+            },
+            {
+                id: 6,
+                type: 'book',
+                title: '人工智能在教育中的应用',
+                authors: 'HHH',
+                publisher: '清华大学出版社',
+                publishDate: '2023-03-01'
+            },
+            {
+                id: 7,
+                type: 'software',
+                title: '智能学习管理系统V1.0',
+                authors: 'HHH, 技术团队',
+                registrationNumber: '2023SR0123456',
+                publishDate: '2023-04-15'
+            }
+        ]);
 
-        const step = ref(true);
-        const notHead = ref(false);
-        const articleList = ref([]);
-        const tagHint = ref("学术论文")
+        // 成果类型标签
+        const typeLabels = {
+            journal: '期刊论文',
+            conference: '会议论文',
+            patent: '专利',
+            book: '专著',
+            software: '软件著作权'
+        };
 
-        const totalPaper = ref(0);
-        const totalAuthor = ref(0);
-
-        //滑动响应式组件
-        const data = reactive({
-            oldScrollTop:0,
+        // 项目分页计算属性
+        const currentPageProjects = computed(() => {
+            const start = (projectCurrentPage.value - 1) * projectPageSize.value;
+            const end = start + projectPageSize.value;
+            return projects.value.slice(start, end);
         });
 
-        const scrolling = ()=> {
-            // 滚动条距文档顶部的距离
-            let scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
-            // 滚动条滚动的距离
-            let scrollStep = scrollTop - data.oldScrollTop;
-            //console.log("header 滚动距离 ", scrollTop);
-            // 更新——滚动前，滚动条距文档顶部的距离
-            data.oldScrollTop = scrollTop;
-            //变量windowHeight是可视区的高度
-            let windowHeight =
-                document.documentElement.clientHeight || document.body.clientHeight;
-            //变量scrollHeight是滚动条的总高度
-            let scrollHeight =
-                document.documentElement.scrollHeight || document.body.scrollHeight;
-            //滚动条到底部的条件
-            if (scrollTop + windowHeight === scrollHeight) {
-                //到达底部
-            }
-
-            if (scrollStep < 0) {
-                //向上滚动
-                step.value = true;
-                //setNav(true);
-            } else {
-                //向下滚动
-                step.value = false;
-                if (!notHead.value) {
-                    notHead.value = true;
-                    //setNav(true);
-                }else {
-                    //setNav(false);
-                }
-            }
-            // 判断是否到了最顶部
-            if (scrollTop <= 0) {
-                notHead.value = false;
-                //setNav(false);
-            }
-
-        }
-
-        const sel_value = ref(0);
-        const options = [
-            {
-                value: 0,
-                label: '学术论文',
-            },
-            {
-                value: 1,
-                label: '专利',
-            },
-            {
-                value: 2,
-                label: '科研项目',
-            },
-            {
-                value: 3,
-                label: '奖项',
-            },
-        ]
-
-        const pageChange = async() => {
-            try {
-                // console.log('pageChange: ')
-
-                if (currentPos.value >= 1000){
-                    articleList.value = await getHomePage(
-                        (19 * currentPos.value)%1000 + 1,
-                        sel_value.value
-                    );
-                }else{
-                    articleList.value = await getHomePage(
-                        currentPos.value,
-                        sel_value.value
-                    );
-                }
-
-                if (sel_value.value === 0){
-                    totalPage.value = Math.ceil(  7 * articleList.value[0].total / 10);
-                }else{
-                    totalPage.value = Math.ceil(  articleList.value[0].total / 10);
-                }
-
-                // console.log('update: ')
-                // console.log(articleList.value)
-            } catch (error) {}
-        }
-
-        watch(sel_value, async(newValue, oldValue) => {
-            currentPos.value = 1;
-            tagHint.value = options[newValue].label;
-            articleList.value = []
-            await pageChange();
+        // 学术成果分页计算属性
+        const currentPageAchievements = computed(() => {
+            const start = (achievementCurrentPage.value - 1) * achievementPageSize.value;
+            const end = start + achievementPageSize.value;
+            return achievements.value.slice(start, end);
         });
+
+        // 项目分页处理
+        const handleProjectPageChange = (page) => {
+            projectCurrentPage.value = page;
+        };
+
+        // 学术成果分页处理
+        const handleAchievementPageChange = (page) => {
+            achievementCurrentPage.value = page;
+        };
 
         onMounted(async () => {
-            // 添加滚动事件监听
-            //window.addEventListener("scroll", scrolling);
             // 设置导航状态
             //setNav(false);
-            try {
-
-                totalPaper.value = await getTotalPaper();
-                totalAuthor.value = await getTotalAuthor();
-
-                // 等待异步函数返回数据
-                const result = await getHomePage(currentPos.value, sel_value.value);
-
-                // 将结果赋值给 articleList
-                articleList.value = result;
-
-                if (sel_value.value === 0){
-                    totalPage.value = Math.ceil( 7 * articleList.value[0].total / 10);
-                }else{
-                    totalPage.value = Math.ceil( articleList.value[0].total / 10);
-                }
-
-                // await getRecommend();
-
-            } catch (error) {}
         });
 
-        onUnmounted(() => {
-            window.removeEventListener("scroll", scrolling);
-        })
-
         return {
-            sel_value,
-            options,
-            notHead,
-            articleList,
-            currentPos,
-            totalPage,
-            pageChange,
-            tagHint,
-            totalPaper,
-            totalAuthor
+            // 项目相关
+            projects,
+            projectCurrentPage,
+            projectPageSize,
+            currentPageProjects,
+            handleProjectPageChange,
+            
+            // 学术成果相关
+            achievements,
+            achievementCurrentPage,
+            achievementPageSize,
+            currentPageAchievements,
+            typeLabels,
+            handleAchievementPageChange
         };
 
     }
@@ -320,6 +424,207 @@ export default {
     display: flex;
     flex-direction: column;
     gap: 20px;
+}
+
+/* 项目和学术成果展示区域样式 */
+.project-section,
+.achievement-section {
+    width: 100%;
+}
+
+.section-card {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 0;
+    padding: 30px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f2f5;
+}
+
+.card-header h3 {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 20px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
+}
+
+.empty-state {
+    text-align: left;
+    color: #999;
+    padding: 40px;
+    font-size: 14px;
+}
+
+/* 项目样式 */
+.project-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+}
+
+.project-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.project-item:hover {
+    background-color: #e3f2fd;
+    border-color: #409eff;
+}
+
+.project-info {
+    flex: 1;
+}
+
+.project-title {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 6px;
+    text-align: left;
+}
+
+.project-desc {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 8px;
+    line-height: 1.3;
+    text-align: left;
+}
+
+.project-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.meta-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.meta-item {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 12px;
+    color: #8e8e8e;
+}
+
+/* 学术成果样式 */
+.achievement-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+}
+
+.achievement-item {
+    padding: 15px;
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    transition: all 0.3s ease;
+}
+
+.achievement-item:hover {
+    background-color: #e3f2fd;
+    border-color: #409eff;
+}
+
+.achievement-info {
+    width: 100%;
+}
+
+.achievement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.title-type-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.achievement-type-tag {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
+    white-space: nowrap;
+}
+
+.achievement-type-tag.journal {
+    background-color: #67c23a;
+}
+
+.achievement-type-tag.conference {
+    background-color: #409eff;
+}
+
+.achievement-type-tag.patent {
+    background-color: #e6a23c;
+}
+
+.achievement-type-tag.book {
+    background-color: #909399;
+}
+
+.achievement-type-tag.software {
+    background-color: #f56c6c;
+}
+
+.achievement-title {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 15px;
+    font-weight: bold;
+    color: #2c3e50;
+    text-align: left;
+    flex: 1;
+}
+
+.achievement-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.meta-label {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 12px;
+    color: #8e8e8e;
+    font-weight: normal;
+}
+
+.meta-value {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 12px;
+    color: #666;
+    margin-right: 15px;
+}
+
+/* 分页样式 */
+.pagination {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
 }
 .content-left{
     width: 28%;

@@ -559,7 +559,7 @@ export default {
 .achievement-list {
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 0px;
 }
 
 .achievement-item {
