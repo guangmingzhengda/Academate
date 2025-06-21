@@ -330,7 +330,7 @@ export default {
         };
     },
     async mounted() {
-        setNav(true);
+        //setNav(true);
         window.scrollTo(0, 0);
         const res = await this.pullWorkData();
         if(res != null && (res.articleDetail || res.patentDetail || res.projectDetail || res.awardDetail))

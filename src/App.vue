@@ -1,7 +1,7 @@
 <template>
     <div id="app">
 
-        <test-a-i></test-a-i>
+        <!-- <test-a-i></test-a-i> -->
 
         <div style="width: 100%; height: 100%; position: relative">
 
@@ -20,6 +20,15 @@
 
         </div>
 
+        <!-- 消息侧边栏触发按钮 -->
+        <div class="message-trigger-btn" @click="openMessageSidebar">
+            <el-icon><ChatLineRound /></el-icon>
+            <div v-if="unreadCount > 0" class="message-badge">{{ unreadCount }}</div>
+        </div>
+
+        <!-- 消息侧边栏 -->
+        <message-sidebar :visible="sidebarVisible" @close="closeSidebar" />
+
 <!--        <router-view/>-->
 
     </div>
@@ -33,15 +42,19 @@ import store from "@/store";
 import {callError, callInfo} from "@/call";
 import {canUseAI} from "@/api/ai";
 import TestAI from "@/page/achievement-detail/testAI/index.vue";
+import MessageSidebar from "@/components/MessageSidebar.vue";
+import { ChatLineRound } from '@element-plus/icons-vue';
 
 export default {
     name: 'App',
-    components: {TestAI, navigator},
+    components: {TestAI, navigator, MessageSidebar},
     setup() {
         const navOpen = computed(() => store.state.navOpen);
         const tokenSet = computed(() => store.state.token);
         const vipSet = computed(() => store.state.vipSet);
         const padSet = ref(true);
+        const sidebarVisible = ref(false);
+        const unreadCount = ref(2); // 模拟未读消息数量
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');
@@ -69,13 +82,25 @@ export default {
 
         }
 
+        const openMessageSidebar = () => {
+            sidebarVisible.value = true;
+        }
+
+        const closeSidebar = () => {
+            sidebarVisible.value = false;
+        }
+
         return {
             navOpen,
             tokenSet,
             vipSet,
             padSet,
+            sidebarVisible,
+            unreadCount,
             tokenInfo,
-            countEvent
+            countEvent,
+            openMessageSidebar,
+            closeSidebar
         }
     }
 }
@@ -118,6 +143,52 @@ export default {
     position: fixed;
     top: -80px;
     transition: top 0.5s;
+}
+
+/* 消息侧边栏触发按钮样式 */
+.message-trigger-btn {
+    position: fixed;
+    right: 30px;
+    bottom: 30px;
+    width: 56px;
+    height: 56px;
+    background-color: #409eff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+.message-trigger-btn:hover {
+    background-color: #337ecc;
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(64, 158, 255, 0.6);
+}
+
+.message-trigger-btn .el-icon {
+    font-size: 24px;
+    color: white;
+}
+
+.message-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #f56c6c;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    border: 2px solid white;
 }
 
 </style>

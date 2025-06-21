@@ -3,16 +3,16 @@
 
         <img class="img-set" :src="logo_url" >
 
-        <div class="logo-font">
+        <!-- <div class="logo-font">
             Welcome to SSSR!
-        </div>
+        </div> -->
 
         <div class="content-font">
-            "Nothing in life is to be feared, it is only to be understood. Now is the time to understand more, so that we may fear less."
+            Research is a mix of excitement and frustration—endless experiments, unexpected results, and late-night breakthroughs. Coffee fuels the grind, while curiosity drives the chase for answers. Failed trials teach resilience; small victories bring joy. It’s a journey of persistence, where every discovery, big or small, feels like unlocking a piece of the universe’s puzzle.
         </div>
 
         <div class="author-font">
-            - Marie Curie
+            - RyotoBUAA
         </div>
 
     </div>

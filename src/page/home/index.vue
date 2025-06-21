@@ -1,35 +1,6 @@
 <template>
     <div class="bg-container"/>
 
-    <div :class="{'root-set': !notHead, 'root-set-change': notHead}">
-
-        <div style="width: 100%; height: 100%; display: flex; position: absolute"
-        :class="{'zind': notHead, 'zind2': !notHead}">
-            <div :class="{'bar-set': !notHead, 'bar-set-change': notHead}">
-                <search_title :cond="notHead"/>
-            </div>
-        </div>
-
-        <div :class="{'layer-set': !notHead, 'layer-set-change': notHead}">
-
-            <div style="margin-top: auto; margin-left: auto; height: 200px;
-            display: flex; flex-direction: row; align-items: center;"
-            :class="{'msg-set': !notHead, 'msg-set-change': notHead}">
-
-                <fade-box>
-                    <home-msg name="学术成果总数" :value="7 * totalPaper" photo="book-cover"/>
-                </fade-box>
-
-                <fade-box>
-                    <home-msg name="门户总数" :value="totalAuthor" photo="histogram"/>
-                </fade-box>
-
-            </div>
-
-        </div>
-
-    </div>
-
     <div class="view-set-margin">
         <div class="content-container">
 
@@ -66,13 +37,8 @@
 
                         <div style="margin-left: 10px;
                             font-family: 'Meiryo', sans-serif;
-                            font-weight: bold; color: white; font-size: 24px;
-                            text-shadow:
-                            0.5px 0.5px 0 rgba(0, 0, 0, 0.6),   /* 右下 */
-                            -0.5px -0.5px 0 rgba(0, 0, 0, 0.6), /* 左上 */
-                            0.5px -0.5px 0 rgba(0, 0, 0, 0.6),  /* 右上 */
-                            -0.5px 0.5px 0 rgba(0, 0, 0, 0.6);  /* 左下 */">
-                            the Most Perfect Platform : SSSR
+                            font-weight: bold; color: black; font-size: 24px;">
+                            Connect using Academate!
                         </div>
 
                         <img style="width: 28px; height: 28px; margin-left: 10px"
@@ -168,21 +134,21 @@ export default {
             if (scrollStep < 0) {
                 //向上滚动
                 step.value = true;
-                setNav(true);
+                //setNav(true);
             } else {
                 //向下滚动
                 step.value = false;
                 if (!notHead.value) {
                     notHead.value = true;
-                    setNav(true);
+                    //setNav(true);
                 }else {
-                    setNav(false);
+                    //setNav(false);
                 }
             }
             // 判断是否到了最顶部
             if (scrollTop <= 0) {
                 notHead.value = false;
-                setNav(false);
+                //setNav(false);
             }
 
         }
@@ -243,9 +209,9 @@ export default {
 
         onMounted(async () => {
             // 添加滚动事件监听
-            window.addEventListener("scroll", scrolling);
+            //window.addEventListener("scroll", scrolling);
             // 设置导航状态
-            setNav(false);
+            //setNav(false);
             try {
 
                 totalPaper.value = await getTotalPaper();
@@ -300,7 +266,7 @@ export default {
 }
 
 .bg-container {
-    background: url('@/asset/home/bg_2.png');
+    background: url('@/asset/home/homehead.png');
     /*opacity: 0.8;*/
     background-size: cover;
     position: fixed;
@@ -364,7 +330,7 @@ export default {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-top: 180px;
+    margin-top: 100px;
 }
 .pagination-style{
     justify-content: center;

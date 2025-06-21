@@ -6,7 +6,7 @@
                 <div class="title-container">
                     <div :class="{ titleFont: true }">热门研究</div>
                     <a class="linkStyle">
-                        <div :class="{ moreFont: true }"> SSSR </div>
+                        <div :class="{ moreFont: true }"> Academate </div>
                     </a>
                 </div>
                 <hr>
@@ -80,14 +80,14 @@ export default {
                     name: 'Robotics and Automation',
                     abstract: "Robotics involves the design and creation of robots that can perform tasks autonomously or with minimal human intervention. Automation focuses on replacing manual processes with automated systems, enhancing efficiency in manufacturing, healthcare, and other industries."
                 },
-                {
-                    name: 'Nanotechnology',
-                    abstract: "Nanotechnology involves manipulating materials at the nanoscale (atomic or molecular level) to create new materials and devices with unique properties. Applications include medicine, electronics, and materials science."
-                },
-                {
-                    name: 'Space Exploration',
-                    abstract: "Space exploration investigates the possibility of life beyond Earth and the technologies necessary for exploring outer space. Astrobiology focuses on understanding the origins, evolution, and distribution of life in the universe, including on other planets."
-                }
+                // {
+                //     name: 'Nanotechnology',
+                //     abstract: "Nanotechnology involves manipulating materials at the nanoscale (atomic or molecular level) to create new materials and devices with unique properties. Applications include medicine, electronics, and materials science."
+                // },
+                // {
+                //     name: 'Space Exploration',
+                //     abstract: "Space exploration investigates the possibility of life beyond Earth and the technologies necessary for exploring outer space. Astrobiology focuses on understanding the origins, evolution, and distribution of life in the universe, including on other planets."
+                // }
             ]
         }
     },

@@ -9,7 +9,7 @@
                 <img src="@/asset/home/logo-black.png" alt="Logo" class="logo" />
 
                 <div class="nav-title" @click="navPage('/home')">
-                    Significant Shared Science Research
+                    ACADEMATE PLATFORM 2025
                 </div>
 
             </div>
@@ -17,7 +17,7 @@
             <div class="search-container">
 
                 <el-input v-model="searchInput" style="width: 350px"
-                          :suffix-icon="Search" placeholder="Search by SSSR!"
+                          :suffix-icon="Search" placeholder="Search by Academate!"
                           @keydown.enter="callSearchPage">
                     <template #prepend>
                         <el-select v-model="select" placeholder="Select" style="width: 100px;">
@@ -39,16 +39,16 @@
             <nav-button v-if="1" buttonName="首页" dest="/home"/>
 
 <!--            <button @click="showvip" class="showButton"><p class="customFont">增值服务</p></button>-->
-            <div @click="showvip">
+            <!-- <div @click="showvip">
             <nav-button  buttonName="会员服务" dest="null">
             </nav-button>
             </div>
 
             <nav-button buttonName="学者搜索" dest="/scholarAccess"/>
             <nav-button v-if="1" buttonName="热点分析" dest="/analyze"/>
-            <nav-button v-if="store.getters.getIsAdmin" buttonName="管理界面" dest="/administrator"/>
-            <nav-button v-if="!store.getters.getToken" buttonName="登录" dest="/newLogin" />
-            <nav-button v-if="store.getters.getToken" buttonName="学者认证" dest="/auth" />
+            <nav-button v-if="store.getters.getIsAdmin" buttonName="管理界面" dest="/administrator"/> -->
+            <nav-button v-if="!store.getters.getToken" buttonName="登录" dest="/login" />
+            <!-- <nav-button v-if="store.getters.getToken" buttonName="学者认证" dest="/auth" /> -->
             <nav-button v-if="store.getters.getToken" buttonName="登出" dest="/logout" />
 
             <div style="margin-left: 10px; border-radius: 270px;
@@ -112,7 +112,7 @@ setInterval(async() =>{
 }, 1000);
 
 const callPersonal = () => {
-    router.push('/favourite');
+    router.push('/profile');
 }
 
 const callSearchPage = () => {

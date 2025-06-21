@@ -3,20 +3,20 @@
 
         <vuetyped :class="{'title-font': !cond, 'change-font': cond}"
                   :key="title_str.join('')"
-                  :strings="title_str" :type-speed="20" :show-cursor="false">
+                  :strings="title_str" :type-speed="50" :show-cursor="false">
             <div class="typing"/>
         </vuetyped>
 
         <search_bar :type="search_select" :cond="cond" style="margin-left: auto; margin-right: auto; margin-top: 25px;"/>
 
-        <div class="mb-2 ml-4" style="margin-top: 15px">
+        <!-- <div class="mb-2 ml-4" style="margin-top: 15px">
             <el-radio-group v-model="search_select">
                 <el-radio value="0" size="large" class="select-font">学术论文</el-radio>
                 <el-radio value="1" size="large" class="select-font">专利</el-radio>
                 <el-radio value="2" size="large" class="select-font">科研项目</el-radio>
                 <el-radio value="3" size="large" class="select-font">奖项</el-radio>
             </el-radio-group>
-        </div>
+        </div>  -->
 
     </div>
 </template>
@@ -36,7 +36,7 @@ export default {
 
         const search_select = ref('0')
 
-        const title_str = ref(['Significant Shared Science Research']);
+        const title_str = ref(['ACADEMATE']);
 
         watch(
             () => props.cond,
@@ -44,11 +44,10 @@ export default {
                 if (newCond !== oldCond) {
                     setTimeout(() => {
                         title_str.value = [''];
-                    }, 150);
+                    }, 10);
                     setTimeout(() => {
-                        title_str.value = ['Significant Shared Science Research'];
-                    }, 300);
-                    //title_str.value = ['Significant Shared Science Research'];
+                        title_str.value = ['ACADEMATE'];
+                    }, 400);
                 }
             }
         );
@@ -66,20 +65,28 @@ export default {
 .title-font {
     font-family: 'Meiryo', sans-serif;
     font-weight: bold;
-    font-size: 32px;
+    font-size: 70px;
     transition: font-size 0.6s;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.6);
+    color: rgba(255, 255, 255);
+    text-shadow:
+        0.5px 0.5px 0 #000,
+        -0.5px -0.5px 0 #000,
+        0.5px -0.5px 0 #000,
+        -0.5px 0.5px 0 #000;
     margin: auto;
 }
 
 .change-font {
     font-family: 'Meiryo', sans-serif;
     font-weight: bold;
-    font-size: 16px;
-    transition: font-size 0.6s;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+    font-size: 30px;
+    transition: font-size 0.2s;
+    color: rgba(255, 255, 255);
+    text-shadow:
+        0.5px 0.5px 0 #000,
+        -0.5px -0.5px 0 #000,
+        0.5px -0.5px 0 #000,
+        -0.5px 0.5px 0 #000;
     margin: auto;
 }
 

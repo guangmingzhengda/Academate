@@ -12,9 +12,9 @@ const router = createRouter({
     routes: [
 
         {
-            path:'/newLogin',
-            name:'newLogin',
-            component: defineAsyncComponent(() => import(`../page/newLogin/index.vue`)),
+            path:'/login',
+            name:'login',
+            component: defineAsyncComponent(() => import(`../page/login/index.vue`)),
             meta: {
                 title: '登录'
             }
@@ -27,7 +27,7 @@ const router = createRouter({
             component: defineAsyncComponent(() => import(`../page/home/index.vue`)),
 
             meta: {
-                title: 'Welcome to SSSR',
+                title: 'Welcome to ACADEMATE',
             },
         },
 
@@ -55,6 +55,16 @@ const router = createRouter({
             },
         },
 
+        // 用户个人资料
+        {
+            path: '/profile',
+            name: 'profile',
+            component: defineAsyncComponent(() => import(`../page/profile/index.vue`)),
+            meta: {
+                title: '个人资料',
+            },
+        },
+
         {
             path: '/:catchAll(.*)',
             redirect: '/scholarSearch',
@@ -76,7 +86,8 @@ const protect_router = [
 
 router.beforeEach((to, from, next)=>{
 
-    setNav(false); // 切换时先隐藏导航条
+    if (to.path !== '/login')  setNav(true); // 开导航条
+    else setNav(false); // 关导航条
 
     if (to.name === 'achievement-detail'){
         // 矩阵乘法
@@ -126,31 +137,33 @@ router.beforeEach((to, from, next)=>{
 
     const hasToken = store.getters.getToken;
 
-    if (hasToken != null){
+    next();
 
-        if (to.path === '/newLogin') {
-            //已经登录了，去首页
-            next({ path: '/home' })
-        }else{
-            if (to.meta.title) {
-                document.title = `${to.meta.title}`;
-            }
-            //直接放行
-            next();
-        }
+    // if (hasToken != null){
 
-    }else{
-        //没有登录
+    //     if (to.path === '/login') {
+    //         //已经登录了，去首页
+    //         next({ path: '/home' })
+    //     }else{
+    //         if (to.meta.title) {
+    //             document.title = `${to.meta.title}`;
+    //         }
+    //         //直接放行
+    //         next();
+    //     }
 
-        if (!protect_router.includes(to.path)){
-            // 不需要 token 的路由，直接放行
-            next();
-        }else{
-            window.alert('您辛苦了，请先登录吧');
-            // 没有登录，去登录页面
-            next('/newLogin');
-        }
-    }
+    // }else{
+    //     //没有登录
+
+    //     if (!protect_router.includes(to.path)){
+    //         // 不需要 token 的路由，直接放行
+    //         next();
+    //     }else{
+    //         window.alert('您辛苦了，请先登录吧');
+    //         // 没有登录，去登录页面
+    //         next('/login');
+    //     }
+    // }
 
 })
 

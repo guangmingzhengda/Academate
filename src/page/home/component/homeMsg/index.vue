@@ -58,14 +58,14 @@ export default {
 .titleFont {
     font-family: 'Meiryo', sans-serif;
     font-weight: bold;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(24, 24, 24, 0.9);
     font-size: 20px;
     text-align: left;
 }
 
 .valueFont {
     font-family: 'Meiryo', sans-serif;
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(24, 24, 24, 0.9);
     font-size: 20px;
     text-align: left;
 }
