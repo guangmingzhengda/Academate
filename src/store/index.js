@@ -166,6 +166,7 @@ export default createStore({
 
         //如果想要去除token，执行以下代码，commit('setToken', null);
         setToken(state, token) {
+            // console.log(token);
             state.token = token;
             state.tokenExpire = Date.now() + 3600 * 1000;
             //state.tokenExpire = Date.now() + 3600 * 1000;
@@ -260,18 +261,19 @@ export default createStore({
 
 
     actions: {
+
         //用户名登录
         async login( { commit, state }, credentials) {
             try {
                 const response = await axios.post('/user/login', credentials);
-                console.log(response.data);
+                // console.log(response.data);
                 if (response.status === 200){
                     if (response.data.code == 0){
                         commit('setToken', response.data.data.token);
                         commit('setData', response.data.data);
                         callSuccess('登录成功');
                         setTimeout(()=>{
-                            router.push('/home');
+                            router.push('/profile');
                         }, 1000);
                     }
                     else callError(response.data.message);
@@ -284,6 +286,7 @@ export default createStore({
             }
             return 1;
         },
+
         //邮箱登录
         async eLogin({commit, state}, credentials) {
             try {
@@ -294,7 +297,7 @@ export default createStore({
                         commit('setData', response.data.data);
                         callSuccess('登录成功');
                         setTimeout(()=>{
-                            router.push('/home');
+                            router.push('/profile');
                         }, 1000);
                     }else callError(response.data.message);
                 }
@@ -304,27 +307,6 @@ export default createStore({
                 callError('密码错误或用户不存在');
             }
         },
-
-
-        // async addCourse({ commit, state }, credentials) {
-        //     try {
-        //         const response = await axios.post('/user/login', credentials);
-        //         console.log(response.data);
-        //         if (response.status === 200){
-        //             if (response.data.code == 1){
-        //                 commit('setToken', response.data.data.token);
-        //                 commit('setData', response.data.data);
-        //                 callSuccess('登录成功');
-        //                 router.push('/blog');
-        //             }else callError(response.data.msg);
-        //         }else callError('网络错误');
-        //     } catch (error) {
-        //         console.log('there are some errors in login');
-        //         callError('密码错误或用户不存在');
-        //     }
-        //     return 1;
-        // },
-
 
         //登出，清除token
         logout({ commit }) {

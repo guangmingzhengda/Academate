@@ -5,10 +5,11 @@ export async function register(data : {
     userAccount:string,
     userPassword: string,
     checkPassword:string,
-    code:string,
-    emailAddress:string,
+    captcha:string,
+    email:string,
 }) :Promise<boolean> {
     try {
+        // console.log(data);
         const response = await axios.post('/user/register', data);
         if (response.status === 200)
         {

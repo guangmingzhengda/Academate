@@ -238,8 +238,8 @@ export default {
 
           userPassword: this.password,
           checkPassword: this.password,
-          code: this.validationCode,
-          emailAddress: this.email,
+          captcha: this.validationCode,
+          email: this.email,
         }
 
         const outcome = await register(credient)
