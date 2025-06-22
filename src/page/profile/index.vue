@@ -17,15 +17,25 @@
                 <div class="basic-info">
                     <div class="name-follow-row">
                         <div class="user-name">{{ userInfo.name }}</div>
-                        <el-button 
-                            class="follow-btn" 
-                            :type="isFollowing ? 'info' : 'default'"
-                            :icon="isFollowing ? 'Check' : 'Plus'"
-                            @click="toggleFollow"
-                            size="small"
-                        >
-                            {{ isFollowing ? '已关注' : '关注' }}
-                        </el-button>
+                        <div class="action-buttons">
+                            <el-button 
+                                class="follow-btn" 
+                                :type="isFollowing ? 'info' : 'default'"
+                                :icon="isFollowing ? 'Check' : 'Plus'"
+                                @click="toggleFollow"
+                                size="small"
+                            >
+                                {{ isFollowing ? '已关注' : '关注' }}
+                            </el-button>
+                            <el-button 
+                                class="message-btn"
+                                type="default" 
+                                size="small"
+                                @click="sendMessage"
+                            >
+                                私信
+                            </el-button>
+                        </div>
                     </div>
                     <div class="user-email">{{ userInfo.email }}</div>
                     <div class="user-role">{{ userInfo.role }}</div>
@@ -190,6 +200,44 @@
         @save="saveData"
     />
 
+    <!-- 发送私信对话框 -->
+    <el-dialog
+        v-model="messageDialogVisible"
+        title=""
+        width="500px"
+        @close="closeMessageDialog"
+    >
+        <div class="message-dialog">
+            <div class="recipient-info">
+                <img :src="userInfo.avatar" alt="头像" class="recipient-avatar" @error="altImg"/>
+                <div>
+                    <div class="recipient-name">{{ userInfo.name }}</div>
+                    <div class="recipient-org">{{ userInfo.email }}</div>
+                </div>
+            </div>
+            
+            <el-form>
+                <el-form-item label="消息内容" required>
+                    <el-input
+                        v-model="messageContent"
+                        type="textarea"
+                        :rows="6"
+                        placeholder="请输入您要发送的消息内容..."
+                        maxlength="500"
+                        show-word-limit
+                    />
+                </el-form-item>
+            </el-form>
+        </div>
+
+        <template #footer>
+            <el-button @click="closeMessageDialog">取消</el-button>
+            <el-button type="primary" @click="sendPrivateMessage" :disabled="!messageContent.trim()">
+                发送
+            </el-button>
+        </template>
+    </el-dialog>
+
 </template>
 
 <script>
@@ -201,6 +249,7 @@ import achievementManager from './components/achievementManager/index.vue'
 import followManager from './components/followManager/index.vue'
 import libraryManager from './components/libraryManager/index.vue'
 import { callSuccess, callInfo } from '@/call'
+import { ElMessage } from 'element-plus'
 
 export default {
     name: 'profile',
@@ -246,6 +295,10 @@ export default {
 
         // 关注相关
         const isFollowing = ref(false)
+
+        // 私信相关
+        const messageDialogVisible = ref(false)
+        const messageContent = ref('')
 
         // 标签页相关
         const activeTab = ref('projects')
@@ -304,12 +357,37 @@ export default {
             activeTab.value = tabKey
         }
 
+        // 发送私信
+        const sendMessage = () => {
+            messageDialogVisible.value = true
+        }
+
+        // 关闭私信对话框
+        const closeMessageDialog = () => {
+            messageDialogVisible.value = false
+            messageContent.value = ''
+        }
+
+        // 发送私信
+        const sendPrivateMessage = () => {
+            if (!messageContent.value.trim()) {
+                callInfo('请输入消息内容')
+                return
+            }
+            
+            // 这里应该调用API发送私信
+            callSuccess(`私信已发送给 ${userInfo.value.name}`)
+            closeMessageDialog()
+        }
+
         return {
             userInfo,
             editDialogVisible,
             editType,
             editData,
             isFollowing,
+            messageDialogVisible,
+            messageContent,
             activeTab,
             tabs,
             altImg,
@@ -318,7 +396,10 @@ export default {
             closeEditDialog,
             saveData,
             toggleFollow,
-            switchTab
+            switchTab,
+            sendMessage,
+            closeMessageDialog,
+            sendPrivateMessage
         }
     }
 }
@@ -411,6 +492,11 @@ export default {
     margin-bottom: 10px;
 }
 
+.action-buttons {
+    display: flex;
+    gap: 8px;
+}
+
 .user-name {
     font-family: 'Meiryo', sans-serif;
     font-size: 32px;
@@ -470,6 +556,25 @@ export default {
     border-color: #82848a;
 }
 
+/* 私信按钮 - 与关注按钮样式一致 */
+.message-btn {
+    font-family: 'Meiryo', sans-serif;
+    border-radius: 16px;
+    padding: 6px 16px;
+    font-size: 13px;
+    transition: all 0.3s ease;
+    border: 1px solid #d0d0d0;
+    background-color: #f5f5f5;
+    color: #666;
+    height: 32px;
+}
+
+.message-btn:hover {
+    background-color: #e8e8e8;
+    border-color: #bbb;
+    transform: translateY(-1px);
+}
+
 /* 统计信息区域 */
 .stats-section {
     display: flex;
@@ -503,7 +608,7 @@ export default {
 /* 主要内容区域 */
 .main-content {
     display: flex;
-    gap: 20px;
+    gap: 10px;
     width: 100%;
 }
 
@@ -521,7 +626,7 @@ export default {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 10px;
 }
 
 /* 标签页选择器 */
@@ -715,5 +820,40 @@ export default {
     .info-card {
         padding: 20px;
     }
+}
+
+/* 私信对话框样式 */
+.message-dialog {
+    padding: 20px 0;
+}
+
+.recipient-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.recipient-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.recipient-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    text-align: left;
+}
+
+.recipient-org {
+    font-size: 14px;
+    color: #666;
+    text-align: left;
 }
 </style> 

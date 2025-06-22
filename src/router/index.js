@@ -65,9 +65,29 @@ const router = createRouter({
             },
         },
 
+        // 科研人员检索
+        {
+            path: '/researcher-search',
+            name: 'researcher-search',
+            component: defineAsyncComponent(() => import(`../page/researcher-search/index.vue`)),
+            meta: {
+                title: '科研人员检索',
+            },
+        },
+
+        // 提问大厅
+        {
+            path: '/question-hall',
+            name: 'question-hall',
+            component: defineAsyncComponent(() => import(`../page/question-hall/index.vue`)),
+            meta: {
+                title: '提问大厅',
+            },
+        },
+
         {
             path: '/:catchAll(.*)',
-            redirect: '/scholarSearch',
+            redirect: '/researcher-search',
         },
         {
             path: '/',

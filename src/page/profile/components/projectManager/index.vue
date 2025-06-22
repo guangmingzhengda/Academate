@@ -2,7 +2,7 @@
     <div class="project-manager">
         <div class="manager-card">
             <div class="card-header">
-                <h3>我的项目</h3>
+                <h3>个人项目</h3>
                 <el-button type="primary" @click="openAddDialog">
                     <el-icon><Plus /></el-icon>
                     添加项目
@@ -64,7 +64,7 @@
         <!-- 添加/编辑项目对话框 -->
         <el-dialog 
             v-model="dialogVisible" 
-            :title="isEdit ? '编辑项目' : '添加项目'"
+            title=""
             width="600px"
         >
             <el-form :model="formData" :rules="rules" ref="formRef" label-width="100px">

@@ -37,6 +37,8 @@
          align-items: center; justify-content:right; margin-right: 20px">
 
             <nav-button v-if="1" buttonName="首页" dest="/home"/>
+            <nav-button v-if="1" buttonName="人员检索" dest="/researcher-search"/>
+            <nav-button v-if="1" buttonName="提问大厅" dest="/question-hall"/>
 
 <!--            <button @click="showvip" class="showButton"><p class="customFont">增值服务</p></button>-->
             <!-- <div @click="showvip">
@@ -49,6 +51,7 @@
             <nav-button v-if="store.getters.getIsAdmin" buttonName="管理界面" dest="/administrator"/> -->
             <nav-button v-if="!store.getters.getToken" buttonName="登录" dest="/login" />
             <!-- <nav-button v-if="store.getters.getToken" buttonName="学者认证" dest="/auth" /> -->
+            <nav-button v-if="store.getters.getToken" buttonName="个人资料" dest="/profile" />
             <nav-button v-if="store.getters.getToken" buttonName="登出" dest="/logout" />
 
             <div style="margin-left: 10px; border-radius: 270px;

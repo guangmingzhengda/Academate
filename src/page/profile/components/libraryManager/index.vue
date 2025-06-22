@@ -140,7 +140,7 @@
         <!-- 创建/编辑收藏夹对话框 -->
         <el-dialog 
             v-model="folderDialogVisible" 
-            :title="isEditFolder ? '编辑收藏夹' : '创建收藏夹'"
+            title=""
             width="500px"
         >
             <el-form :model="folderForm" :rules="folderRules" ref="folderFormRef" label-width="80px">
@@ -168,7 +168,7 @@
         <!-- 添加文献对话框 -->
         <el-dialog 
             v-model="paperDialogVisible" 
-            title="添加文献"
+            title=""
             width="600px"
         >
             <el-form :model="paperForm" :rules="paperRules" ref="paperFormRef" label-width="80px">
