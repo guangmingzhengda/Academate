@@ -90,6 +90,8 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { Close } from '@element-plus/icons-vue'
+import { agree_project_invite } from '@/api/project'
+import { callSuccess, callError } from '@/call'
 
 const props = defineProps({
     visible: {
@@ -177,24 +179,68 @@ const formatTime = (time) => {
 }
 
 // 处理项目邀请
-const handleProjectInvite = (messageId, accepted) => {
+const handleProjectInvite = async (messageId, accepted) => {
     const message = messages.value.find(m => m.id === messageId)
-    if (message) {
-        console.log(`项目邀请 ${accepted ? '已同意' : '已拒绝'}:`, message.projectId)
-        message.status = accepted ? 'accepted' : 'rejected'
+    if (!message) return
+    
+    if (accepted) {
+        // 调用后端接口同意项目邀请
+        try {
+            const success = await agree_project_invite({
+                projectId: message.projectId,
+                messageId: messageId
+            })
+            
+            if (success) {
+                message.status = 'accepted'
+                message.read = true
+                callSuccess('已同意项目邀请')
+            } else {
+                // 接口调用失败的错误信息已在API中处理
+                return
+            }
+        } catch (error) {
+            callError('处理项目邀请时发生错误')
+            return
+        }
+    } else {
+        // 拒绝邀请，只更新本地状态（后端接口暂未实现）
+        message.status = 'rejected'
         message.read = true
-        // TODO: 发送请求到后端
+        callSuccess('已拒绝项目邀请')
     }
 }
 
 // 处理项目申请
-const handleProjectApply = (messageId, accepted) => {
+const handleProjectApply = async (messageId, accepted) => {
     const message = messages.value.find(m => m.id === messageId)
-    if (message) {
-        console.log(`项目申请 ${accepted ? '已同意' : '已拒绝'}:`, message.projectId)
-        message.status = accepted ? 'accepted' : 'rejected'
+    if (!message) return
+    
+    if (accepted) {
+        // 调用后端接口同意项目申请
+        try {
+            const success = await agree_project_invite({
+                projectId: message.projectId,
+                messageId: messageId
+            })
+            
+            if (success) {
+                message.status = 'accepted'
+                message.read = true
+                callSuccess('已同意项目申请')
+            } else {
+                // 接口调用失败的错误信息已在API中处理
+                return
+            }
+        } catch (error) {
+            callError('处理项目申请时发生错误')
+            return
+        }
+    } else {
+        // 拒绝申请，只更新本地状态（后端接口暂未实现）
+        message.status = 'rejected'
         message.read = true
-        // TODO: 发送请求到后端
+        callSuccess('已拒绝项目申请')
     }
 }
 

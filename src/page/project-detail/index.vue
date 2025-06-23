@@ -181,7 +181,8 @@ export default {
                 ],
                 "visitCount": 156,
                 "comments": 10,
-                "favorites": 5
+                "favorites": 5,
+                "memberCount": 15
             }),
             role: ref(""),
         };
@@ -216,7 +217,7 @@ export default {
         },
     },
     setup() {
-        const activeName = ref('first');
+        const activeName = ref('third');
         function goToResearcher(id) {
             window.open("/profile/"+id,'_blank');
         }

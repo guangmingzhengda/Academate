@@ -1,49 +1,6 @@
 import axios from "axios";
 import {callError, callSuccess} from "@/call";
 
-export async function newStarKindAPI(name){
-    try{
-        let paras = {
-            "name": name,
-        }
-        const response =
-            await axios.post(`/favorites/create`,paras);
-        if(response.data.code === 0) {
-            callSuccess("新建收藏夹成功");
-            return true;
-        }
-        else callError("新建收藏夹时出错："+response.data.message);
-    } catch (error) {
-        callError(error as string);
-    }
-}
-
-export async function getStarKindsAPI(userId,pageNum,pageSize) {
-    try{
-        const response =
-            await axios.get(`/favorites/list?userId=${userId}&pageNum=${pageNum}&pageSize=${pageSize}`);
-        if(response.data.code === 0) {
-            return response.data.data;
-        }
-        else callError("查询收藏夹时出错："+response.data.message);
-    } catch (error) {
-        callError(error as string);
-    }
-}
-
-export async function isFavoredAPI(workId) {
-    try{
-        const response =
-            await axios.get(`/favorites/is-favored?workId=${workId}`);
-        if(response.data.code === 0) {
-            return response.data.data;
-        }
-        else callError("获取收藏情况时出错："+response.data.message);
-    } catch (error) {
-        callError(error as string);
-    }
-}
-
 export async function addWorkAPI(favoriteId,workId) {
     try{
         let paras = {
@@ -161,4 +118,28 @@ export async function getUserInfo(id) {
     } catch (error) {
         callError(error as string);
     }
+}
+
+// 参数接口
+export interface InviteParams {
+  inviter?: number;
+  invitee?: number;
+}
+
+// 响应接口
+export interface InviteRes {
+  code: number;
+  data: Record<string, unknown>;
+  message: string;
+}
+
+/**
+ * 邀请研究人员进入项目
+ * @param {object} params ProjectInviteRequest
+ * @param {number} params.inviter 
+ * @param {number} params.invitee 
+ * @returns
+ */
+export function invite(params: InviteParams): Promise<InviteRes> {
+  return axios.post(`/api/project/invite`, params).then(res => res.data);
 }

@@ -55,12 +55,6 @@
                                 type="card"
                                 class="demo-tabs"
                                 style="max-width: 100%">
-                                <el-tab-pane label="参考文献" name="first">
-                                    <references :referencerList="work.referenceeList"/>
-                                </el-tab-pane>
-                                <el-tab-pane label="引证文献" name="second">
-                                    <citing :referenceeList="work.referencerList"/>
-                                </el-tab-pane>
                                 <el-tab-pane label="评论" name="third">
                                     <comments :work="work" :userId="userId"/>
                                 </el-tab-pane>
@@ -214,7 +208,7 @@ export default {
         },
     },
     setup() {
-        const activeName = ref('first');
+        const activeName = ref('third');
         function goToAuthor(id) {
             window.open("/profile/"+id,'_blank');
         }
