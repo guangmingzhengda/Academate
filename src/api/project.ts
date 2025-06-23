@@ -30,3 +30,64 @@ export async function create_project(data : {
         return false;
     }
 }
+
+// 参数接口
+export interface SearchUsersParams {
+  userName?: string;
+  field?: string;
+  researchTitle?: string;
+  institution?: string;
+  current?: number;
+  pageSize?: number;
+}
+
+// 响应接口
+export interface SearchUsersRes {
+  code: number;
+  data: {
+    pageNum: number;
+    pageSize: number;
+    total: number;
+    list: {
+      id: number;
+      account: string;
+      email: string;
+      institution: string;
+      field: string;
+      profile: string;
+      avatar: string;
+      createTime: Record<string, unknown>;
+      researchOutcomes: {
+        outcomeId: number;
+        type: string;
+        title: string;
+        authors: string;
+        journal: string;
+        volume: number;
+        issue: number;
+        pages: string;
+        year: number;
+        doi: string;
+        url: string;
+        patentNumber: string;
+        authorOrder: number;
+      }[];
+    }[];
+  };
+  message: string;
+}
+
+/**
+ * 搜索科研人员
+ * @param {object} params UserSearchRequest
+ * @param {string} params.userName 
+ * @param {string} params.field 
+ * @param {string} params.researchTitle 
+ * @param {string} params.institution 
+ * @param {number} params.current 
+ * @param {number} params.pageSize 
+ * @returns
+ */
+export function searchUsers(params: SearchUsersParams): Promise<SearchUsersRes> {
+  return axios.post(`/user/search`, params).then(res => res.data);
+}
