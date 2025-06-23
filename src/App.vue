@@ -27,7 +27,7 @@
         </div>
 
         <!-- 消息侧边栏 -->
-        <message-sidebar :visible="sidebarVisible" @close="closeSidebar" />
+        <message-sidebar :visible="sidebarVisible" @close="closeSidebar" @unread-count-update="updateUnreadCount" />
 
 <!--        <router-view/>-->
 
@@ -54,7 +54,7 @@ export default {
         const vipSet = computed(() => store.state.vipSet);
         const padSet = ref(true);
         const sidebarVisible = ref(false);
-        const unreadCount = ref(2); // 模拟未读消息数量
+        const unreadCount = ref(0); // 实际未读消息数量
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');
@@ -90,6 +90,10 @@ export default {
             sidebarVisible.value = false;
         }
 
+        const updateUnreadCount = (count) => {
+            unreadCount.value = count;
+        }
+
         return {
             navOpen,
             tokenSet,
@@ -100,7 +104,8 @@ export default {
             tokenInfo,
             countEvent,
             openMessageSidebar,
-            closeSidebar
+            closeSidebar,
+            updateUnreadCount
         }
     }
 }

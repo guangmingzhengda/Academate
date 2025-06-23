@@ -138,7 +138,7 @@
             </div>
             
             <template #footer>
-                <div class="dialog-footer">
+                <div class="dialog-footer-right">
                     <el-button @click="closeExcelDialog">取消</el-button>
                     <el-button 
                         type="primary" 
@@ -343,10 +343,52 @@
                         placeholder="请输入摘要（可选）"
                     />
                 </el-form-item>
+
+                <el-form-item label="科研全文" prop="fullTextFile">
+                    <div class="file-upload-section">
+                        <div class="upload-row">
+                            <el-upload
+                                v-if="!formData.fullTextFile"
+                                ref="pdfUploadRef"
+                                :auto-upload="false"
+                                :on-change="handlePdfChange"
+                                :before-upload="beforePdfUpload"
+                                accept=".pdf"
+                                :limit="1"
+                                class="pdf-upload"
+                                :show-file-list="false"
+                            >
+                                <el-button type="primary" plain>
+                                    <el-icon><DocumentAdd /></el-icon>
+                                    上传PDF文件
+                                </el-button>
+                            </el-upload>
+                            <span class="upload-tip">支持PDF格式，文件大小不超过50MB（可选）</span>
+                        </div>
+                        
+                        <div v-if="formData.fullTextFile" class="uploaded-file-info">
+                            <div class="file-info">
+                                <el-icon class="file-icon"><Document /></el-icon>
+                                <span class="file-name">{{ formData.fullTextFile.name }}</span>
+                                <span class="file-size">{{ formatFileSize(formData.fullTextFile.size) }}</span>
+                                <el-button 
+                                    type="danger" 
+                                    link 
+                                    size="small" 
+                                    @click="handlePdfRemove"
+                                    class="remove-btn"
+                                >
+                                    <el-icon><Delete /></el-icon>
+                                    删除
+                                </el-button>
+                            </div>
+                        </div>
+                    </div>
+                </el-form-item>
             </el-form>
             
             <template #footer>
-                <div class="dialog-footer">
+                <div class="dialog-footer-right">
                     <el-button @click="closeDialog">取消</el-button>
                     <el-button type="primary" @click="saveAchievement">保存</el-button>
                 </div>
@@ -357,7 +399,7 @@
 
 <script>
 import { ref, computed } from 'vue'
-import { Plus, Edit, Delete, Upload, UploadFilled, Search } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Upload, UploadFilled, Search, DocumentAdd, Document } from '@element-plus/icons-vue'
 import { callSuccess, callWarning, callInfo, callError } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import * as XLSX from 'xlsx'
@@ -683,8 +725,13 @@ export default {
             patentType: '',
             publishDate: '',
             doi: '',
-            abstract: ''
+            abstract: '',
+            fullTextFile: null
         })
+
+        // PDF上传相关
+        const pdfUploadRef = ref()
+        const pdfFileList = ref([])
 
         // 动态验证规则
         const rules = computed(() => {
@@ -769,8 +816,10 @@ export default {
                 patentType: '',
                 publishDate: '',
                 doi: '',
-                abstract: ''
+                abstract: '',
+                fullTextFile: null
             }
+            pdfFileList.value = []
             dialogVisible.value = true
         }
 
@@ -1124,6 +1173,44 @@ export default {
             closeSelectDialog()
         }
 
+        // PDF上传相关函数
+        const handlePdfChange = (file) => {
+            formData.value.fullTextFile = file.raw
+            pdfFileList.value = [file]
+        }
+
+        const handlePdfRemove = () => {
+            formData.value.fullTextFile = null
+            pdfFileList.value = []
+            // 如果有上传组件的引用，也清理一下
+            if (pdfUploadRef.value) {
+                pdfUploadRef.value.clearFiles()
+            }
+        }
+
+        const beforePdfUpload = (file) => {
+            const isPDF = file.type === 'application/pdf'
+            const isLt50M = file.size / 1024 / 1024 < 50
+
+            if (!isPDF) {
+                callError('只能上传PDF格式的文件！')
+                return false
+            }
+            if (!isLt50M) {
+                callError('上传文件大小不能超过50MB！')
+                return false
+            }
+            return true
+        }
+
+        const formatFileSize = (bytes) => {
+            if (bytes === 0) return '0 Bytes'
+            const k = 1024
+            const sizes = ['Bytes', 'KB', 'MB', 'GB']
+            const i = Math.floor(Math.log(bytes) / Math.log(k))
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+        }
+
         return {
             currentPage,
             pageSize,
@@ -1162,7 +1249,13 @@ export default {
             handleSearch,
             toggleSelection,
             handleLibraryPageChange,
-            addSelectedAchievements
+            addSelectedAchievements,
+            pdfUploadRef,
+            pdfFileList,
+            handlePdfChange,
+            handlePdfRemove,
+            beforePdfUpload,
+            formatFileSize
         }
     }
 }
@@ -1319,10 +1412,17 @@ export default {
     justify-content: flex-start;
 }
 
+.dialog-footer-right {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+}
+
 .dialog-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    align-items: center;
 }
 
 /* Excel上传样式 */
@@ -1485,6 +1585,68 @@ export default {
 .footer-actions {
     display: flex;
     gap: 10px;
+}
+
+/* PDF上传相关样式 */
+.file-upload-section {
+    width: 100%;
+}
+
+.upload-row {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.pdf-upload {
+    flex-shrink: 0;
+}
+
+.upload-tip {
+    font-size: 13px;
+    color: #999;
+    line-height: 1.4;
+}
+
+.uploaded-file-info {
+    margin-top: 15px;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #2c3e50;
+}
+
+.file-icon {
+    color: #f56c6c;
+    font-size: 16px;
+}
+
+.file-name {
+    font-weight: 500;
+    font-size: 14px;
+    flex: 1;
+    text-align: left;
+}
+
+.file-size {
+    font-size: 12px;
+    color: #666;
+    background-color: #e9ecef;
+    padding: 2px 8px;
+    border-radius: 12px;
+}
+
+.remove-btn {
+    margin-left: auto;
+    padding: 0;
+    font-size: 12px;
 }
 
 /* 响应式设计 */
