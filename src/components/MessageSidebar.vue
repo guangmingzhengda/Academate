@@ -22,9 +22,58 @@
                         <div class="message-content">
                             <div class="message-header">
                                 <span class="sender-name">{{ message.sender }}</span>
-                                <span class="message-time">{{ formatTime(message.time) }}</span>
                             </div>
                             <div class="message-text">{{ message.content }}</div>
+                            
+                            <!-- 时间和操作按钮的底部区域 -->
+                            <div class="message-bottom">
+                                <div class="message-time">{{ formatTime(message.time) }}</div>
+                                
+                                <!-- 项目邀请操作按钮/状态 -->
+                                <div v-if="message.type === 'project_invite'">
+                                    <div v-if="message.status === null" class="message-actions">
+                                        <el-button type="default" size="small" @click="handleProjectInvite(message.id, true)">
+                                            同意
+                                        </el-button>
+                                        <el-button type="default" size="small" @click="handleProjectInvite(message.id, false)">
+                                            拒绝
+                                        </el-button>
+                                    </div>
+                                    <div v-else class="message-status" :class="message.status">
+                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    </div>
+                                </div>
+                                
+                                <!-- 项目申请操作按钮/状态 -->
+                                <div v-if="message.type === 'project_apply'">
+                                    <div v-if="message.status === null" class="message-actions">
+                                        <el-button type="default" size="small" @click="handleProjectApply(message.id, true)">
+                                            同意
+                                        </el-button>
+                                        <el-button type="default" size="small" @click="handleProjectApply(message.id, false)">
+                                            拒绝
+                                        </el-button>
+                                    </div>
+                                    <div v-else class="message-status" :class="message.status">
+                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    </div>
+                                </div>
+                                
+                                <!-- 数据请求操作按钮/状态 -->
+                                <div v-if="message.type === 'data_request'">
+                                    <div v-if="message.status === null" class="message-actions">
+                                        <el-button type="default" size="small" @click="handleDataRequest(message.id, true)">
+                                            同意
+                                        </el-button>
+                                        <el-button type="default" size="small" @click="handleDataRequest(message.id, false)">
+                                            拒绝
+                                        </el-button>
+                                    </div>
+                                    <div v-else class="message-status" :class="message.status">
+                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div v-if="!message.read" class="unread-dot"></div>
                     </div>
@@ -39,7 +88,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Close } from '@element-plus/icons-vue'
 
 const props = defineProps({
@@ -49,49 +98,61 @@ const props = defineProps({
     }
 })
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'unread-count-update'])
 
-// 模拟消息数据
+// 五种消息类型的示例数据
 const messages = ref([
     {
         id: 1,
+        type: 'project_invite', // 项目邀请
         sender: '张教授',
-        content: '您好，我对您发表的论文《人工智能在教育领域的应用》很感兴趣，希望能够进一步交流。',
-        time: new Date(Date.now() - 30 * 60 * 1000), // 30分钟前
+        content: '邀请您加入"基于深度学习的智能推荐系统"项目，该项目将持续12个月，主要研究推荐算法优化。',
+        time: new Date(Date.now() - 15 * 60 * 1000), // 15分钟前
         avatar: require('@/asset/home/user.png'),
-        read: false
+        read: false,
+        projectId: 101,
+        status: null // null: 未处理, 'accepted': 已同意, 'rejected': 已拒绝
     },
     {
         id: 2,
+        type: 'project_apply', // 项目申请
         sender: '李研究员',
-        content: '感谢您在学术会议上的精彩分享，我想邀请您参加我们下个月的研讨会。',
-        time: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2小时前
+        content: '申请加入您负责的"人工智能在教育领域的应用研究"项目，我在机器学习和教育技术方面有丰富经验。',
+        time: new Date(Date.now() - 45 * 60 * 1000), // 45分钟前
         avatar: require('@/asset/home/user.png'),
-        read: false
+        read: false,
+        projectId: 102,
+        status: null
     },
     {
         id: 3,
+        type: 'researcher_update', // 研究人员状态更新
         sender: '王博士',
-        content: '您的研究方向和我们团队很匹配，是否考虑合作研究？',
-        time: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5小时前
+        content: '更新了个人研究状态：刚刚完成了关于"量子计算在密码学中的应用"的最新研究论文，正在寻求合作伙伴进行进一步验证。',
+        time: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2小时前
         avatar: require('@/asset/home/user.png'),
         read: true
     },
     {
         id: 4,
-        sender: '系统通知',
-        content: '您的论文《深度学习算法优化研究》已通过初审，请及时查看审稿意见。',
-        time: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1天前
+        type: 'data_request', // 数据/全文请求
+        sender: '陈院士',
+        content: '希望获取您论文《深度学习算法优化研究》的完整数据集和实验代码，用于我们团队的相关研究对比分析。',
+        time: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4小时前
         avatar: require('@/asset/home/user.png'),
-        read: true
+        read: false,
+        paperId: 203,
+        status: null
     },
     {
         id: 5,
-        sender: '陈院士',
-        content: '恭喜您获得本年度优秀学者奖，期待您的获奖感言。',
-        time: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3天前
+        type: 'question_reply', // 问题回复提醒
+        sender: '刘教授',
+        content: '回复了您关注的问题"如何提高神经网络的训练效率？"：建议使用批量归一化和学习率调度策略，具体可以参考我最近的研究成果...',
+        time: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6小时前
         avatar: require('@/asset/home/user.png'),
-        read: true
+        read: true,
+        questionId: 304
     }
 ])
 
@@ -114,6 +175,54 @@ const formatTime = (time) => {
         return `${days}天前`
     }
 }
+
+// 处理项目邀请
+const handleProjectInvite = (messageId, accepted) => {
+    const message = messages.value.find(m => m.id === messageId)
+    if (message) {
+        console.log(`项目邀请 ${accepted ? '已同意' : '已拒绝'}:`, message.projectId)
+        message.status = accepted ? 'accepted' : 'rejected'
+        message.read = true
+        // TODO: 发送请求到后端
+    }
+}
+
+// 处理项目申请
+const handleProjectApply = (messageId, accepted) => {
+    const message = messages.value.find(m => m.id === messageId)
+    if (message) {
+        console.log(`项目申请 ${accepted ? '已同意' : '已拒绝'}:`, message.projectId)
+        message.status = accepted ? 'accepted' : 'rejected'
+        message.read = true
+        // TODO: 发送请求到后端
+    }
+}
+
+// 处理数据请求
+const handleDataRequest = (messageId, accepted) => {
+    const message = messages.value.find(m => m.id === messageId)
+    if (message) {
+        console.log(`数据请求 ${accepted ? '已同意' : '已拒绝'}:`, message.paperId)
+        message.status = accepted ? 'accepted' : 'rejected'
+        message.read = true
+        // TODO: 发送请求到后端
+    }
+}
+
+// 计算未读消息数量
+const unreadCount = computed(() => {
+    return messages.value.filter(message => !message.read).length
+})
+
+// 监听未读数量变化，通知父组件
+watch(unreadCount, (newCount) => {
+    emit('unread-count-update', newCount)
+}, { immediate: true })
+
+// 组件挂载时立即发送未读数量
+onMounted(() => {
+    emit('unread-count-update', unreadCount.value)
+})
 </script>
 
 <style scoped>
@@ -231,7 +340,6 @@ const formatTime = (time) => {
 
 .message-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     margin-bottom: 4px;
 }
@@ -242,20 +350,58 @@ const formatTime = (time) => {
     font-size: 14px;
 }
 
-.message-time {
-    font-size: 12px;
-    color: #999;
-}
-
 .message-text {
     color: #666;
     font-size: 13px;
     line-height: 1.4;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-align: left;
+    margin-bottom: 8px;
+}
+
+.message-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.message-time {
+    font-size: 13px;
+    color: #999;
+    text-align: left;
+}
+
+.message-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.message-actions .el-button {
+    padding: 4px 12px;
+    font-size: 12px;
+}
+
+.message-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 4px;
+    text-align: center;
+    min-width: 60px;
+}
+
+.message-status.accepted {
+    color: #409eff;
+    background-color: rgba(64, 158, 255, 0.1);
+}
+
+.message-status.rejected {
+    color: #333;
+    background-color: rgba(0, 0, 0, 0.1);
 }
 
 .unread-dot {

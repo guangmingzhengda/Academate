@@ -88,7 +88,7 @@
             <!-- 研究领域编辑 -->
             <div v-if="type === 'research'" class="form-section">
                 <div class="form-row">
-                    <label class="form-label">主要研究方向：</label>
+                    <label class="form-label">主要研究领域：</label>
                     <div class="research-fields-editor">
                         <div class="current-fields">
                             <div 
