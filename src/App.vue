@@ -32,7 +32,7 @@
         </div>
 
         <!-- 消息侧边栏 -->
-        <message-sidebar :visible="sidebarVisible" @close="closeSidebar" />
+        <message-sidebar :visible="sidebarVisible" @close="closeSidebar" @unread-count-update="updateUnreadCount" />
 
         <!-- 聊天窗口 -->
         <chat-window v-if="chatVisible" @close="closeChat" />
@@ -65,6 +65,7 @@ export default {
         const sidebarVisible = ref(false);
         const chatVisible = ref(false);
         const unreadCount = ref(2); // 模拟未读消息数量
+
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');
@@ -100,12 +101,16 @@ export default {
             sidebarVisible.value = false;
         }
 
+
         const openChat = () => {
             chatVisible.value = true;
         }
 
         const closeChat = () => {
             chatVisible.value = false;
+
+        const updateUnreadCount = (count) => {
+            unreadCount.value = count;
         }
 
         return {
@@ -115,13 +120,15 @@ export default {
             padSet,
             sidebarVisible,
             chatVisible,
+            unreadChatCount,
             unreadCount,
             tokenInfo,
             countEvent,
             openMessageSidebar,
             closeSidebar,
             openChat,
-            closeChat
+            closeChat,
+            updateUnreadCount
         }
     }
 }
