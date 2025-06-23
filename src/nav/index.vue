@@ -80,7 +80,6 @@ import { Search } from '@element-plus/icons-vue'
 import store from "@/store";
 import router from "@/router"
 import NavButton from "@/nav/navButton/index.vue";
-import vip from './vip.vue';
 import {getUserAuthorId} from "@/api/favourite";
 
 const searchInput = ref('');
