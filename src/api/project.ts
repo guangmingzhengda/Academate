@@ -31,63 +31,51 @@ export async function create_project(data : {
     }
 }
 
-// 参数接口
-export interface SearchUsersParams {
-  userName?: string;
-  field?: string;
-  researchTitle?: string;
-  institution?: string;
-  current?: number;
-  pageSize?: number;
-}
+/*
+同意项目邀请（申请）：对接前端 components/MessageSidebar.vue
+POST
+url: project/agree
+请求数据类型：application/x-www-form-urlencoded
 
-// 响应接口
-export interface SearchUsersRes {
-  code: number;
-  data: {
-    pageNum: number;
-    pageSize: number;
-    total: number;
-    list: {
-      id: number;
-      account: string;
-      email: string;
-      institution: string;
-      field: string;
-      profile: string;
-      avatar: string;
-      createTime: Record<string, unknown>;
-      researchOutcomes: {
-        outcomeId: number;
-        type: string;
-        title: string;
-        authors: string;
-        journal: string;
-        volume: number;
-        issue: number;
-        pages: string;
-        year: number;
-        doi: string;
-        url: string;
-        patentNumber: string;
-        authorOrder: number;
-      }[];
-    }[];
-  };
-  message: string;
-}
+参数名称 请求类型 是否必须 数据类型
+projectId query true integer(int64)
+messageId query true integer(int64)
 
-/**
- * 搜索科研人员
- * @param {object} params UserSearchRequest
- * @param {string} params.userName 
- * @param {string} params.field 
- * @param {string} params.researchTitle 
- * @param {string} params.institution 
- * @param {number} params.current 
- * @param {number} params.pageSize 
- * @returns
- */
-export function searchUsers(params: SearchUsersParams): Promise<SearchUsersRes> {
-  return axios.post(`/user/search`, params).then(res => res.data);
+返回示例：
+{
+	"code": 0,
+	"data": {},
+	"message": ""
+}
+*/
+export async function agree_project_invite(data: {
+    projectId: number,
+    messageId: number
+}): Promise<boolean> {
+    try {
+        const response = await axios.post('/project/agree', null, {
+            params: {
+                projectId: data.projectId,
+                messageId: data.messageId
+            },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        
+        if (response.status === 200) {
+            if (response.data.code == 0) {
+                return true;
+            } else {
+                callError(response.data.message);
+                return false;
+            }
+        } else {
+            callError('网络错误');
+            return false;
+        }
+    } catch (error) {
+        callError('网络错误或服务器异常');
+        return false;
+    }
 }
