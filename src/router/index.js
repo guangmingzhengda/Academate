@@ -47,11 +47,20 @@ const router = createRouter({
 
         // 学术成果详情
         {
-            path: '/achievement-detail/:id',
+            path: '/achievement-detail/:id?',
             name: 'achievement-detail',
             component: defineAsyncComponent(() => import(`../page/achievement-detail/index.vue`)),
             meta: {
                 title: '学术成果详情',
+            },
+        },
+
+        {
+            path: '/project-detail/:id?',
+            name: 'project-detail',
+            component: defineAsyncComponent(() => import(`../page/project-detail/index.vue`)),
+            meta: {
+                title: '项目详情',
             },
         },
 
@@ -109,7 +118,7 @@ router.beforeEach((to, from, next)=>{
     if (to.path !== '/login')  setNav(true); // 开导航条
     else setNav(false); // 关导航条
 
-    if (to.name === 'achievement-detail'){
+    if (to.name === 'achievement-detail' && to.params.id){
         // 矩阵乘法
         let achievementId = to.params.id;
         if (!achievementId.includes('-')) {
