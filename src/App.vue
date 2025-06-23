@@ -108,6 +108,7 @@ export default {
 
         const closeChat = () => {
             chatVisible.value = false;
+        }
 
         const updateUnreadCount = (count) => {
             unreadCount.value = count;
@@ -120,7 +121,6 @@ export default {
             padSet,
             sidebarVisible,
             chatVisible,
-            unreadChatCount,
             unreadCount,
             tokenInfo,
             countEvent,
