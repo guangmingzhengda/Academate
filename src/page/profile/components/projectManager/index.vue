@@ -127,6 +127,8 @@ import { ref, computed } from 'vue'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { callSuccess, callWarning, callInfo } from '@/call'
 import { ElMessageBox } from 'element-plus'
+import { create_project } from '@/api/project'
+import store from '@/store'
 
 export default {
     name: 'projectManager',
@@ -263,20 +265,41 @@ export default {
                 await formRef.value.validate()
                 
                 if (isEdit.value) {
-                    // 编辑
+                    // 编辑项目
                     const index = projects.value.findIndex(p => p.id === editingId.value)
                     if (index > -1) {
                         projects.value[index] = { ...formData.value, id: editingId.value }
                         callSuccess('更新成功')
                     }
                 } else {
-                    // 添加
-                    const newProject = {
-                        ...formData.value,
-                        id: Date.now() // 简单的ID生成
+                    // 创建新项目 - 对接后端API
+                    const userId = store.getters.getId
+                    
+                    if (!userId) {
+                        callWarning('获取用户信息失败，请重新登录')
+                        return
                     }
-                    projects.value.unshift(newProject)
-                    callSuccess('添加成功')
+                    
+                    const projectData = {
+                        title: formData.value.name,
+                        description: formData.value.description,
+                        creatorId: userId
+                    }
+                    
+                    const success = await create_project(projectData)
+                    
+                    if (success) {
+                        // API调用成功，将项目添加到本地列表
+                        const newProject = {
+                            ...formData.value,
+                            id: Date.now() // 临时ID，实际应该用后端返回的ID
+                        }
+                        projects.value.unshift(newProject)
+                        callSuccess('项目创建成功')
+                    } else {
+                        callWarning('项目创建失败，请重试')
+                        return
+                    }
                 }
                 
                 closeDialog()
