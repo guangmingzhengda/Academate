@@ -1,59 +1,68 @@
 <template>
-    <div style="height: 100vh; width: 100%;">
-        <div style="position: relative; width: 100%; height: 100%">
+    <div style="height: 100vh; width: 100%; display: flex; flex-direction: column;">
+        <div style="position: relative; width: 100%; height: 100%; flex-grow: 1;">
 
-            <div style="width: 20%; position: absolute; height: 100%; background-color: rgb(245,245,245); z-index: 5;
-          display: flex; flex-direction: column; justify-content: center; align-items: center">
+            <div style="position: absolute; left: 0; top: 0; width: 20%; height: 100%; background-color: rgb(245,245,245); z-index: 5;
+          display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box;">
                 <img
                      src="@/asset/graph/logo-blue.png"
-                     alt="Button Image"
-                     class="button-image"
-                     style="width: 80%"
+                     alt="Logo"
+                     style="width: 80%; max-width: 150px;"
                 />
-                <div style="margin-top: 5px; font-size: 28px; font-weight: bold;
-                  font-family: 'Meiryo', sans-serif;">
-                    SSSR-Graph
+                <div style="margin-top: 15px; font-size: 24px; font-weight: bold; font-family: 'Meiryo', sans-serif; text-align: center;">
+                    Academate-Graph
                 </div>
-                <div style="margin-top: 5px; font-size: 28px; font-weight: bold;
-                  font-family: '微软雅黑', sans-serif">
-                    专家知识网络
+                <div style="margin-top: 5px; font-size: 24px; font-weight: bold; font-family: '微软雅黑', sans-serif; text-align: center;">
+                    社交知识图谱
+                </div>
+                <div style="margin-top: 30px; width: 100%;">
+                    <label for="institution-filter" style="font-family: '微软雅黑', sans-serif; font-size: 16px;">按机构筛选：</label>
+                    <el-select
+                      v-model="selectedInstitution"
+                      placeholder="选择机构"
+                      filterable
+                      clearable
+                      @change="filterByInstitution"
+                      style="width: 100%; margin-top: 10px;"
+                      size="large"
+                    >
+                      <el-option label="所有机构" value="" />
+                      <el-option
+                        v-for="inst in institutions"
+                        :key="inst"
+                        :label="inst"
+                        :value="inst"
+                      />
+                    </el-select>
+                </div>
+                <div style="margin-top: 20px; width: 100%;">
+                  <label for="institution-filter" style="font-family: '微软雅黑', sans-serif; font-size: 16px;">搜索科研人员：</label>
+                  <el-select
+                    v-model="researcherKeyword"
+                    filterable
+                    remote
+                    clearable
+                    placeholder="输入科研人员姓名"
+                    :remote-method="handleResearcherSearch"
+                    :loading="false"
+                    style="width: 100%; margin-top: 10px;"
+                    @change="highlightResearcherNode"
+                    size="large"
+                  >
+                    <el-option
+                      v-for="item in researcherOptions"
+                      :key="item.id"
+                      :label="item.name + (item.institution ? '（' + item.institution + '）' : '')"
+                      :value="item.id"
+                    >
+                      <span>{{ item.name }}</span>
+                      <span v-if="item.institution" style="color: #888; margin-left: 8px; font-size: 13px;">（{{ item.institution }}）</span>
+                    </el-option>
+                  </el-select>
                 </div>
             </div>
 
-          <div style="position: absolute; height: 100%; background-color: rgb(235,235,235); z-index: 6;
-          display: flex; flex-direction: column; justify-content: center; align-items: center"
-          :class="{'w2': w28, 'w0': !w28}">
-
-              <div style="width: 80%; display: flex; flex-direction: column; align-items: center">
-
-                <img v-if="w28 && !author_set"
-                      src="@/asset/graph/archive-research.png"
-                      alt="Button Image"
-                      class="button-image"
-                      style="width: 80%"
-                />
-
-                  <img v-if="w28 && author_set"
-                       src="@/asset/graph/graduate-cap.png"
-                       alt="Button Image"
-                       class="button-image"
-                       style="width: 80%"
-                  />
-
-                  <div v-if="w28" style="margin-top: 10px; font-size: 20px; font-weight: bold;
-                  font-family: 'Meiryo', sans-serif">
-                      {{selected}}
-                  </div>
-
-                  <div v-if="w28" style="margin-top: 5px; font-size: 15px;
-                  font-family: 'Meiryo', sans-serif; color: #6a6a6a">
-                  {{selected_abstract}}
-                  </div>
-
-              </div>
-          </div>
-
-          <div ref="chartContainer" style="position: absolute; width: 80%; height: 100%; margin-left: 20%;
+            <div ref="chartContainer" style="position: absolute; right: 0; width: 80%; height: 100%;
               z-index: 5"></div>
 
         </div>
@@ -63,233 +72,361 @@
 <script>
 import { ref, onMounted, nextTick } from "vue";
 import * as echarts from "echarts";
-import {setNav} from "@/nav/set";
-import {getGraph} from "@/api/graph";
 import { useRoute } from "vue-router";
 import router from "@/router";
-import {getWorkAPI} from "@/page/achievement-detail/api/api";
-import {getProfileDetail} from "@/api/profile";
+import axios from "axios";
+import { ElSelect, ElOption } from 'element-plus';
 
 export default {
-    name: "graph",
+    name: "SocialGraph",
     setup() {
         const chartContainer = ref(null);
         const route = useRoute();
-        const author_id = ref(-1)
-        const selected = ref('doordoor')
-        const selected_abstract = ref('')
-        const w28 = ref(false);
-        const author_set = ref(true)
-        const mark = ref([])
-        const mark_map = ref(new Map())
+        const showPanel = ref(false);
+        const selectedNode = ref(null);
+        const institutions = ref([]);
+        const selectedInstitution = ref("");
+        const researcherKeyword = ref("");
+        const researcherOptions = ref([]);
+        const persistentHighlight = ref(false);
+        const lastHighlightIndexes = ref([]);
+        const panelPosition = ref({ x: 0, y: 0 });
 
-        const color_list = [
-            '#00d6ff',
-            '#0fc0ff',
-            '#00ccff',
-            '#00daff',
-            '#00ced5'
+        let chartInstance = null;
+        let allNodes = [];
+        let allLinks = [];
+
+        const categories = [
+            { name: "科研人员", itemStyle: { color: "#00aaff" } },
+            { name: "机构", itemStyle: { color: "#ff8c00" } },
         ];
 
-        const onNodeHover = async (params) => {
-            // alert(`你悬停在节点: ${params.name}`);
-            w28.value = true;
-            selected.value = params.name;
-            // 左部信息设置
-            author_set.value = !mark.value.includes(params.name);
+        const onNodeHover = (params) => {
+            showPanel.value = true;
+            selectedNode.value = params;
+            // 计算悬浮面板位置（跟随鼠标）
+            if (params.event && params.event.event) {
+                const mouseEvent = params.event.event;
+                // 适当偏移，避免遮挡鼠标
+                panelPosition.value = {
+                    x: mouseEvent.offsetX + 20,
+                    y: mouseEvent.offsetY - 10
+                };
+            }
+            if (persistentHighlight.value) return;
+            if (params.data.category === 1 && chartInstance) {
+                const highlightIndexes = allNodes.reduce((acc, node, idx) => {
+                    if (node.name === params.name || node.institution === params.name) {
+                        acc.push(idx);
+                    }
+                    return acc;
+                }, []);
+                chartInstance.dispatchAction({
+                    type: 'downplay',
+                    seriesIndex: 0,
+                });
+                chartInstance.dispatchAction({
+                    type: 'highlight',
+                    seriesIndex: 0,
+                    dataIndex: highlightIndexes
+                });
+            } else if (params.data.category === 0 && chartInstance) {
+                const idx = allNodes.findIndex(node => node.category === 0 && node.id === params.data.id);
+                if (idx !== -1) {
+                    chartInstance.dispatchAction({
+                        type: 'downplay',
+                        seriesIndex: 0,
+                    });
+                    chartInstance.dispatchAction({
+                        type: 'highlight',
+                        seriesIndex: 0,
+                        dataIndex: idx
+                    });
+                }
+            }
+        };
 
-            if (mark.value.includes(params.name)){
-                const work_detail = await getWorkAPI(mark_map.value[params.name]);
-                // console.log(work_detail)
-                selected_abstract.value = work_detail.subfield;
-            }else{
-                const profile_detail = await getProfileDetail(mark_map.value[params.name]);
-                // console.log(profile_detail)
-                selected_abstract.value = profile_detail.institution.name;
+        const onNodeOut = () => {
+            showPanel.value = false;
+            selectedNode.value = null;
+            if (persistentHighlight.value) return;
+            if (chartInstance) {
+                chartInstance.dispatchAction({
+                    type: 'downplay',
+                    seriesIndex: 0,
+                });
             }
         };
 
         const onNodeClick = (params) => {
-            // // alert(`你悬停在节点: ${params.name}`);
-            // w28.value = true;
-            // selected.value = params.name;
-            // // 左部信息设置
-            // author_set.value = !mark.value.includes(params.name);
-            if (mark.value.includes(params.name)){
-                router.push(`/achievement-detail/${mark_map.value[params.name]}`)
-            }else{
-                router.push(`/profile/${mark_map.value[params.name]}`)
+            if (params.data.category === 0) { // 科研人员
+                router.push(`/profile/${params.data.id}`);
+            } else if (params.data.category === 1) { // 机构
+                selectedInstitution.value = params.name;
+                filterByInstitution();
+                if (chartInstance) {
+                    persistentHighlight.value = true;
+                    const highlightIndexes = allNodes.reduce((acc, node, idx) => {
+                        if (node.name === params.name || node.institution === params.name) {
+                            acc.push(idx);
+                        }
+                        return acc;
+                    }, []);
+                    lastHighlightIndexes.value = highlightIndexes;
+                    chartInstance.dispatchAction({
+                        type: 'downplay',
+                        seriesIndex: 0,
+                    });
+                    chartInstance.dispatchAction({
+                        type: 'highlight',
+                        seriesIndex: 0,
+                        dataIndex: highlightIndexes
+                    });
+                }
             }
         };
 
-        const onNodeOut = (params) => {
-            w28.value = false;
-        };
-
-        let chartInstance = null;
-        const initChart = (data_in, link_in) => {
+        const initChart = (nodes, links) => {
             if (chartContainer.value) {
-                // 初始化图表实例
                 chartInstance = echarts.init(chartContainer.value);
-
-                // 配置图表选项
                 const option = {
                     tooltip: {
-                        trigger: "item",
+                        backgroundColor: 'rgba(255,255,255,0.98)',
+                        borderColor: '#aaa',
+                        borderWidth: 1,
+                        textStyle: {
+                            color: '#222',
+                            fontSize: 18,
+                            fontFamily: 'Meiryo, 微软雅黑, sans-serif',
+                        },
+                        extraCssText: 'box-shadow:0 2px 12px rgba(0,0,0,0.15);border-radius:10px;min-width:200px;max-width:320px;',
                         formatter: (params) => {
-                            // 如果是边（link）
-                            if (params.dataType === "edge") {
-                                return `${params.data.value}关系`; // 显示边的 value 值
+                            if (params.dataType === "node") {
+                                const data = params.data;
+                                if (data.category === 0) {
+                                    return `
+                                        <div style="text-align:center;">
+                                            <div style="font-size:20px;font-weight:bold;margin-bottom:4px;">${data.name}</div>
+                                            <div style="color:#666;font-size:15px;">机构：${data.institution}</div>
+                                            <div style="color:#666;font-size:15px;">影响力：${data.influence}</div>
+                                            ${data.field ? `<div style='color:#666;font-size:15px;'>领域：${data.field}</div>` : ''}
+                                        </div>
+                                    `;
+                                } else {
+                                    return `
+                                        <div style="text-align:center;">
+                                            <div style="font-size:20px;font-weight:bold;margin-bottom:4px;">${data.name}</div>
+                                            <div style="color:#666;font-size:15px;">类型：科研机构</div>
+                                            <div style="color:#666;font-size:15px;">影响力：${data.influence}</div>
+                                        </div>
+                                    `;
+                                }
                             }
-                            return `${params.name}`; // 默认显示节点名称
+                            return "";
                         },
                     },
-                    series: [
-                        {
-                            type: "graph",
-                            layout: "force", // 力导向布局
-                            data: data_in,
-                                //{ name: "科研工作者A", value: 10, symbolSize: 50, itemStyle: { color: "#11b9f5" } },
-                            links: link_in,
-                                // { source: "科研工作者F", target: "科研工作者1", value: "合作" },
-                            force: {
-                                repulsion: 2000, // 节点间的斥力大小
-                                edgeLength: [150, 500], // 边的长度范围
-                                layoutAnimation: true,
-                            },
-                            label: {
-                                show: true,
-                                position: "inside",
-                                formatter: (params) => {
-                                    // 根据节点类型动态返回显示内容
-                                    if (params.data.type === 'work') {
-                                        return params.data.name.charAt(0); // 只显示首字母
-                                    }
-                                    return params.data.name; // 显示完整名称
-                                },
-                                fontSize: 16, // 设置字体大小
-                                fontWeight: "bold", // 设置字体加粗
-                                color: "#ffffff",
-                                textBorderColor: "#002d39", // 设置文本边框颜色为黑色
-                                textBorderWidth: 1, // 设置文本边框宽度为 2px
-                            },
-                            lineStyle: {
-                                color: "#00c4ff", // 边的颜色随源节点变化
-                                width: 5,
-                            },
-                            roam: true, // 支持缩放和平移
-                            emphasis: {
-                                focus: "adjacency",
-                                lineStyle: {
-                                    width: 3,
-                                },
-
-                            },
+                    legend: [{
+                        data: categories.map(a => a.name),
+                        bottom: 20,
+                        left: 'center',
+                        textStyle: {
+                            color: '#333'
+                        }
+                    }],
+                    series: [{
+                        type: "graph",
+                        layout: "force",
+                        data: nodes.map(node => ({
+                            ...node,
+                            symbolSize: Math.max(50, Math.min(100, node.influence / 4)), // 对数缩放，最小25最大80
+                            itemStyle: categories[node.category].itemStyle,
+                            draggable: true // 允许拖动
+                        })),
+                        links: links,
+                        categories: categories,
+                        roam: true,
+                        label: {
+                            show: true,
+                            position: "right",
+                            formatter: "{b}",
+                            fontSize: 16,
+                            // 自动避让，ECharts 5+ 支持
+                            layout: {
+                                hideOverlap: true
+                            }
                         },
-                    ],
-                    animationDuration: 15000,
-                    animationEasing: "cubicOut",
+                        force: {
+                            repulsion: 400, // 增大斥力，节点更分散
+                            edgeLength: [120, 180], // 增大连线长度
+                            gravity: 0.05
+                        },
+                        emphasis: {
+                            focus: 'adjacency',
+                            lineStyle: {
+                                width: 10
+                            }
+                        },
+                        lineStyle: {
+                            color: 'source',
+                            curveness: 0.01, // 曲线，减少与文字重叠
+                            opacity: 0.7
+                        }
+                    },
+                ],
                 };
 
-                // 设置图表选项
                 chartInstance.setOption(option);
-
                 chartInstance.on("mouseover", (params) => {
-                    if (params.dataType === "node") {
-                        // 如果是节点被悬停，调用自定义函数
-                        onNodeHover(params);
-                    }
+                    if (params.dataType === "node") onNodeHover(params);
                 });
-
-                chartInstance.on("click", (params) => {
-                    if (params.dataType === "node") {
-                        onNodeClick(params);
-                    }
-                });
-
                 chartInstance.on("mouseout", (params) => {
-                    if (params.dataType === "node") {
-                        // 如果是鼠标离开节点，调用自定义函数
-                        onNodeOut(params);
+                    if (params.dataType === "node") onNodeOut();
+                });
+                chartInstance.on("click", (params) => {
+                    if (params.dataType === "node") onNodeClick(params);
+                    else {
+                        persistentHighlight.value = false;
+                        lastHighlightIndexes.value = [];
+                        chartInstance.dispatchAction({
+                            type: 'downplay',
+                            seriesIndex: 0,
+                        });
                     }
                 });
 
-                // 监听窗口大小变化，确保图表自适应
                 window.addEventListener("resize", () => chartInstance.resize());
             }
         };
+        
+        const filterByInstitution = () => {
+            if (!chartInstance) return;
+            const institution = selectedInstitution.value;
 
-        onMounted(async() => {
+            chartInstance.dispatchAction({
+                type: 'downplay',
+                seriesIndex: 0,
+            });
 
-            author_id.value = route.params.id;
-            const edges = await getGraph(author_id.value);
-            const points = new Set();
-            const data_in = [];
-            const link_in = [];
-
-            for (let i=0; i<edges.length && i<40; i++){
-                mark_map.value[edges[i].lastNodeName] = edges[i].lastNodeId;
-                mark_map.value[edges[i].midNodeName] = edges[i].midNodeId;
-                points.add('0' + edges[i].lastNodeName);
-                points.add('1' + edges[i].midNodeName);
-                link_in.push({
-                    source: edges[i].lastNodeName,
-                    target: edges[i].midNodeName,
-                    value: edges[i].lastNodeLabels[0] + "-" + edges[i].midNodeLabels[0]
-                })
+            if (!institution) {
+                 chartInstance.dispatchAction({
+                    type: 'highlight',
+                    seriesIndex: 0,
+                });
+                return;
             }
 
-            points.forEach((point) => {
-                if (point.charAt(0) === '1'){
-                    data_in.push({
-                        name: point.slice(1),
-                        value: 10,
-                        symbolSize: 100,
-                        itemStyle: { color: color_list[Math.floor(Math.random() * color_list.length)] },
-                        type: 'work'
-                    })
-                    mark.value.push(point.slice(1))
-                }else{
-                    data_in.push({
-                        name: point.slice(1),
-                        value: 10,
-                        symbolSize: 60,
-                        itemStyle: { color: color_list[Math.floor(Math.random() * color_list.length)] },
-                        type: 'author'
-                    })
+            const relatedNodes = new Set();
+            relatedNodes.add(institution);
+
+            allNodes.forEach(node => {
+                if(node.institution === institution) {
+                    relatedNodes.add(node.name);
                 }
             });
 
-            // setNav(true);
-            await nextTick(initChart(data_in, link_in));
+             chartInstance.dispatchAction({
+                type: 'highlight',
+                seriesIndex: 0,
+                dataIndex: allNodes.reduce((acc, node, index) => {
+                    if (relatedNodes.has(node.name)) {
+                        acc.push(index);
+                    }
+                    return acc;
+                }, [])
+            });
+        };
+
+        const highlightResearcherNode = (id) => {
+            if (!chartInstance) return;
+            // 先取消所有高亮
+            chartInstance.dispatchAction({
+                type: 'downplay',
+                seriesIndex: 0,
+            });
+            // 找到该科研人员节点的索引
+            const idx = allNodes.findIndex(node => node.category === 0 && node.id === id);
+            if (idx !== -1) {
+                chartInstance.dispatchAction({
+                    type: 'highlight',
+                    seriesIndex: 0,
+                    dataIndex: idx
+                });
+                // 可选：自动居中该节点
+                chartInstance.dispatchAction({
+                    type: 'focusNodeAdjacency',
+                    seriesIndex: 0,
+                    dataIndex: idx
+                });
+            }
+        };
+
+        const handleResearcherSearch = (query) => {
+            if (!query) {
+                researcherOptions.value = [];
+                return;
+            }
+            researcherOptions.value = allNodes.filter(
+                node => node.category === 0 && node.name && node.name.startsWith(query)
+            );
+        };
+
+        onMounted(async () => {
+            try {
+                const response = await axios.get(window.location.origin + '/social-graph.json');
+                const graphData = response.data;
+                allNodes = graphData.nodes;
+                allLinks = graphData.links;
+                
+                const insts = new Set(allNodes.filter(n => n.category === 1).map(n => n.name));
+                institutions.value = Array.from(insts);
+                researcherOptions.value = [];
+                
+                await nextTick(() => {
+                    initChart(allNodes, allLinks);
+                });
+            } catch (error) {
+                console.error("Error fetching or processing graph data:", error);
+            }
         });
 
         return {
             chartContainer,
-            selected,
-            w28,
-            selected_abstract,
-            author_set
+            showPanel,
+            selectedNode,
+            institutions,
+            selectedInstitution,
+            filterByInstitution,
+            researcherKeyword,
+            researcherOptions,
+            handleResearcherSearch,
+            highlightResearcherNode,
+            panelPosition,
         };
     },
-}
+};
 </script>
 
 <style scoped>
 .w2{
     width: 20%;
-    transition: width 0.3s;
-}
-.w8{
-    width: 80%;
-    transition: width 0.3s;
-}
-.w10{
-    width: 100%;
-    transition: width 0.3s;
+    transition: width 0.3s ease-in-out;
+    opacity: 1;
 }
 .w0{
     width: 0;
-    transition: width 0.3s;
+    opacity: 0;
+    transition: width 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    overflow: hidden;
+}
+select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007AFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+    background-repeat: no-repeat;
+    background-position: right .7em top 50%, 0 0;
+    background-size: .65em auto, 100%;
 }
 </style>

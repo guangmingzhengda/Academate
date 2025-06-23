@@ -7,6 +7,8 @@
     "build": "vue-cli-service build"
   },
   "dependencies": {
+    "@antv/g6": "^5.0.48",
+    "@antv/g6-plugin": "^0.8.25",
     "@element-plus/icons-vue": "^2.3.1",
     "@vueup/vue-quill": "^1.2.0",
     "axios": "^1.6.7",
@@ -30,6 +32,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@babel/plugin-transform-private-methods": "^7.27.1",
     "@types/node": "^22.5.4",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vue/cli-plugin-babel": "~5.0.0",
