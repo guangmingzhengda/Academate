@@ -21,13 +21,13 @@
         </div>
 
         <!-- 消息侧边栏触发按钮 -->
-        <div class="message-trigger-btn" @click="openMessageSidebar">
+        <div v-if="tokenSet" class="message-trigger-btn" @click="openMessageSidebar">
             <el-icon><ChatLineRound /></el-icon>
             <div v-if="unreadCount > 0" class="message-badge">{{ unreadCount }}</div>
         </div>
 
         <!-- 聊天功能触发按钮 -->
-        <div class="chat-trigger-btn" @click="openChat">
+        <div v-if="tokenSet" class="chat-trigger-btn" @click="openChat">
             <el-icon><ChatDotRound /></el-icon>
         </div>
 
