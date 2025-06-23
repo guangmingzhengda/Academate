@@ -1,8 +1,8 @@
 <template>
     <div class="stats">
         <div class="stat">
-            <div style="font-size: 20px">阅读量</div>
-            <div :style="{ color: getColor(visitCount), fontSize: '18px' }">{{ formatNumber(visitCount) }}</div>
+            <div style="font-size: 20px">成员数</div>
+            <div :style="{ color: getColor(memberCount), fontSize: '18px' }">{{ formatNumber(memberCount) }}</div>
         </div>
         <div class="stat">
             <div style="font-size: 20px">评论数</div>
@@ -14,26 +14,43 @@
         </div>
     </div>
     <hr>
-    <!-- <div class="field-list">
-        <p class="small-title">相关领域</p>
-        <div v-if="work.relatedSubfieldList.length === 0" style="margin: 5px 0;text-align: left;font-size: 16px;">
-            未划分领域
+
+    <div class="owner-info-card">
+        <div class="card-header">
+            <h3>关于项目负责人</h3>
         </div>
-        <div v-for="field in work.relatedSubfieldList" :key="field" class="field" @click="goToField(field)">
-            - {{ field }}
+        <div class="card-body">
+            <div class="owner-profile">
+                <!-- <img :src="owner.avatar" alt="owner avatar" class="avatar"> -->
+                <img src="../assets/default_avatar.png" alt="owner avatar" class="avatar">
+                <div class="owner-details">
+                    <div class="owner-name">{{ owner.name }}</div>
+                    <div class="owner-title">{{ owner.title }}</div>
+                    <div class="owner-institution">{{ owner.institution }}</div>
+                </div>
+            </div>
+            <hr>
+            <div class="info-section">
+                <h4>研究领域</h4>
+                <p>{{ owner.research_area }}</p>
+            </div>
+            <div class="info-section">
+                <h4>教育背景</h4>
+                <p>{{ owner.education }}</p>
+            </div>
+            <div class="info-section">
+                <h4>个人简介</h4>
+                <p class="bio">{{ owner.bio }}</p>
+            </div>
+             <div class="info-section">
+                <h4>联系方式</h4>
+                <p>{{ owner.email }}</p>
+            </div>
+        </div>
+        <div class="card-footer">
+            <el-button type="primary" plain @click="viewProfile">查看完整资料</el-button>
         </div>
     </div>
-    <hr>
-    <div class="field-list">
-        <p class="small-title">相关文章</p>
-        <div v-if="work.relatedWorkList.length === 0" style="margin: 5px 0;text-align: left;font-size: 16px;">
-            无相关文章
-        </div>
-        <div v-for="article in work.relatedWorkList" :key="article.name" class="field" @click="goToAchievement(article.id)">
-            - {{ modifyTitle(article.name) }}
-        </div>
-    </div> -->
-
 </template>
 
 <script lang="js">
@@ -45,14 +62,26 @@ export default {
     name: "side-component",
     props: {
         work: {
-            id: 1,
+            type: Object,
+            required: true
         }
     },
     data() {
         return {
-            comments: ref(0),
-            favorites: ref(0),
-            visitCount: ref(0),
+            comments: ref(3),
+            favorites: ref(1),
+            memberCount: ref(5),
+            owner: {
+                user_id: 1,
+                email: 'zhang.san@example.com',
+                name: '张三',
+                education: '博士 (计算机科学)',
+                bio: '人工智能领域的资深专家，专注于机器学习和自然语言处理。致力于将前沿技术应用于解决实际问题，拥有超过15年的研发经验。',
+                research_area: '机器学习, 自然语言处理, 计算机视觉',
+                institution: '清华大学医学院',
+                title: '教授 / 博士生导师',
+                avatar: 'https://i.pravatar.cc/150?img=1'
+            }
         }
     },
     async mounted() {
@@ -95,6 +124,9 @@ export default {
         },
         goToAchievement(id) {
             window.open("/achievement-detail/"+id,'_self');
+        },
+        viewProfile() {
+            window.open(`/profile/${this.owner.user_id}`, '_blank');
         }
     },
     setup() {
@@ -103,6 +135,19 @@ export default {
         }
         return {
             modifyTitle,
+        }
+    },
+    watch: {
+        work: {
+            handler(newWork) {
+                if (newWork && newWork.researcherList && newWork.researcherList.length > 0) {
+                    const projectLead = newWork.researcherList.find(r => r.role === '项目负责人') || newWork.researcherList[0];
+                    this.owner.name = projectLead.name;
+                    this.owner.institution = projectLead.institution;
+                }
+            },
+            immediate: true,
+            deep: true
         }
     }
 }
@@ -151,4 +196,86 @@ hr {
     margin: 20px 0;
 }
 
+.owner-info-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+}
+
+.card-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+.owner-profile {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-right: 15px;
+    border: 2px solid #f0f0f0;
+}
+
+.owner-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.owner-name {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.owner-title, .owner-institution {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 4px;
+}
+
+.info-section {
+    margin-bottom: 15px;
+}
+
+.info-section h4 {
+    margin: 0 0 8px 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.info-section p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #555;
+    line-height: 1.5;
+}
+
+.bio {
+    text-align: justify;
+}
+
+.card-footer {
+    padding: 15px 20px;
+    background-color: #f9f9f9;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+}
 </style>
