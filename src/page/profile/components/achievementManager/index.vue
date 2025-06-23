@@ -263,11 +263,13 @@
             <el-form :model="formData" :rules="rules" ref="formRef" label-width="120px">
                 <el-form-item label="成果类型" prop="type">
                     <el-select v-model="formData.type" placeholder="请选择成果类型" style="width: 100%;" @change="onTypeChange">
-                        <el-option label="期刊论文" value="journal" />
-                        <el-option label="会议论文" value="conference" />
-                        <el-option label="专利" value="patent" />
-                        <el-option label="专著" value="book" />
-                        <el-option label="软件著作权" value="software" />
+                        <el-option label="期刊论文" value="期刊论文" />
+                        <el-option label="会议论文" value="会议论文" />
+                        <el-option label="专利" value="专利" />
+                        <el-option label="书" value="书" />
+                        <el-option label="技术报告" value="技术报告" />
+                        <el-option label="数据" value="数据" />
+                        <el-option label="海报" value="海报" />
                     </el-select>
                 </el-form-item>
                 
@@ -280,7 +282,7 @@
                 </el-form-item>
 
                 <!-- 期刊论文字段 -->
-                <template v-if="formData.type === 'journal'">
+                <template v-if="formData.type === '期刊论文'">
                     <el-form-item label="期刊名称" prop="journal">
                         <el-input v-model="formData.journal" placeholder="请输入期刊名称" />
                     </el-form-item>
@@ -296,7 +298,7 @@
                 </template>
 
                 <!-- 会议论文字段 -->
-                <template v-if="formData.type === 'conference'">
+                <template v-if="formData.type === '会议论文'">
                     <el-form-item label="会议名称" prop="conference">
                         <el-input v-model="formData.conference" placeholder="请输入会议名称" />
                     </el-form-item>
@@ -306,15 +308,15 @@
                 </template>
 
                 <!-- 专利字段 -->
-                <template v-if="formData.type === 'patent'">
+                <template v-if="formData.type === '专利'">
                     <el-form-item label="专利号" prop="patentNumber">
                         <el-input v-model="formData.patentNumber" placeholder="请输入专利号" />
                     </el-form-item>
                     <el-form-item label="专利类型" prop="patentType">
                         <el-select v-model="formData.patentType" placeholder="请选择专利类型" style="width: 100%;">
-                            <el-option label="发明专利" value="invention" />
-                            <el-option label="实用新型" value="utility" />
-                            <el-option label="外观设计" value="design" />
+                            <el-option label="发明专利" value="发明专利" />
+                            <el-option label="实用新型" value="实用新型" />
+                            <el-option label="外观设计" value="外观设计" />
                         </el-select>
                     </el-form-item>
                 </template>
@@ -403,6 +405,8 @@ import { Plus, Edit, Delete, Upload, UploadFilled, Search, DocumentAdd, Document
 import { callSuccess, callWarning, callInfo, callError } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import * as XLSX from 'xlsx'
+import { uploadAchievementMeta } from '@/api/achievement'
+import dayjs from 'dayjs'
 
 export default {
     name: 'achievementManager',
@@ -411,20 +415,22 @@ export default {
         const currentPage = ref(1)
         const pageSize = ref(3)
         
-        // 成果类型标签
+        // 成果类型标签（仅保留后端要求的七种类型）
         const typeLabels = {
-            journal: '期刊论文',
-            conference: '会议论文',
-            patent: '专利',
-            book: '专著',
-            software: '软件著作权'
+            '期刊论文': '期刊论文',
+            '会议论文': '会议论文',
+            '专利': '专利',
+            '书': '书',
+            '技术报告': '技术报告',
+            '数据': '数据',
+            '海报': '海报'
         }
 
         // 学术成果数据
         const achievements = ref([
             {
                 id: 1,
-                type: 'journal',
+                type: '期刊论文',
                 title: '基于深度学习的图像识别算法研究',
                 authors: 'HHH, 张三, 李四',
                 journal: 'IEEE Transactions on Pattern Analysis and Machine Intelligence',
@@ -436,7 +442,7 @@ export default {
             },
             {
                 id: 2,
-                type: 'conference',
+                type: '会议论文',
                 title: '自然语言处理中的注意力机制优化',
                 authors: 'HHH, 王五',
                 conference: 'AAAI Conference on Artificial Intelligence',
@@ -446,16 +452,16 @@ export default {
             },
             {
                 id: 3,
-                type: 'patent',
+                type: '专利',
                 title: '一种基于机器学习的智能推荐系统',
                 authors: 'HHH',
                 patentNumber: 'CN123456789A',
-                patentType: 'invention',
+                patentType: '发明专利',
                 publishDate: '2023-01-10'
             },
             {
                 id: 4,
-                type: 'journal',
+                type: '期刊论文',
                 title: '计算机视觉中的目标检测算法综述',
                 authors: 'HHH, 赵六, 钱七',
                 journal: 'Computer Vision and Image Understanding',
@@ -467,7 +473,7 @@ export default {
             },
             {
                 id: 5,
-                type: 'conference',
+                type: '会议论文',
                 title: '基于Transformer的多模态学习方法',
                 authors: 'HHH, 孙八',
                 conference: 'International Conference on Computer Vision',
@@ -477,7 +483,7 @@ export default {
             },
             {
                 id: 6,
-                type: 'book',
+                type: '书',
                 title: '人工智能算法设计与实现',
                 authors: 'HHH',
                 publishDate: '2023-05-20',
@@ -485,23 +491,23 @@ export default {
             },
             {
                 id: 7,
-                type: 'software',
+                type: '技术报告',
                 title: '智能数据分析平台V1.0',
                 authors: 'HHH, 开发团队',
                 publishDate: '2023-07-15'
             },
             {
                 id: 8,
-                type: 'patent',
+                type: '专利',
                 title: '一种基于深度学习的语音识别方法',
                 authors: 'HHH, 李九',
                 patentNumber: 'CN987654321B',
-                patentType: 'invention',
+                patentType: '发明专利',
                 publishDate: '2023-04-25'
             },
             {
                 id: 9,
-                type: 'journal',
+                type: '期刊论文',
                 title: '强化学习在游戏AI中的应用研究',
                 authors: 'HHH, 周十, 吴十一',
                 journal: 'Artificial Intelligence',
@@ -513,7 +519,7 @@ export default {
             },
             {
                 id: 10,
-                type: 'conference',
+                type: '会议论文',
                 title: '联邦学习中的隐私保护机制',
                 authors: 'HHH, 郑十二',
                 conference: 'Neural Information Processing Systems',
@@ -523,7 +529,7 @@ export default {
             },
             {
                 id: 11,
-                type: 'journal',
+                type: '期刊论文',
                 title: '边缘计算环境下的智能调度算法',
                 authors: 'HHH, 王十三, 刘十四',
                 journal: 'IEEE Internet of Things Journal',
@@ -539,7 +545,7 @@ export default {
         const libraryAchievements = ref([
             {
                 id: 1001,
-                type: 'journal',
+                type: '期刊论文',
                 title: 'Deep Learning for Computer Vision: A Comprehensive Survey',
                 authors: '张伟, 李明, 王强',
                 journal: 'IEEE Transactions on Pattern Analysis and Machine Intelligence',
@@ -551,7 +557,7 @@ export default {
             },
             {
                 id: 1002,
-                type: 'conference',
+                type: '会议论文',
                 title: 'Attention Mechanisms in Natural Language Processing',
                 authors: '陈红, 刘涛',
                 conference: 'Annual Conference of the Association for Computational Linguistics',
@@ -561,7 +567,7 @@ export default {
             },
             {
                 id: 1003,
-                type: 'journal',
+                type: '期刊论文',
                 title: 'Federated Learning: Challenges, Methods, and Future Directions',
                 authors: '杨磊, 赵敏, 孙华',
                 journal: 'IEEE Communications Surveys & Tutorials',
@@ -573,16 +579,16 @@ export default {
             },
             {
                 id: 1004,
-                type: 'patent',
+                type: '专利',
                 title: '基于区块链的数据安全存储方法',
                 authors: '马超, 吴静',
                 patentNumber: 'CN202310123456.7',
-                patentType: 'invention',
+                patentType: '发明专利',
                 publishDate: '2023-03-20'
             },
             {
                 id: 1005,
-                type: 'conference',
+                type: '会议论文',
                 title: 'Graph Neural Networks for Social Network Analysis',
                 authors: '周杰, 林芳',
                 conference: 'International Conference on Machine Learning',
@@ -592,7 +598,7 @@ export default {
             },
             {
                 id: 1006,
-                type: 'journal',
+                type: '期刊论文',
                 title: 'Quantum Computing: Algorithms and Applications',
                 authors: '胡斌, 郭丽, 何东',
                 journal: 'Nature Reviews Physics',
@@ -604,7 +610,7 @@ export default {
             },
             {
                 id: 1007,
-                type: 'book',
+                type: '书',
                 title: '人工智能伦理学导论',
                 authors: '田野',
                 publishDate: '2023-06-15',
@@ -612,14 +618,14 @@ export default {
             },
             {
                 id: 1008,
-                type: 'software',
+                type: '技术报告',
                 title: 'AI数据分析平台V2.0',
                 authors: '开发团队, 项目负责人：钱进',
                 publishDate: '2023-09-10'
             },
             {
                 id: 1009,
-                type: 'journal',
+                type: '期刊论文',
                 title: 'Edge Computing for IoT: A Survey',
                 authors: '蒋涛, 沈丽娟',
                 journal: 'IEEE Internet of Things Journal',
@@ -631,7 +637,7 @@ export default {
             },
             {
                 id: 1010,
-                type: 'conference',
+                type: '会议论文',
                 title: 'Reinforcement Learning in Autonomous Driving',
                 authors: '韩梅, 宋阳',
                 conference: 'IEEE International Conference on Robotics and Automation',
@@ -641,16 +647,16 @@ export default {
             },
             {
                 id: 1011,
-                type: 'patent',
+                type: '专利',
                 title: '智能推荐系统及其实现方法',
                 authors: '冯雪, 邓伟',
                 patentNumber: 'CN202310234567.8',
-                patentType: 'invention',
+                patentType: '发明专利',
                 publishDate: '2023-08-15'
             },
             {
                 id: 1012,
-                type: 'journal',
+                type: '期刊论文',
                 title: 'Blockchain Technology in Healthcare: Opportunities and Challenges',
                 authors: '袁浩, 姚娜',
                 journal: 'IEEE Transactions on Biomedical Engineering',
@@ -662,7 +668,7 @@ export default {
             },
             {
                 id: 1013,
-                type: 'conference',
+                type: '会议论文',
                 title: 'Multimodal Learning for Human-Computer Interaction',
                 authors: '曹军, 秦雨',
                 conference: 'ACM International Conference on Multimodal Interaction',
@@ -672,7 +678,7 @@ export default {
             },
             {
                 id: 1014,
-                type: 'journal',
+                type: '期刊论文',
                 title: 'Privacy-Preserving Machine Learning: A Survey',
                 authors: '梁勇, 范晓红',
                 journal: 'ACM Computing Surveys',
@@ -684,7 +690,7 @@ export default {
             },
             {
                 id: 1015,
-                type: 'book',
+                type: '书',
                 title: '深度学习实战指南',
                 authors: '程亮, 许文静',
                 publishDate: '2023-12-01',
@@ -710,23 +716,18 @@ export default {
         const libraryCurrentPage = ref(1)
         const libraryPageSize = ref(5)
         
-        // 表单数据
+        // 表单数据（与后端参数完全一致）
         const formData = ref({
             type: '',
             title: '',
             authors: '',
             journal: '',
-            volume: '',
-            issue: '',
+            volume: 0,
+            issue: 0,
             pages: '',
-            conference: '',
-            location: '',
-            patentNumber: '',
-            patentType: '',
-            publishDate: '',
+            publishDate: 0,
             doi: '',
-            abstract: '',
-            fullTextFile: null
+            patentNumber: ''
         })
 
         // PDF上传相关
@@ -743,13 +744,13 @@ export default {
             }
 
             // 根据类型添加特定验证规则
-            if (formData.value.type === 'journal') {
+            if (formData.value.type === '期刊论文') {
                 baseRules.journal = [{ required: true, message: '请输入期刊名称', trigger: 'blur' }]
                 baseRules.volume = [{ required: true, message: '请输入卷号', trigger: 'blur' }]
                 baseRules.issue = [{ required: true, message: '请输入期号', trigger: 'blur' }]
-            } else if (formData.value.type === 'conference') {
+            } else if (formData.value.type === '会议论文') {
                 baseRules.conference = [{ required: true, message: '请输入会议名称', trigger: 'blur' }]
-            } else if (formData.value.type === 'patent') {
+            } else if (formData.value.type === '专利') {
                 baseRules.patentNumber = [{ required: true, message: '请输入专利号', trigger: 'blur' }]
                 baseRules.patentType = [{ required: true, message: '请选择专利类型', trigger: 'change' }]
             }
@@ -807,17 +808,12 @@ export default {
                 title: '',
                 authors: 'HHH',
                 journal: '',
-                volume: '',
-                issue: '',
+                volume: 0,
+                issue: 0,
                 pages: '',
-                conference: '',
-                location: '',
-                patentNumber: '',
-                patentType: '',
-                publishDate: '',
+                publishDate: 0,
                 doi: '',
-                abstract: '',
-                fullTextFile: null
+                patentNumber: ''
             }
             pdfFileList.value = []
             dialogVisible.value = true
@@ -854,13 +850,13 @@ export default {
         const checkDataIntegrity = (data) => {
             const errors = []
             
-            if (data.type === 'journal') {
+            if (data.type === '期刊论文') {
                 if (!data.journal) errors.push('期刊名称')
                 if (!data.volume) errors.push('卷号')
                 if (!data.issue) errors.push('期号')
-            } else if (data.type === 'conference') {
+            } else if (data.type === '会议论文') {
                 if (!data.conference) errors.push('会议名称')
-            } else if (data.type === 'patent') {
+            } else if (data.type === '专利') {
                 if (!data.patentNumber) errors.push('专利号')
                 if (!data.patentType) errors.push('专利类型')
             }
@@ -876,29 +872,50 @@ export default {
         const saveAchievement = async () => {
             try {
                 await formRef.value.validate()
-                
                 // 检查数据完整性
                 if (!checkDataIntegrity(formData.value)) {
                     return
                 }
-                
-                if (isEdit.value) {
-                    // 编辑
-                    const index = achievements.value.findIndex(a => a.id === editingId.value)
-                    if (index > -1) {
-                        achievements.value[index] = { ...formData.value, id: editingId.value }
-                        callSuccess('更新成功')
+                // 处理参数类型
+                const payload = { ...formData.value }
+                payload.volume = Number(payload.volume) || 0
+                payload.issue = Number(payload.issue) || 0
+                // publishDate 转为数据库datetime格式
+                if (payload.publishDate) {
+                    if (typeof payload.publishDate === 'string' && payload.publishDate.length <= 10) {
+                        // 只有日期，补全为 00:00:00
+                        payload.publishDate = dayjs(payload.publishDate).format('YYYY-MM-DD 00:00:00')
+                    } else {
+                        payload.publishDate = dayjs(payload.publishDate).format('YYYY-MM-DD HH:mm:ss')
                     }
                 } else {
-                    // 添加
+                    payload.publishDate = ''
+                }
+                // 只保留后端需要的字段
+                const requestData = {
+                    type: payload.type,
+                    title: payload.title,
+                    authors: payload.authors,
+                    journal: payload.journal,
+                    volume: payload.volume,
+                    issue: payload.issue,
+                    pages: payload.pages,
+                    publishDate: payload.publishDate,
+                    doi: payload.doi,
+                    patentNumber: payload.patentNumber
+                }
+                const res = await uploadAchievementMeta(requestData)
+                if (res && res.code === 0) {
                     const newAchievement = {
                         ...formData.value,
-                        id: Date.now() // 简单的ID生成
+                        id: res.data || Date.now()
                     }
                     achievements.value.unshift(newAchievement)
                     callSuccess('添加成功')
+                } else {
+                    callError(res?.message || '添加失败')
+                    return
                 }
-                
                 closeDialog()
             } catch {
                 callWarning('请填写完整信息')
@@ -948,17 +965,15 @@ export default {
             '简介': 'abstract'
         }
 
-        // 成果类型映射
+        // 成果类型映射（仅保留七种类型）
         const typeMapping = {
-            '期刊论文': 'journal',
-            '期刊': 'journal',
-            '会议论文': 'conference',
-            '会议': 'conference',
-            '专利': 'patent',
-            '专著': 'book',
-            '书籍': 'book',
-            '软件著作权': 'software',
-            '软件': 'software'
+            '期刊论文': '期刊论文',
+            '会议论文': '会议论文',
+            '专利': '专利',
+            '书': '书',
+            '技术报告': '技术报告',
+            '数据': '数据',
+            '海报': '海报'
         }
 
         // 打开Excel上传对话框
@@ -1048,14 +1063,14 @@ export default {
                 title: '',
                 authors: 'HHH',
                 journal: '',
-                volume: '',
-                issue: '',
+                volume: 0,
+                issue: 0,
                 pages: '',
                 conference: '',
                 location: '',
                 patentNumber: '',
                 patentType: '',
-                publishDate: '',
+                publishDate: 0,
                 doi: '',
                 abstract: ''
             }
@@ -1098,7 +1113,7 @@ export default {
             isEdit.value = false
             dialogVisible.value = true
             
-                        callSuccess('数据已导入到表单，请检查并完善信息')
+            callSuccess('数据已导入到表单，请检查并完善信息')
         }
 
         // 打开从库中选择对话框
@@ -1342,23 +1357,31 @@ export default {
     color: white;
 }
 
-.achievement-type-tag.journal {
+.achievement-type-tag.期刊论文 {
     background-color: #409eff;
 }
 
-.achievement-type-tag.conference {
+.achievement-type-tag.会议论文 {
     background-color: #67c23a;
 }
 
-.achievement-type-tag.patent {
+.achievement-type-tag.专利 {
     background-color: #e6a23c;
 }
 
-.achievement-type-tag.book {
+.achievement-type-tag.书 {
     background-color: #9c27b0;
 }
 
-.achievement-type-tag.software {
+.achievement-type-tag.技术报告 {
+    background-color: #f56c6c;
+}
+
+.achievement-type-tag.数据 {
+    background-color: #f56c6c;
+}
+
+.achievement-type-tag.海报 {
     background-color: #f56c6c;
 }
 
