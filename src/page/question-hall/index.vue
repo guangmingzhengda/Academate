@@ -52,22 +52,22 @@
                     <div v-else class="questions-list">
                         <div 
                             v-for="question in currentPageQuestions" 
-                            :key="question.id" 
+                            :key="question.questionId" 
                             class="question-item"
                             @click="viewQuestion(question)"
                         >
                             <div class="question-content">
-                                <div class="question-title">{{ question.title }}</div>
-                                <div class="question-description">{{ question.content }}</div>
+                                <div class="question-title">{{ question.questionTitle }}</div>
+                                <div class="question-description">{{ question.questionDescription || '暂无问题描述' }}</div>
                                 <div class="question-meta">
                                     <div class="meta-left">
                                         <div class="question-author">
-                                            <div class="author-avatar" :style="{ backgroundColor: getAuthorColor(question.authorId) }">
-                                                {{ question.author.charAt(0) }}
+                                            <div class="author-avatar" :style="{ backgroundColor: getAuthorColor(question.userId) }">
+                                                {{ question.userName.charAt(0) }}
                                             </div>
-                                            <span class="author-name">{{ question.author }}</span>
+                                            <span class="author-name">{{ question.userName }}</span>
                                         </div>
-                                        <div class="question-date">{{ formatDate(question.createTime) }}</div>
+                                        <div class="question-date">{{ formatDate(question.askedAt) }}</div>
                                     </div>
                                     <div class="meta-right">
                                         <div class="question-stats">
@@ -77,19 +77,20 @@
                                             </span>
                                             <span class="stat-item">
                                                 <el-icon><View /></el-icon>
-                                                {{ question.viewCount || 0 }} 浏览
+                                                {{ question.likeCount || 0 }} 关注
                                             </span>
+
                                         </div>
                                         <div class="follow-section">
                                             <el-button
-                                                :type="question.isFollowed ? 'primary' : 'default'"
+                                                :type="question.isLiked ? 'primary' : 'default'"
                                                 size="small"
                                                 @click.stop="toggleFollow(question)"
                                                 class="follow-btn"
                                             >
-                                                <el-icon v-if="question.isFollowed"><StarFilled /></el-icon>
+                                                <el-icon v-if="question.isLiked"><StarFilled /></el-icon>
                                                 <el-icon v-else><Star /></el-icon>
-                                                {{ question.isFollowed ? '已关注' : '关注' }}
+                                                {{ question.isLiked ? '已关注' : '关注' }}
                                             </el-button>
                                         </div>
                                     </div>
@@ -144,15 +145,6 @@
                         show-word-limit
                     />
                 </el-form-item>
-                
-                <el-form-item label="问题标签" prop="tags">
-                    <el-input 
-                        v-model="questionForm.tagsInput" 
-                        placeholder="请输入相关标签，用逗号分隔，如：机器学习,深度学习,Python"
-                        maxlength="200"
-                    />
-                    <div class="tags-tip">标签有助于其他用户快速找到您的问题</div>
-                </el-form-item>
             </el-form>
         </div>
         
@@ -167,16 +159,20 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { Search, Plus, ChatDotRound, View, Star, StarFilled } from '@element-plus/icons-vue'
 import { callSuccess, callInfo } from '@/call'
+import { getQuestionList, createQuestion } from '@/api/question'
+import { useRouter } from 'vue-router'
 
 export default {
     name: 'questionHall',
     setup() {
+        const router = useRouter()
         // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(10)
+        const total = ref(0)
         
         // 搜索相关
         const searchKeyword = ref('')
@@ -188,8 +184,7 @@ export default {
         // 表单数据
         const questionForm = ref({
             title: '',
-            content: '',
-            tagsInput: ''
+            content: ''
         })
         
         // 表单验证规则
@@ -204,153 +199,28 @@ export default {
             ]
         }
         
-        // 问题数据（模拟数据）
-        const questions = ref([
-            {
-                id: 1,
-                title: '如何在深度学习中处理过拟合问题？',
-                content: '我在训练一个图像分类模型时遇到了严重的过拟合问题，训练集准确率很高但验证集准确率很低。我已经尝试了dropout和数据增强，但效果不太明显。请问还有什么其他的方法可以缓解过拟合？',
-                author: '张同学',
-                authorId: 1,
-                createTime: '2024-01-15 14:30:00',
-                tags: ['深度学习', '过拟合', '机器学习'],
-                answerCount: 12,
-                viewCount: 156,
-                isFollowed: false
-            },
-            {
-                id: 2,
-                title: 'Transformer模型中的注意力机制是如何工作的？',
-                content: '我正在学习Transformer架构，但对其中的自注意力机制还不是很理解。能否详细解释一下Query、Key、Value是如何计算的，以及多头注意力的作用是什么？',
-                author: '李研究员',
-                authorId: 2,
-                createTime: '2024-01-14 09:15:00',
-                tags: ['Transformer', '注意力机制', 'NLP'],
-                answerCount: 8,
-                viewCount: 203,
-                isFollowed: false
-            },
-            {
-                id: 3,
-                title: '联邦学习在医疗数据隐私保护中的应用前景如何？',
-                content: '最近在研究联邦学习，想了解它在医疗领域的应用。医疗数据涉及隐私问题，传统的集中式机器学习方法不太适用。联邦学习能否有效解决这个问题？有哪些挑战和限制？',
-                author: '王医生',
-                authorId: 3,
-                createTime: '2024-01-13 16:45:00',
-                tags: ['联邦学习', '医疗数据', '隐私保护'],
-                answerCount: 5,
-                viewCount: 89,
-                isFollowed: false
-            },
-            {
-                id: 4,
-                title: 'GraphQL相比REST API有什么优势？',
-                content: '我们团队正在考虑从REST API迁移到GraphQL。听说GraphQL可以减少网络请求次数，提高数据获取效率。但也担心学习成本和迁移成本。请问有经验的开发者能分享一下实际使用感受吗？',
-                author: '陈工程师',
-                authorId: 4,
-                createTime: '2024-01-12 11:20:00',
-                tags: ['GraphQL', 'REST API', 'Web开发'],
-                answerCount: 15,
-                viewCount: 267,
-                isFollowed: false
-            },
-            {
-                id: 5,
-                title: '量子计算对传统密码学会产生什么影响？',
-                content: '随着量子计算技术的发展，我很担心现有的加密算法会被破解。RSA、AES等传统加密算法在量子计算面前还安全吗？有什么应对措施？量子密码学是解决方案吗？',
-                author: '赵教授',
-                authorId: 5,
-                createTime: '2024-01-11 13:10:00',
-                tags: ['量子计算', '密码学', '信息安全'],
-                answerCount: 7,
-                viewCount: 134,
-                isFollowed: false
-            },
-            {
-                id: 6,
-                title: 'Docker容器化部署时如何优化镜像大小？',
-                content: '我们的应用Docker镜像越来越大，已经超过2GB了，部署速度很慢。请问有什么方法可以优化镜像大小？多阶段构建、Alpine Linux这些方法的效果如何？',
-                author: '孙运维',
-                authorId: 6,
-                createTime: '2024-01-10 08:30:00',
-                tags: ['Docker', '容器化', '运维'],
-                answerCount: 11,
-                viewCount: 178,
-                isFollowed: false
-            },
-            {
-                id: 7,
-                title: '如何评估机器学习模型的公平性？',
-                content: '在开发AI系统时，我们需要确保模型不会产生歧视性结果。请问有什么指标和方法可以评估模型的公平性？如何在准确性和公平性之间找到平衡？',
-                author: '刘博士',
-                authorId: 7,
-                createTime: '2024-01-09 15:45:00',
-                tags: ['机器学习', '算法公平性', 'AI伦理'],
-                answerCount: 6,
-                viewCount: 112,
-                isFollowed: false
-            },
-            {
-                id: 8,
-                title: 'Vue 3的Composition API相比Options API有什么优势？',
-                content: '正在学习Vue 3，发现有Composition API这个新特性。相比传统的Options API，它有什么优势？什么时候应该使用Composition API？学习曲线如何？',
-                author: '马前端',
-                authorId: 8,
-                createTime: '2024-01-08 10:15:00',
-                tags: ['Vue 3', 'Composition API', '前端开发'],
-                answerCount: 9,
-                viewCount: 145,
-                isFollowed: false
-            },
-            {
-                id: 9,
-                title: '边缘计算在物联网中的应用场景有哪些？',
-                content: '最近在研究边缘计算技术，想了解它在物联网领域的具体应用。相比云计算，边缘计算在IoT场景下有什么独特优势？有哪些成功的应用案例？',
-                author: '周架构师',
-                authorId: 9,
-                createTime: '2024-01-07 14:20:00',
-                tags: ['边缘计算', '物联网', 'IoT'],
-                answerCount: 4,
-                viewCount: 87,
-                isFollowed: false
-            },
-            {
-                id: 10,
-                title: '强化学习在游戏AI中的应用原理是什么？',
-                content: '看到AlphaGo、OpenAI Five等游戏AI都使用了强化学习技术。想了解强化学习是如何让AI学会玩游戏的？Q-learning、策略梯度这些算法在游戏中是如何应用的？',
-                author: '吴学生',
-                authorId: 10,
-                createTime: '2024-01-06 09:30:00',
-                tags: ['强化学习', '游戏AI', '人工智能'],
-                answerCount: 13,
-                viewCount: 234,
-                isFollowed: false
-            },
-            {
-                id: 11,
-                title: '微服务架构中如何处理分布式事务？',
-                content: '我们正在将单体应用拆分为微服务，但遇到了分布式事务的问题。SAGA模式、两阶段提交、事件溯源这些方案各有什么优缺点？在实际项目中应该如何选择？',
-                author: '郑架构师',
-                authorId: 11,
-                createTime: '2024-01-05 16:10:00',
-                tags: ['微服务', '分布式事务', '系统架构'],
-                answerCount: 8,
-                viewCount: 167,
-                isFollowed: false
-            },
-            {
-                id: 12,
-                title: 'WebAssembly的性能优势在哪些场景下最明显？',
-                content: '听说WebAssembly可以在浏览器中运行接近原生性能的代码。想了解它适用于哪些具体场景？相比JavaScript，性能提升有多大？开发成本如何？',
-                author: '韩开发者',
-                authorId: 12,
-                createTime: '2024-01-04 12:45:00',
-                tags: ['WebAssembly', 'Web性能', '浏览器技术'],
-                answerCount: 6,
-                viewCount: 98,
-                isFollowed: false
+        // 问题数据
+        const questions = ref([])
+        
+        // 加载问题列表数据
+        const loadQuestions = async () => {
+            try {
+                const data = await getQuestionList({
+                    current: currentPage.value,
+                    size: pageSize.value
+                })
+                questions.value = data
+                total.value = data.length // 实际项目中这个值应该从后端获取
+                console.log(questions.value);
+            } catch (error) {
+                console.error('加载问题列表失败:', error)
             }
-        ])
+        }
+
+        // 在组件挂载时加载数据
+        onMounted(() => {
+            loadQuestions()
+        })
         
         // 头像颜色数组
         const avatarColors = [
@@ -367,10 +237,8 @@ export default {
             
             const keyword = searchKeyword.value.toLowerCase()
             return questions.value.filter(question =>
-                question.title.toLowerCase().includes(keyword) ||
-                question.content.toLowerCase().includes(keyword) ||
-                question.author.toLowerCase().includes(keyword) ||
-                question.tags.some(tag => tag.toLowerCase().includes(keyword))
+                question.questionTitle.toLowerCase().includes(keyword) ||
+                question.userName.toLowerCase().includes(keyword)
             )
         })
         
@@ -384,16 +252,18 @@ export default {
         // 搜索处理
         const handleSearch = () => {
             currentPage.value = 1
+            loadQuestions()
         }
         
         // 分页处理
         const handlePageChange = (page) => {
             currentPage.value = page
+            loadQuestions()
         }
         
         // 获取作者头像颜色
-        const getAuthorColor = (authorId) => {
-            return avatarColors[authorId % avatarColors.length]
+        const getAuthorColor = (userId) => {
+            return avatarColors[userId % avatarColors.length]
         }
         
         // 格式化日期
@@ -423,8 +293,7 @@ export default {
         const openCreateDialog = () => {
             questionForm.value = {
                 title: '',
-                content: '',
-                tagsInput: ''
+                content: ''
             }
             createDialogVisible.value = true
         }
@@ -440,49 +309,45 @@ export default {
             try {
                 await questionFormRef.value.validate()
                 
-                const newQuestion = {
-                    id: Date.now(),
-                    title: questionForm.value.title,
-                    content: questionForm.value.content,
-                    author: 'HHH', // 当前用户
-                    authorId: 999, // 当前用户ID
-                    createTime: new Date().toISOString().replace('T', ' ').slice(0, 19),
-                    tags: questionForm.value.tagsInput ? questionForm.value.tagsInput.split(',').map(tag => tag.trim()) : [],
-                    answerCount: 0,
-                    viewCount: 0,
-                    isFollowed: false
+                // 调用创建问题的API
+                const response = await createQuestion({
+                    questionTitle: questionForm.value.title,
+                    questionDescription: questionForm.value.content
+                })
+                
+                if (response.code === 0) {
+                    await loadQuestions() // 重新加载问题列表
+                    callSuccess('问题发布成功！')
+                    closeCreateDialog()
+                } else {
+                    callInfo(response.message || '创建问题失败，请重试')
                 }
                 
-                questions.value.unshift(newQuestion)
-                callSuccess('问题发布成功！')
-                closeCreateDialog()
-                
             } catch (error) {
-                console.error('表单验证失败:', error)
+                console.error('创建问题失败:', error)
+                callInfo('创建问题失败，请重试')
             }
         }
         
         // 查看问题详情
         const viewQuestion = (question) => {
-            // 增加浏览量
-            question.viewCount++
-            // 这里可以跳转到问题详情页面
-            callInfo(`查看问题: ${question.title}`)
+            router.push(`/question/${question.questionId}`)
         }
         
         // 关注和取消关注逻辑
         const toggleFollow = (question) => {
-            question.isFollowed = !question.isFollowed
-            if (question.isFollowed) {
-                callSuccess(`已关注问题: ${question.title}`)
+            question.isLiked = !question.isLiked
+            if (question.isLiked) {
+                callSuccess(`已关注问题: ${question.questionTitle}`)
             } else {
-                callInfo(`已取消关注问题: ${question.title}`)
+                callInfo(`已取消关注问题: ${question.questionTitle}`)
             }
         }
         
         return {
             currentPage,
             pageSize,
+            total,
             searchKeyword,
             createDialogVisible,
             questionFormRef,
