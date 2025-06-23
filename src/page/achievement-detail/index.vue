@@ -67,145 +67,6 @@
                             </el-tabs>
                         </div>
                     </div>
-                    <div v-if="work.projectDetail !== null">
-                        <div class="header-container">
-                            <div class="header-title">{{modifyTitle(work.projectDetail.name)}}</div>
-                            <div class="info-container">
-                                <div class="detail-info">
-                                    <span class="info-label">作者：</span>
-                                    <span v-if="work.authorNameIdList.length === 0">anonymous</span>
-                                    <span v-for="(author, index) in work.authorNameIdList" :key="index"
-                                          class="author-link"
-                                          v-if="work.authorNameIdList.length !== 0"
-                                          @click="goToAuthor(author.id)">{{ author.name }}{{ index < work.authorNameIdList.length - 1 ? ', ' : '' }}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.projectDetail.ratificationNumber">
-                                    <span class="info-label">批准文号：</span>
-                                    <span>{{work.projectDetail.ratificationNumber}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.projectDetail.startDate && work.projectDetail.endDate">
-                                    <span class="info-label">起止时间：</span>
-                                    <span>{{work.projectDetail.startDate}}~{{work.projectDetail.endDate}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.projectDetail.institution.name">
-                                    <span class="info-label">机构：</span>
-                                    <span>{{work.projectDetail.institution.name}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.projectDetail.budget">
-                                    <span class="info-label">预算：</span>
-                                    <span>{{work.projectDetail.budget}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.subfield">
-                                    <span class="info-label">子领域：</span>
-                                    <span>{{work.subfield ? work.subfield : 未细分子领域}}</span>
-                                </div>
-                            </div>
-                            <function-bar :title="work.projectDetail.name" :work="work" :achievement-name="work.projectDetail.name"/>
-                        </div>
-                        <div class="down-container">
-                            <el-tabs
-                                v-model="activeName"
-                                type="card"
-                                class="demo-tabs"
-                                style="width: 100%">
-                                <el-tab-pane label="评论" name="first">
-                                    <comments :work="work" :userId="userId"/>
-                                </el-tab-pane>
-                            </el-tabs>
-                        </div>
-                    </div>
-                    <div v-if="work.patentDetail !== null">
-                        <div class="header-container">
-                            <div class="header-title">{{modifyTitle(work.patentDetail.name)}}</div>
-                            <div class="info-container">
-                                <div class="detail-info">
-                                    <span class="info-label">作者：</span>
-                                    <span v-if="work.authorNameIdList.length === 0">anonymous</span>
-                                    <span v-for="(author, index) in work.authorNameIdList" :key="index"
-                                          class="author-link"
-                                          v-if="work.authorNameIdList.length !== 0"
-                                          @click="goToAuthor(author.id)">{{ author.name }}{{ index < work.authorNameIdList.length - 1 ? ', ' : '' }}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.patentDetail.applicationDate">
-                                    <span class="info-label">应用时间：</span>
-                                    <span>{{work.patentDetail.applicationDate}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.patentDetail.category">
-                                    <span class="info-label">类别：</span>
-                                    <span>{{work.patentDetail.category}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.patentDetail.priority">
-                                    <span class="info-label">优先级：</span>
-                                    <span>{{work.patentDetail.priority}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.patentDetail.applicationId">
-                                    <span class="info-label">申请号：</span>
-                                    <span>{{work.patentDetail.applicationId}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.patentDetail.publicationId">
-                                    <span class="info-label">专利号：</span>
-                                    <span>{{work.patentDetail.publicationId}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.subfield">
-                                    <span class="info-label">子领域：</span>
-                                    <span>{{work.subfield ? work.subfield : 未细分子领域}}</span>
-                                </div>
-                            </div>
-                            <function-bar :title="work.patentDetail.name" :work="work" :workId="work.id" :achievement-name="work.patentDetail.name"/>
-                        </div>
-                        <div class="down-container">
-                            <div class="abstract-title">摘要</div>
-                            <div class="abstract-content" id="abstract">
-                                {{work.patentDetail.abstractText === "" ? "该学术成果无摘要" : modifyAbstract(work.patentDetail.abstractText)}}
-                            </div>
-                        </div>
-                        <div class="down-container">
-                            <el-tabs
-                                v-model="activeName"
-                                type="card"
-                                class="demo-tabs"
-                                style="width: 100%">
-                                <el-tab-pane label="评论" name="first">
-                                    <comments :work="work" :userId="userId"/>
-                                </el-tab-pane>
-                            </el-tabs>
-                        </div>
-                    </div>
-                    <div v-if="work.awardDetail !== null">
-                        <div class="header-container">
-                            <div class="header-title">{{modifyTitle(work.awardDetail.name)}}</div>
-                            <div class="info-container">
-                                <div class="detail-info">
-                                    <span class="info-label">作者：</span>
-                                    <span v-if="work.authorNameIdList.length === 0">anonymous</span>
-                                    <span v-for="(author, index) in work.authorNameIdList" :key="index"
-                                          class="author-link"
-                                          v-if="work.authorNameIdList.length !== 0"
-                                          @click="goToAuthor(author.id)">{{ author.name }}{{ index < work.authorNameIdList.length - 1 ? ', ' : '' }}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.awardDetail.awardDate">
-                                    <span class="info-label">获奖时间：</span>
-                                    <span>{{work.awardDetail.awardDate}}</span>
-                                </div>
-                                <div class="detail-info" v-if="work.subfield">
-                                    <span class="info-label">子领域：</span>
-                                    <span>{{work.subfield ? work.subfield : 未细分子领域}}</span>
-                                </div>
-                            </div>
-                            <function-bar :title="work.awardDetail.name" :work="work" :achievement-name="work.awardDetail.name"/>
-                        </div>
-                        <div class="down-container">
-                            <el-tabs
-                                v-model="activeName"
-                                type="card"
-                                class="demo-tabs"
-                                style="width: 100%">
-                                <el-tab-pane label="评论" name="first">
-                                    <comments :work="work" :userId="userId"/>
-                                </el-tab-pane>
-                            </el-tabs>
-                        </div>
-                    </div>
                 </div>
             </el-col>
             <el-col :span="6">
@@ -330,16 +191,19 @@ export default {
         };
     },
     async mounted() {
+        console.log("mounted");
         //setNav(true);
         window.scrollTo(0, 0);
-        const res = await this.pullWorkData();
-        if(res != null && (res.articleDetail || res.patentDetail || res.projectDetail || res.awardDetail))
-            this.work = res;
-        else {
-            callInfo("当前学术成果不存在，将返回首页");
-            setTimeout(() => {
-                window.location.href = "/home";
-            }, 2000);
+        if(this.$route.params.id) {
+            const res = await this.pullWorkData();
+            if (res != null && (res.articleDetail || res.patentDetail || res.projectDetail || res.awardDetail))
+                this.work = res;
+            else {
+                callInfo("当前学术成果不存在，将返回首页");
+                setTimeout(() => {
+                    window.location.href = "/home";
+                }, 2000);
+            }
         }
         this.userId = store.getters.getId;
     },
