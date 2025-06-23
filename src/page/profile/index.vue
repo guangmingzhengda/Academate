@@ -127,7 +127,7 @@
                             </div>
                             <div class="card-content">
                                 <div class="info-item research-fields">
-                                    <span class="info-label">主要研究方向：</span>
+                                    <span class="info-label">主要研究领域：</span>
                                     <div class="research-tags">
                                         <div v-for="field in userInfo.research.fields" :key="field" class="research-tag">
                                             {{ field }}

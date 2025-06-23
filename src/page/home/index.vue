@@ -37,7 +37,10 @@
                                     class="project-item"
                                 >
                                     <div class="project-info">
-                                        <div class="project-title">{{ project.name }}</div>
+                                        <div class="project-title-row">
+                                            <div class="project-title">{{ project.name }}</div>
+                                            <img :src="getRandomIcon()" alt="项目图标" class="project-icon" />
+                                        </div>
                                         <div class="project-desc">{{ project.description }}</div>
                                         <div class="project-meta">
                                             <div class="meta-row">
@@ -333,6 +336,19 @@ export default {
             achievementCurrentPage.value = page;
         };
 
+        // 随机图标函数
+        const getRandomIcon = () => {
+            const icons = [
+                'beveled-star.png',
+                'cursed-star.png', 
+                'night-sky.png',
+                'polar-star.png',
+                'star-swirl.png'
+            ];
+            const randomIndex = Math.floor(Math.random() * icons.length);
+            return require(`@/asset/home/${icons[randomIndex]}`);
+        };
+
         onMounted(async () => {
             // 设置导航状态
             //setNav(false);
@@ -352,7 +368,10 @@ export default {
             achievementPageSize,
             currentPageAchievements,
             typeLabels,
-            handleAchievementPageChange
+            handleAchievementPageChange,
+            
+            // 工具函数
+            getRandomIcon
         };
 
     }
@@ -485,17 +504,38 @@ export default {
     border-color: #409eff;
 }
 
+.project-item:hover .project-icon {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
 .project-info {
     flex: 1;
 }
 
+.project-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 6px;
+}
+
 .project-title {
     font-family: 'Meiryo', sans-serif;
-    font-size: 15px;
+    font-size: 20px;
     font-weight: bold;
     color: #2c3e50;
-    margin-bottom: 6px;
     text-align: left;
+}
+
+.project-icon {
+    width: 22px;
+    height: 22px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-left: 8px;
+    opacity: 0.8;
+    transition: all 0.3s ease;
 }
 
 .project-desc {

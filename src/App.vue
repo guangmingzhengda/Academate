@@ -26,8 +26,16 @@
             <div v-if="unreadCount > 0" class="message-badge">{{ unreadCount }}</div>
         </div>
 
+        <!-- 聊天功能触发按钮 -->
+        <div class="chat-trigger-btn" @click="openChat">
+            <el-icon><ChatDotRound /></el-icon>
+        </div>
+
         <!-- 消息侧边栏 -->
-        <message-sidebar :visible="sidebarVisible" @close="closeSidebar" />
+        <message-sidebar :visible="sidebarVisible" @close="closeSidebar" @unread-count-update="updateUnreadCount" />
+
+        <!-- 聊天窗口 -->
+        <chat-window v-if="chatVisible" @close="closeChat" />
 
 <!--        <router-view/>-->
 
@@ -43,18 +51,21 @@ import {callError, callInfo} from "@/call";
 import {canUseAI} from "@/api/ai";
 import TestAI from "@/page/achievement-detail/testAI/index.vue";
 import MessageSidebar from "@/components/MessageSidebar.vue";
-import { ChatLineRound } from '@element-plus/icons-vue';
+import ChatWindow from "@/page/chat/index.vue";
+import { ChatLineRound, ChatDotRound } from '@element-plus/icons-vue';
 
 export default {
     name: 'App',
-    components: {TestAI, navigator, MessageSidebar},
+    components: {TestAI, navigator, MessageSidebar, ChatWindow},
     setup() {
         const navOpen = computed(() => store.state.navOpen);
         const tokenSet = computed(() => store.state.token);
         const vipSet = computed(() => store.state.vipSet);
         const padSet = ref(true);
         const sidebarVisible = ref(false);
+        const chatVisible = ref(false);
         const unreadCount = ref(2); // 模拟未读消息数量
+
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');
@@ -90,17 +101,34 @@ export default {
             sidebarVisible.value = false;
         }
 
+
+        const openChat = () => {
+            chatVisible.value = true;
+        }
+
+        const closeChat = () => {
+            chatVisible.value = false;
+        }
+
+        const updateUnreadCount = (count) => {
+            unreadCount.value = count;
+        }
+
         return {
             navOpen,
             tokenSet,
             vipSet,
             padSet,
             sidebarVisible,
+            chatVisible,
             unreadCount,
             tokenInfo,
             countEvent,
             openMessageSidebar,
-            closeSidebar
+            closeSidebar,
+            openChat,
+            closeChat,
+            updateUnreadCount
         }
     }
 }
@@ -149,7 +177,7 @@ export default {
 .message-trigger-btn {
     position: fixed;
     right: 30px;
-    bottom: 30px;
+    bottom: 100px;
     width: 56px;
     height: 56px;
     background-color: #409eff;
@@ -189,6 +217,35 @@ export default {
     font-size: 12px;
     font-weight: bold;
     border: 2px solid white;
+}
+
+/* 聊天功能触发按钮样式 */
+.chat-trigger-btn {
+    position: fixed;
+    right: 30px;
+    bottom: 30px;
+    width: 56px;
+    height: 56px;
+    background-color: #67c23a;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(103, 194, 58, 0.4);
+    transition: all 0.3s ease;
+    z-index: 999;
+}
+
+.chat-trigger-btn:hover {
+    background-color: #5daf34;
+    transform: scale(1.1);
+    box-shadow: 0 6px 16px rgba(103, 194, 58, 0.6);
+}
+
+.chat-trigger-btn .el-icon {
+    font-size: 24px;
+    color: white;
 }
 
 </style>
