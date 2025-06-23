@@ -33,7 +33,7 @@ const router = createRouter({
 
         //专家知识网络
         {
-            path: '/graph/:id',
+            path: '/graph',
             name: 'graph',
             component: defineAsyncComponent(() => import(`../page/graph/index.vue`)),
         },
