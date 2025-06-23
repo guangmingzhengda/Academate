@@ -1,4 +1,5 @@
 <template>
+    <div class="bg-container"/>
     <div style="height: 100vh; width: 100%; display: flex; flex-direction: column;">
         <div style="position: relative; width: 100%; height: 100%; flex-grow: 1;">
 
@@ -97,8 +98,8 @@ export default {
         let allLinks = [];
 
         const categories = [
-            { name: "科研人员", itemStyle: { color: "#00aaff" } },
-            { name: "机构", itemStyle: { color: "#ff8c00" } },
+            { name: "科研人员", itemStyle: { color: "#4B9EFF" } },
+            { name: "机构", itemStyle: { color: "#FF7043" } },
         ];
 
         const onNodeHover = (params) => {
@@ -230,17 +231,40 @@ export default {
                         bottom: 20,
                         left: 'center',
                         textStyle: {
-                            color: '#333'
-                        }
+                            color: '#333',
+                            fontSize: 14,
+                            // fontWeight: 'bold'
+                        },
+                        itemWidth: 38,
+                        itemHeight: 22,
                     }],
                     series: [{
                         type: "graph",
                         layout: "force",
                         data: nodes.map(node => ({
                             ...node,
-                            symbolSize: Math.max(50, Math.min(100, node.influence / 4)), // 对数缩放，最小25最大80
-                            itemStyle: categories[node.category].itemStyle,
-                            draggable: true // 允许拖动
+                            symbolSize: Math.max(60, Math.min(110, node.influence / 3)),
+                            itemStyle: node.category === 0 ? {
+                                borderColor: '#fff',
+                                borderWidth: 2,
+                                shadowBlur: 18,
+                                shadowColor: 'rgba(0,0,0,0.18)',
+                                color: '#4B9EFF',
+                            } : {
+                                borderColor: '#fff',
+                                borderWidth: 2,
+                                color: {
+                                    type: 'linear',
+                                    x: 0, y: 1, x2: 0, y2: 0,
+                                    colorStops: [
+                                        { offset: 0, color: '#FF7043' },
+                                        { offset: 1, color: '#ffcc80' }
+                                    ]
+                                },
+                                shadowBlur: 12,
+                                shadowColor: 'rgba(255,180,71,0.18)'
+                            },
+                            draggable: true
                         })),
                         links: links,
                         categories: categories,
@@ -249,27 +273,39 @@ export default {
                             show: true,
                             position: "right",
                             formatter: "{b}",
-                            fontSize: 16,
-                            // 自动避让，ECharts 5+ 支持
+                            fontSize: 15,
+                            fontWeight: 'bold',
+                            color: '#3a3a3a',
+                            textBorderColor: '#fff',
+                            textBorderWidth: 2,
                             layout: {
                                 hideOverlap: true
                             }
                         },
                         force: {
-                            repulsion: 400, // 增大斥力，节点更分散
-                            edgeLength: [120, 180], // 增大连线长度
-                            gravity: 0.05
+                            repulsion: 500,
+                            edgeLength: [140, 200],
+                            gravity: 0.04
                         },
                         emphasis: {
                             focus: 'adjacency',
                             lineStyle: {
-                                width: 10
+                                width: 12,
+                                color: '#7ec8e3',
+                                opacity: 0.7
+                            },
+                            itemStyle: {
+                                shadowBlur: 30,
+                                shadowColor: 'rgba(30,144,255,0.45)',
+                                borderColor: '#fff',
+                                borderWidth: 2
                             }
                         },
                         lineStyle: {
-                            color: 'source',
-                            curveness: 0.01, // 曲线，减少与文字重叠
-                            opacity: 0.7
+                            color: '#8CACCD',
+                            curveness: 0.08,
+                            opacity: 0.55,
+                            width: 4
                         }
                     },
                 ],
@@ -407,6 +443,15 @@ export default {
 </script>
 
 <style scoped>
+.bg-container {
+    background: #fbfbfb;
+    position: fixed;
+    height: 100vh;
+    width: 100vw;
+    z-index: -3;
+    top: 0;
+    left: 0;
+}
 .w2{
     width: 20%;
     transition: width 0.3s ease-in-out;

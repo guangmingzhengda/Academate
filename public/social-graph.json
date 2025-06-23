@@ -19,11 +19,11 @@
     { "id": "17", "name": "Alex Kim", "institution": "MIT", "influence": 180, "category": 0, "field": "材料科学" },
     { "id": "18", "name": "李明", "institution": "复旦大学", "influence": 125, "category": 0, "field": "计算机视觉" },
 
-    { "id": "清华大学", "name": "清华大学", "influence": 650, "category": 1 },
-    { "id": "北京大学", "name": "北京大学", "influence": 615, "category": 1 },
-    { "id": "复旦大学", "name": "复旦大学", "influence": 425, "category": 1 },
-    { "id": "Stanford University", "name": "Stanford University", "influence": 650, "category": 1 },
-    { "id": "MIT", "name": "MIT", "influence": 540, "category": 1 }
+    { "id": "清华大学", "name": "清华大学", "influence": 250, "category": 1 },
+    { "id": "北京大学", "name": "北京大学", "influence": 215, "category": 1 },
+    { "id": "复旦大学", "name": "复旦大学", "influence": 225, "category": 1 },
+    { "id": "Stanford University", "name": "Stanford University", "influence": 250, "category": 1 },
+    { "id": "MIT", "name": "MIT", "influence": 290, "category": 1 }
   ],
   "links": [
     { "source": "1", "target": "3" },
