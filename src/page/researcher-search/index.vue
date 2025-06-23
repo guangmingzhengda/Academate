@@ -98,7 +98,12 @@
                     <!-- 右侧搜索结果 -->
                     <div class="results-content">
                         <div class="results-list">
-                            <div v-if="currentPageResearchers.length === 0" class="empty-state">
+                            <div v-if="loading" class="loading-state">
+                                <el-icon class="loading-icon"><Loading /></el-icon>
+                                <div class="loading-text">正在搜索中...</div>
+                            </div>
+                            
+                            <div v-else-if="currentPageResearchers.length === 0" class="empty-state">
                                 <el-icon class="empty-icon"><Search /></el-icon>
                                 <div class="empty-text">暂无符合条件的科研人员</div>
                                 <div class="empty-desc">请尝试调整搜索条件</div>
@@ -164,10 +169,10 @@
                             <!-- 分页 -->
                             <div class="pagination-container">
                                 <el-pagination
-                                    v-if="filteredResearchers.length > pageSize"
+                                    v-if="totalCount > pageSize"
                                     v-model:current-page="currentPage"
                                     :page-size="pageSize"
-                                    :total="filteredResearchers.length"
+                                    :total="totalCount"
                                     layout="prev, pager, next, jumper"
                                     class="pagination"
                                     @current-change="handlePageChange"
@@ -224,8 +229,9 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { Refresh, Search, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { searchResearchers, UserSearchRequest, PageResultUserDetailVO, UserDetailVO } from '@/api/search'
 
 export default {
     name: "researcher-search",
@@ -247,6 +253,12 @@ export default {
         const currentPage = ref(1)
         const pageSize = ref(5)
 
+        // 加载状态
+        const loading = ref(false)
+
+        // 搜索结果数据
+        const searchResults = ref(null)
+
         // 私信相关
         const messageDialogVisible = ref(false)
         const selectedResearcher = ref(null)
@@ -264,193 +276,101 @@ export default {
             '软件工程', '数据库', '分布式系统', '算法设计', '生物信息学'
         ])
 
-
-
-        // 科研人员数据
-        const allResearchers = ref([
-            {
-                id: 1,
-                name: '张三',
-                title: '教授',
-                organization: '清华大学',
-                email: 'zhangsan@tsinghua.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['人工智能', '机器学习', '深度学习'],
-                education: '博士',
-                paperCount: 156,
-                followersCount: 2340,
-                impactFactor: 8.5,
-                hIndex: 45,
-                isFollowing: false,
-                recentAchievements: [
-                    { id: 1, title: 'Deep Learning for Computer Vision Applications', journal: 'Nature AI', year: 2024 },
-                    { id: 2, title: 'Advanced Machine Learning Algorithms', journal: 'Science', year: 2023 }
-                ]
-            },
-            {
-                id: 2,
-                name: '李四',
-                title: '副教授',
-                organization: '北京大学',
-                email: 'lisi@pku.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['自然语言处理', '计算机视觉'],
-                education: '博士',
-                paperCount: 89,
-                followersCount: 1560,
-                impactFactor: 6.2,
-                hIndex: 32,
-                isFollowing: true,
-                recentAchievements: [
-                    { id: 3, title: 'Natural Language Processing in Healthcare', journal: 'ACL', year: 2024 }
-                ]
-            },
-            {
-                id: 3,
-                name: '王五',
-                title: '研究员',
-                organization: '中科院',
-                email: 'wangwu@cas.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['数据挖掘', '区块链', '网络安全'],
-                education: '博士',
-                paperCount: 134,
-                followersCount: 1890,
-                impactFactor: 7.3,
-                hIndex: 38,
-                isFollowing: false,
-                recentAchievements: [
-                    { id: 4, title: 'Blockchain Security and Privacy Protection', journal: 'IEEE Security', year: 2024 },
-                    { id: 5, title: 'Data Mining Techniques for Big Data', journal: 'TKDE', year: 2023 }
-                ]
-            },
-            {
-                id: 4,
-                name: '赵六',
-                title: '教授',
-                organization: '复旦大学',
-                email: 'zhaoliu@fudan.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['云计算', '分布式系统'],
-                education: '博士',
-                paperCount: 201,
-                followersCount: 3120,
-                impactFactor: 9.1,
-                hIndex: 52,
-                isFollowing: false,
-                recentAchievements: [
-                    { id: 6, title: 'Distributed Computing in Cloud Environments', journal: 'TPDS', year: 2024 }
-                ]
-            },
-            {
-                id: 5,
-                name: '陈七',
-                title: '副教授',
-                organization: '上海交大',
-                email: 'chenqi@sjtu.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['物联网', '嵌入式系统'],
-                education: '博士',
-                paperCount: 67,
-                followersCount: 980,
-                impactFactor: 5.4,
-                hIndex: 25,
-                isFollowing: false,
-                recentAchievements: [
-                    { id: 7, title: 'IoT Security and Privacy in Smart Cities', journal: 'IoT Journal', year: 2024 }
-                ]
-            },
-            {
-                id: 6,
-                name: '刘八',
-                title: '讲师',
-                organization: '浙江大学',
-                email: 'liuba@zju.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['软件工程', '算法设计'],
-                education: '博士',
-                paperCount: 45,
-                followersCount: 650,
-                impactFactor: 4.2,
-                hIndex: 18,
-                isFollowing: true,
-                recentAchievements: [
-                    { id: 8, title: 'Advanced Software Engineering Practices', journal: 'TSE', year: 2023 }
-                ]
-            }
-        ])
-
-        // 过滤后的科研人员列表
-        const filteredResearchers = ref([...allResearchers.value])
-
         // 当前页的科研人员
         const currentPageResearchers = computed(() => {
-            const start = (currentPage.value - 1) * pageSize.value
-            const end = start + pageSize.value
-            return filteredResearchers.value.slice(start, end)
+            if (!searchResults.value || !searchResults.value.list) {
+                return []
+            }
+            return searchResults.value.list
         })
 
-        // 过滤科研人员
+        // 总数
+        const totalCount = computed(() => {
+            return searchResults.value?.total || 0
+        })
+
+        // 搜索科研人员（调用后端API）
+        const performSearch = async () => {
+            loading.value = true
+            
+            try {
+                const searchParams = {
+                    userName: searchFilters.value.keyword || '',
+                    field: searchFilters.value.researchField || '',
+                    researchTitle: searchFilters.value.achievementTitle || '',
+                    institution: searchFilters.value.organization || '',
+                    current: currentPage.value,
+                    pageSize: pageSize.value
+                }
+
+                const result = await searchResearchers(searchParams)
+                
+                if (result) {
+                    searchResults.value = result
+                    // 转换数据格式以适配现有UI
+                    if (result.list) {
+                        result.list = result.list.map(user => ({
+                            ...user,
+                            name: user.account, // 使用account作为name
+                            title: user.field || '研究员', // 使用field作为title
+                            organization: user.institution || '',
+                            email: user.email || '',
+                            researchFields: user.field ? [user.field] : [],
+                            isFollowing: false, // 默认未关注
+                            recentAchievements: user.researchOutcomes || []
+                        }))
+                    }
+                } else {
+                    searchResults.value = {
+                        pageNum: 1,
+                        pageSize: pageSize.value,
+                        total: 0,
+                        list: []
+                    }
+                }
+            } catch (error) {
+                console.error('搜索失败:', error)
+                ElMessage.error('搜索失败，请重试')
+                searchResults.value = {
+                    pageNum: 1,
+                    pageSize: pageSize.value,
+                    total: 0,
+                    list: []
+                }
+            } finally {
+                loading.value = false
+            }
+        }
+
+        // 过滤科研人员（改为调用API）
         const filterResearchers = () => {
-            let filtered = [...allResearchers.value]
-
-            // 关键词过滤
-            if (searchFilters.value.keyword) {
-                const keyword = searchFilters.value.keyword.toLowerCase()
-                filtered = filtered.filter(researcher =>
-                    researcher.name.toLowerCase().includes(keyword) ||
-                    researcher.researchFields.some(field => field.toLowerCase().includes(keyword))
-                )
-            }
-
-            // 成果题目过滤
-            if (searchFilters.value.achievementTitle) {
-                const title = searchFilters.value.achievementTitle.toLowerCase()
-                filtered = filtered.filter(researcher =>
-                    researcher.recentAchievements.some(achievement =>
-                        achievement.title.toLowerCase().includes(title)
-                    )
-                )
-            }
-
-            // 机构过滤
-            if (searchFilters.value.organization) {
-                filtered = filtered.filter(researcher =>
-                    researcher.organization === searchFilters.value.organization
-                )
-            }
-
-            // 研究领域过滤
-            if (searchFilters.value.researchField) {
-                filtered = filtered.filter(researcher =>
-                    researcher.researchFields.includes(searchFilters.value.researchField)
-                )
-            }
-
-            filteredResearchers.value = filtered
             currentPage.value = 1 // 重置到第一页
+            performSearch()
         }
 
         // 排序科研人员
         const sortResearchers = () => {
-            let sorted = [...filteredResearchers.value]
+            // 排序逻辑暂时保留本地排序，后续可以改为后端排序
+            if (!searchResults.value || !searchResults.value.list) return
+            
+            let sorted = [...searchResults.value.list]
 
             switch (sortBy.value) {
                 case 'papers':
-                    sorted.sort((a, b) => b.paperCount - a.paperCount)
+                    sorted.sort((a, b) => (b.researchOutcomes?.length || 0) - (a.researchOutcomes?.length || 0))
                     break
                 case 'followers':
-                    sorted.sort((a, b) => b.followersCount - a.followersCount)
+                    // 暂时无法排序，因为API没有返回关注者数量
                     break
                 case 'impact':
-                    sorted.sort((a, b) => b.impactFactor - a.impactFactor)
+                    // 暂时无法排序，因为API没有返回影响因子
                     break
                 default:
                     // 默认排序，保持原顺序
                     break
             }
 
-            filteredResearchers.value = sorted
+            searchResults.value.list = sorted
         }
 
         // 重置筛选条件
@@ -462,18 +382,16 @@ export default {
                 researchField: ''
             }
             sortBy.value = 'default'
-            filteredResearchers.value = [...allResearchers.value]
             currentPage.value = 1
+            performSearch() // 重新搜索
         }
 
         // 关注/取消关注
         const toggleFollow = (researcher) => {
             researcher.isFollowing = !researcher.isFollowing
             if (researcher.isFollowing) {
-                researcher.followersCount++
                 ElMessage.success(`已关注 ${researcher.name}`)
             } else {
-                researcher.followersCount--
                 ElMessage.info(`已取消关注 ${researcher.name}`)
             }
         }
@@ -506,6 +424,7 @@ export default {
         // 分页处理
         const handlePageChange = (page) => {
             currentPage.value = page
+            performSearch()
         }
 
         // 生成随机颜色
@@ -518,18 +437,24 @@ export default {
             return colors[id % colors.length]
         }
 
+        // 页面加载时执行初始搜索
+        onMounted(() => {
+            performSearch()
+        })
+
         return {
             searchFilters,
             sortBy,
             currentPage,
             pageSize,
+            loading,
             messageDialogVisible,
             selectedResearcher,
             messageContent,
             organizations,
             researchFields,
-            filteredResearchers,
             currentPageResearchers,
+            totalCount,
             filterResearchers,
             sortResearchers,
             resetFilters,
@@ -660,11 +585,41 @@ export default {
     background: white;
     border: 1px solid #e0e0e0;
     padding: 20px;
+    min-height: 600px; /* 确保与左边图片+卡片高度匹配 */
+    display: flex;
+    flex-direction: column;
+}
+
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: #409eff;
+}
+
+.loading-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    font-size: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .empty-state {
-    text-align: center;
-    padding: 60px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
     color: #999;
 }
 
