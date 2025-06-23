@@ -77,19 +77,19 @@ export async function delete_favourite_list(data: {
 }
 //获取个人信息
 export async function getUserAuthorId(id: number): Promise<any> {
-  try {
-    const response = await axios.get(`/user/info?id=${id}`);
-    if (response.status === 200) {
-      // callSuccess("fetch userAuthorId successfully");
-      return response.data.data;
-    } else {
-      //callError("Failed to fetch userAuthorId:" + response.status);
-      return Promise.reject("Failed to fetch userAuthorId:" + response.status);
-    }
-  } catch (error) {
-    //callError("Error fetching userAuthorId:" + error);
-    return Promise.reject("Error fetching userAuthorId:" + error);
-  }
+  // try {
+  //   const response = await axios.get(`/user/info?id=${id}`);
+  //   if (response.status === 200) {
+  //     // callSuccess("fetch userAuthorId successfully");
+  //     return response.data.data;
+  //   } else {
+  //     //callError("Failed to fetch userAuthorId:" + response.status);
+  //     return Promise.reject("Failed to fetch userAuthorId:" + response.status);
+  //   }
+  // } catch (error) {
+  //   //callError("Error fetching userAuthorId:" + error);
+  //   return Promise.reject("Error fetching userAuthorId:" + error);
+  // }
 }
 //上传头像
 export async function post_avatar(): Promise<any> {

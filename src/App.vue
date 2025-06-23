@@ -21,13 +21,13 @@
         </div>
 
         <!-- 消息侧边栏触发按钮 -->
-        <div class="message-trigger-btn" @click="openMessageSidebar">
+        <div v-if="tokenSet" class="message-trigger-btn" @click="openMessageSidebar">
             <el-icon><ChatLineRound /></el-icon>
             <div v-if="unreadCount > 0" class="message-badge">{{ unreadCount }}</div>
         </div>
 
         <!-- 聊天功能触发按钮 -->
-        <div class="chat-trigger-btn" @click="openChat">
+        <div v-if="tokenSet" class="chat-trigger-btn" @click="openChat">
             <el-icon><ChatDotRound /></el-icon>
         </div>
 
@@ -48,7 +48,6 @@ import navigator from "@/nav/index.vue";
 import {computed, ref} from "vue";
 import store from "@/store";
 import {callError, callInfo} from "@/call";
-import {canUseAI} from "@/api/ai";
 import TestAI from "@/page/achievement-detail/testAI/index.vue";
 import MessageSidebar from "@/components/MessageSidebar.vue";
 import ChatWindow from "@/page/chat/index.vue";
@@ -65,7 +64,6 @@ export default {
         const sidebarVisible = ref(false);
         const chatVisible = ref(false);
         const unreadCount = ref(2); // 模拟未读消息数量
-
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');

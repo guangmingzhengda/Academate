@@ -13,14 +13,6 @@
             </div>
             <div class="header-right">
                 <el-button 
-                    v-if="currentView === 'friends'"
-                    type="text" 
-                    @click="backToChat"
-                    class="back-btn"
-                >
-                    <el-icon><ArrowLeft /></el-icon>
-                </el-button>
-                <el-button 
                     type="text" 
                     @click="toggleFullscreen"
                     class="fullscreen-btn"
@@ -80,12 +72,20 @@
             <!-- 好友列表 -->
             <div class="friends-list" v-if="currentView === 'friends'">
                 <div class="list-header">
-                    <h3>好友列表</h3>
+                    <el-button 
+                        type="text" 
+                        @click="backToChat"
+                        class="back-btn"
+                        style="margin-right: 4px;"
+                    >
+                        <el-icon><ArrowLeft /></el-icon>
+                    </el-button>
+                    <h3 style="margin: 0;">好友列表</h3>
                     <el-input
                         v-model="searchKeyword"
                         placeholder="搜索好友..."
                         size="small"
-                        style="width: 150px;"
+                        style="width: 150px; margin-left: auto;"
                     >
                         <template #prefix>
                             <el-icon><Search /></el-icon>
@@ -118,7 +118,11 @@
             <div class="chat-window">
                 <div v-if="currentConversation && currentView === 'chat'" class="chat-content">
                     <!-- 聊天记录区域 -->
-                    <div class="messages-container" ref="messagesContainer">
+                    <div 
+                        class="messages-container"
+                        :class="{ 'fullscreen-messages': isFullscreen }"
+                        ref="messagesContainer"
+                    >
                         <div 
                             v-for="message in currentConversation.messages" 
                             :key="message.id"
@@ -141,7 +145,10 @@
                     </div>
 
                     <!-- 输入区域 -->
-                    <div class="input-area">
+                    <div 
+                        class="input-area"
+                        :class="{ 'fullscreen-input': isFullscreen }"
+                    >
                         <div class="input-container">
                             <el-input
                                 v-model="messageInput"
@@ -552,6 +559,34 @@ const scrollToBottom = () => {
     }
 }
 
+// 聊天窗口整体拦截滚轮
+const handleChatWheel = (e) => {
+    // 判断是否在消息区
+    const el = messagesContainer.value
+    if (el && el.contains(e.target)) {
+        // 在消息区，执行消息区滚动逻辑
+        const { scrollTop, scrollHeight, clientHeight } = el
+        const delta = e.deltaY
+        if (
+            (delta < 0 && scrollTop === 0) ||
+            (delta > 0 && scrollTop + clientHeight >= scrollHeight)
+        ) {
+            // 已经到顶或到底，消息区不滚动
+            e.preventDefault()
+            e.stopPropagation()
+            return
+        }
+        // 阻止主页面滚动，自己滚
+        e.preventDefault()
+        e.stopPropagation()
+        el.scrollTop += delta
+    } else {
+        // 不在消息区，阻止主页面滚动，但不做任何滚动
+        e.preventDefault()
+        e.stopPropagation()
+    }
+}
+
 // 生命周期
 onMounted(() => {
     // 默认选择第一个对话
@@ -564,12 +599,28 @@ onMounted(() => {
     const maxY = window.innerHeight - 600
     chatX.value = Math.max(0, maxX / 2)
     chatY.value = Math.max(0, maxY / 2)
+
+    if (messagesContainer.value) {
+        messagesContainer.value.addEventListener('wheel', handleChatWheel, { passive: false })
+    }
+
+    if (chatContainer.value) {
+        chatContainer.value.addEventListener('wheel', handleChatWheel, { passive: false })
+    }
 })
 
 onUnmounted(() => {
     // 清理事件监听
     document.removeEventListener('mousemove', onDrag)
     document.removeEventListener('mouseup', stopDrag)
+
+    if (messagesContainer.value) {
+        messagesContainer.value.removeEventListener('wheel', handleChatWheel)
+    }
+
+    if (chatContainer.value) {
+        chatContainer.value.removeEventListener('wheel', handleChatWheel)
+    }
 })
 </script>
 
@@ -720,6 +771,7 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: left;
 }
 
 .last-message,
@@ -729,6 +781,7 @@ onUnmounted(() => {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: left;
 }
 
 .conversation-meta,
@@ -769,19 +822,30 @@ onUnmounted(() => {
     flex: 1;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    min-width: 0;
 }
 
 .chat-content {
     flex: 1;
     display: flex;
     flex-direction: column;
+    height: 100%;
+    min-height: 0;
 }
 
 .messages-container {
-    flex: 1;
+    flex: 1 1 0;
+    min-height: 0;
+    max-height: 350px;
     padding: 20px;
     overflow-y: auto;
     background: #fafafa;
+    transition: max-height 0.3s;
+}
+
+.fullscreen-messages {
+    max-height: 70vh;
 }
 
 .message-item {
@@ -813,6 +877,7 @@ onUnmounted(() => {
     max-width: 60%;
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
 }
 
 .message-mine .message-content {
@@ -828,11 +893,13 @@ onUnmounted(() => {
     line-height: 1.4;
     font-size: 14px;
     color: #303133;
+    text-align: left;
 }
 
 .message-mine .message-bubble {
     background: #409eff;
     color: white;
+    text-align: left;
 }
 
 .message-time {
@@ -851,6 +918,12 @@ onUnmounted(() => {
     padding: 16px 20px;
     border-top: 1px solid #e4e7ed;
     background: white;
+    flex-shrink: 0;
+    transition: padding 0.3s;
+}
+
+.fullscreen-input {
+    padding: 8px 20px;
 }
 
 .input-container {
