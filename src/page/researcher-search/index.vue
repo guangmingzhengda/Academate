@@ -282,7 +282,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Refresh, Search, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { search_researchers } from '@/api/profile'
-import { followUser, unfollowUser } from '@/api/follow'
+import { followUser, unfollowUser, getFollowedUsers } from '@/api/follow'
 import store from '@/store'
 
 export default {
@@ -319,6 +319,20 @@ export default {
         // 当前用户ID（从store获取）
         const currentUserId = computed(() => store.getters.getData.id)
 
+        // 当前用户已关注的用户id集合
+        const followedUserIds = ref(new Set())
+
+        // 获取当前用户关注的所有用户id（一次性拉取全部，假设最多1000）
+        const fetchFollowedUserIds = async () => {
+            if (!currentUserId.value) return;
+            const res = await getFollowedUsers(currentUserId.value, 1, 1000)
+            if (res && Array.isArray(res.records)) {
+                followedUserIds.value = new Set(res.records.map(u => u.userId))
+            } else {
+                followedUserIds.value = new Set()
+            }
+        }
+
         // 获取科研人员数据
         const fetchResearchers = async () => {
             loading.value = true
@@ -331,20 +345,19 @@ export default {
                     current: currentPage.value,
                     pageSize: pageSize.value
                 }
-
-                // 移除undefined的字段
                 Object.keys(searchData).forEach(key => {
                     if (searchData[key] === undefined) {
                         delete searchData[key]
                     }
                 })
-
                 const result = await search_researchers(searchData)
                 if (result) {
-                    researchers.value = result.list
+                    // 标记isFollowing
+                    researchers.value = result.list.map(user => ({
+                        ...user,
+                        isFollowing: followedUserIds.value.has(user.id)
+                    }))
                     total.value = result.total
-                    console.log(researchers.value)
-                    // 动态更新筛选选项
                     updateFilterOptions(result.list)
                 } else {
                     researchers.value = []
@@ -403,10 +416,16 @@ export default {
         const toggleFollow = async (researcher) => {
             if (researcher.isFollowing) {
                 const ok = await unfollowUser(researcher.id)
-                if (ok) researcher.isFollowing = false
+                if (ok) {
+                    researcher.isFollowing = false
+                    followedUserIds.value.delete(researcher.id)
+                }
             } else {
                 const ok = await followUser(researcher.id)
-                if (ok) researcher.isFollowing = true
+                if (ok) {
+                    researcher.isFollowing = true
+                    followedUserIds.value.add(researcher.id)
+                }
             }
         }
 
@@ -451,20 +470,15 @@ export default {
             return colors[id % colors.length]
         }
 
-        // 监听搜索条件变化，实现实时搜索
-        watch(searchFilters, () => {
-            // 使用防抖，避免频繁请求
-            clearTimeout(searchTimeout.value)
-            searchTimeout.value = setTimeout(() => {
-                searchResearchers()
-            }, 500)
+        // 监听关注列表变化，或搜索条件变化时重新拉取
+        watch([followedUserIds, searchFilters], () => {
+            fetchResearchers()
         }, { deep: true })
 
-        const searchTimeout = ref(null)
-
-        // 组件挂载时获取数据
-        onMounted(() => {
-            fetchResearchers()
+        // 组件挂载时拉取关注列表和科研人员
+        onMounted(async () => {
+            await fetchFollowedUserIds()
+            await fetchResearchers()
         })
 
         return {
@@ -487,7 +501,8 @@ export default {
             sendPrivateMessage,
             handlePageChange,
             getRandomColor,
-            currentUserId
+            currentUserId,
+            followedUserIds
         }
     }
 }
@@ -848,7 +863,7 @@ export default {
 .info-row {
     display: flex;
     align-items: top;
-    font-size: 13px;
+    font-size: 14px;
     color: #444;
     min-width: 180px;
     margin-top: 2px;
@@ -955,6 +970,7 @@ export default {
     font-size: 14px;
     color: #999;
     text-align: center;
+    margin-top: 5px;
 }
 
 .avatar-img {
