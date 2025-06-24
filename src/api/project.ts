@@ -53,6 +53,8 @@ export async function agree_project_invite(data: {
     messageId: number
 }): Promise<boolean> {
     try {
+        console.log('同意项目邀请请求数据:', data);
+        
         const response = await axios.post('/project/agree', null, {
             params: {
                 projectId: data.projectId,
@@ -63,19 +65,28 @@ export async function agree_project_invite(data: {
             }
         });
         
+        console.log('同意项目邀请响应:', response.data);
+        
         if (response.status === 200) {
             if (response.data.code == 0) {
                 return true;
             } else {
-                callError(response.data.message);
+                callError(response.data.message || '同意失败');
                 return false;
             }
         } else {
             callError('网络错误');
             return false;
         }
-    } catch (error) {
-        callError('网络错误或服务器异常');
+    } catch (error: any) {
+        console.error('同意项目邀请错误:', error);
+        if (error.response) {
+            callError(error.response.data?.message || '同意失败');
+        } else if (error.request) {
+            callError('网络连接错误');
+        } else {
+            callError('同意失败，请重试');
+        }
         return false;
     }
 }
@@ -139,5 +150,65 @@ export async function get_user_projects(userId: number): Promise<any[]> {
     } catch (error) {
         callError('网络错误或服务器异常');
         return [];
+    }
+}
+
+/*
+拒绝项目邀请（申请）：对接前端 components/MessageSidebar.vue
+POST
+url: project/reject
+请求数据类型：application/x-www-form-urlencoded
+
+参数名称 请求类型 是否必须 数据类型
+messageId query true integer(int64)
+senderId query true integer(int64)
+
+返回示例：
+{
+	"code": 0,
+	"data": {},
+	"message": ""
+}
+*/
+export async function reject_project_invite(data: {
+    messageId: number,
+    senderId: number
+}): Promise<boolean> {
+    try {
+        console.log('拒绝项目邀请请求数据:', data);
+        
+        const response = await axios.post('/project/reject', null, {
+            params: {
+                messageId: data.messageId,
+                senderId: data.senderId
+            },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        
+        console.log('拒绝项目邀请响应:', response.data);
+        
+        if (response.status === 200) {
+            if (response.data.code == 0) {
+                return true;
+            } else {
+                callError(response.data.message || '拒绝失败');
+                return false;
+            }
+        } else {
+            callError('网络错误');
+            return false;
+        }
+    } catch (error: any) {
+        console.error('拒绝项目邀请错误:', error);
+        if (error.response) {
+            callError(error.response.data?.message || '拒绝失败');
+        } else if (error.request) {
+            callError('网络连接错误');
+        } else {
+            callError('拒绝失败，请重试');
+        }
+        return false;
     }
 }

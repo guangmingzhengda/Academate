@@ -21,9 +21,9 @@
                         class="message-item"
                         :class="{ 'unread': !message.read }"
                     >
-                        <div class="message-avatar">
-                            <img :src="message.avatar" :alt="message.sender" />
-                        </div>
+                                        <div class="message-avatar">
+                    <img :src="message.avatar" :alt="message.sender" @error="handleAvatarError" />
+                </div>
                         <div class="message-content">
                             <div class="message-header">
                                 <span class="sender-name">{{ message.sender }}</span>
@@ -95,7 +95,8 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Close } from '@element-plus/icons-vue'
-import { agree_project_invite } from '@/api/project'
+import { agree_project_invite, reject_project_invite } from '@/api/project'
+import { pullAllMessages, MessageVO } from '@/api/msg'
 import { callSuccess, callError } from '@/call'
 import store from '@/store'
 
@@ -235,23 +236,31 @@ const handleIncomingMessage = (messageData) => {
             sender: senderName,
             content: messageData.message,
             time: new Date(messageData.sentAt || Date.now()),
-            avatar: require('@/asset/home/user.png'),
+            avatar: getValidAvatarUrl(messageData.avatar),
             read: false,
             projectId: messageData.projectId || null,
+            senderId: messageData.senderId || null, // 添加发送者ID，用于拒绝接口
             status: null // 新消息默认未处理
         }
         
         console.log('创建的新消息对象:', newMessage)
+        console.log(`WebSocket消息头像: 原始="${messageData.avatar}", 处理后="${newMessage.avatar}"`)
         
-        // 添加到消息列表开头（最新消息在上面）
-        messages.value.unshift(newMessage)
-        
-        // 限制消息数量，避免内存占用过多
-        if (messages.value.length > 100) {
-            messages.value = messages.value.slice(0, 100)
+        // 检查消息是否已存在（避免重复添加）
+        const existingMessage = messages.value.find(m => m.id === newMessage.id)
+        if (!existingMessage) {
+            // 添加到消息列表开头（最新消息在上面）
+            messages.value.unshift(newMessage)
+            
+            // 限制消息数量，避免内存占用过多
+            if (messages.value.length > 100) {
+                messages.value = messages.value.slice(0, 100)
+            }
+            
+            console.log('新消息已添加，当前消息列表长度:', messages.value.length)
+        } else {
+            console.log('消息已存在，跳过添加:', newMessage.id)
         }
-        
-        console.log('当前消息列表长度:', messages.value.length)
     } else {
         console.log('消息格式不符合预期，跳过处理')
     }
@@ -272,6 +281,81 @@ const disconnectWebSocket = () => {
     wsConnected.value = false
 }
 
+// 将API返回的MessageVO转换为前端消息格式
+const convertMessageVOToMessage = (messageVO) => {
+    // 判断消息类型
+    let messageType = 'unknown'
+    let senderName = '未知发送者'
+    
+    if (messageVO.message.includes('邀请')) {
+        messageType = 'project_invite'
+        // 从消息内容中提取发送者信息
+        const match = messageVO.message.match(/用户(\w+)向您发送/)
+        if (match) {
+            senderName = `用户${match[1]}`
+        }
+    } else if (messageVO.message.includes('申请')) {
+        messageType = 'project_apply'
+        const match = messageVO.message.match(/用户(\w+)申请/)
+        if (match) {
+            senderName = `用户${match[1]}`
+        }
+    }
+    
+    // 判断消息是否已读：明确标记为已读 或 已经操作过的消息
+    const isRead = messageVO.status === 'read' || 
+                   messageVO.isAccepted === 'agree' || 
+                   messageVO.isAccepted === 'reject'
+    
+                    const convertedMessage = {
+            id: messageVO.messageId,
+            type: messageType,
+            sender: senderName,
+            content: messageVO.message,
+            time: new Date(messageVO.sentAt),
+            avatar: getValidAvatarUrl(messageVO.avatar),
+            read: isRead,
+            projectId: messageVO.projectId || null,
+            senderId: messageVO.senderId || null,
+            status: messageVO.isAccepted === 'agree' ? 'accepted' : 
+                    messageVO.isAccepted === 'reject' ? 'rejected' : null
+        }
+        
+        console.log(`消息转换: ID=${messageVO.messageId}, 原始头像="${messageVO.avatar}", 处理后头像="${convertedMessage.avatar}", status="${messageVO.status}", isAccepted="${messageVO.isAccepted}" → read=${isRead}, status="${convertedMessage.status}"`)
+        
+        return convertedMessage
+}
+
+// 拉取所有历史消息
+const pullHistoryMessages = async () => {
+    console.log('开始拉取历史消息')
+    const messageVOs = await pullAllMessages()
+    
+    if (messageVOs && messageVOs.length > 0) {
+        console.log(`拉取到 ${messageVOs.length} 条历史消息`)
+        
+        // 转换为前端消息格式
+        const convertedMessages = messageVOs.map(convertMessageVOToMessage)
+        
+        // 按时间排序（最新的在前面）
+        convertedMessages.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+        
+        // 更新消息列表
+        messages.value = convertedMessages
+        
+        console.log('历史消息已加载:', messages.value.length)
+    } else {
+        console.log('没有历史消息或拉取失败')
+        messages.value = []
+    }
+}
+
+// 清空消息列表（用户切换时）
+const clearMessages = () => {
+    messages.value = []
+    console.log('消息列表已清空')
+}
+
 // 处理项目邀请
 const handleProjectInvite = async (messageId, accepted) => {
     const message = messages.value.find(m => m.id === messageId)
@@ -288,6 +372,7 @@ const handleProjectInvite = async (messageId, accepted) => {
             if (success) {
                 message.status = 'accepted'
                 message.read = true
+                console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
                 callSuccess('已同意项目邀请')
             } else {
                 // 接口调用失败的错误信息已在API中处理
@@ -298,10 +383,26 @@ const handleProjectInvite = async (messageId, accepted) => {
             return
         }
     } else {
-        // 拒绝邀请，只更新本地状态（后端接口暂未实现）
-        message.status = 'rejected'
-        message.read = true
-        callSuccess('已拒绝项目邀请')
+        // 拒绝邀请，调用后端接口
+        try {
+            const success = await reject_project_invite({
+                messageId: messageId,
+                senderId: message.senderId
+            })
+            
+            if (success) {
+                message.status = 'rejected'
+                message.read = true
+                console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
+                callSuccess('已拒绝项目邀请')
+            } else {
+                // 接口调用失败的错误信息已在API中处理
+                return
+            }
+        } catch (error) {
+            callError('处理项目邀请时发生错误')
+            return
+        }
     }
 }
 
@@ -321,6 +422,7 @@ const handleProjectApply = async (messageId, accepted) => {
             if (success) {
                 message.status = 'accepted'
                 message.read = true
+                console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
                 callSuccess('已同意项目申请')
             } else {
                 // 接口调用失败的错误信息已在API中处理
@@ -331,10 +433,26 @@ const handleProjectApply = async (messageId, accepted) => {
             return
         }
     } else {
-        // 拒绝申请，只更新本地状态（后端接口暂未实现）
-        message.status = 'rejected'
-        message.read = true
-        callSuccess('已拒绝项目申请')
+        // 拒绝申请，调用后端接口
+        try {
+            const success = await reject_project_invite({
+                messageId: messageId,
+                senderId: message.senderId
+            })
+            
+            if (success) {
+                message.status = 'rejected'
+                message.read = true
+                console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
+                callSuccess('已拒绝项目申请')
+            } else {
+                // 接口调用失败的错误信息已在API中处理
+                return
+            }
+        } catch (error) {
+            callError('处理项目申请时发生错误')
+            return
+        }
     }
 }
 
@@ -349,9 +467,46 @@ const handleDataRequest = (messageId, accepted) => {
     }
 }
 
+// 头像处理函数
+const getValidAvatarUrl = (avatarUrl) => {
+    // 如果有有效的头像URL，返回它
+    if (avatarUrl && avatarUrl.trim() !== '') {
+        // 如果是相对路径，需要补全URL
+        if (avatarUrl.startsWith('/')) {
+            return avatarUrl
+        }
+        // 如果是完整URL，直接返回
+        if (avatarUrl.startsWith('http')) {
+            return avatarUrl
+        }
+        // 如果是其他格式，也直接返回尝试加载
+        return avatarUrl
+    }
+    // 否则返回默认头像
+    return require('@/asset/home/user.png')
+}
+
+// 头像加载失败处理
+const handleAvatarError = (event) => {
+    // 头像加载失败时，设置为默认头像
+    event.target.src = require('@/asset/home/user.png')
+}
+
 // 计算未读消息数量
 const unreadCount = computed(() => {
-    return messages.value.filter(message => !message.read).length
+    return messages.value.filter(message => {
+        // 已读的消息不计入未读数量
+        if (message.read) return false
+        
+        // 已经操作过的消息（已同意或已拒绝）不计入未读数量
+        if (message.status === 'accepted' || message.status === 'rejected') {
+            console.log(`消息ID ${message.id} 已操作过(${message.status})，不计入未读数量`)
+            return false
+        }
+        
+        // 未读且未操作的消息计入未读数量
+        return true
+    }).length
 })
 
 // 监听未读数量变化，通知父组件
@@ -359,11 +514,41 @@ watch(unreadCount, (newCount) => {
     emit('unread-count-update', newCount)
 }, { immediate: true })
 
-// 组件挂载时建立WebSocket连接
+// 监听用户ID变化，自动连接/断开WebSocket
+watch(() => store.getters.getId, async (newUserId, oldUserId) => {
+    console.log('用户ID变化:', { oldUserId, newUserId })
+    
+    if (newUserId && newUserId !== null) {
+        // 用户已登录
+        if (oldUserId && oldUserId !== newUserId) {
+            // 用户切换，先清空消息列表
+            console.log('用户切换，清空消息列表')
+            clearMessages()
+        }
+        
+        if (!wsConnected.value) {
+            // 建立WebSocket连接
+            console.log('用户已登录，建立WebSocket连接')
+            connectWebSocket()
+        }
+        
+        // 拉取历史消息
+        console.log('拉取用户历史消息')
+        await pullHistoryMessages()
+        
+    } else if (!newUserId || newUserId === null) {
+        // 用户退出登录，断开连接并清空消息
+        console.log('用户已退出，断开WebSocket连接并清空消息')
+        disconnectWebSocket()
+        clearMessages()
+    }
+}, { immediate: true })
+
+// 组件挂载时初始化
 onMounted(() => {
-    console.log('MessageSidebar组件挂载，准备建立WebSocket连接')
-    connectWebSocket()
+    console.log('MessageSidebar组件挂载')
     emit('unread-count-update', unreadCount.value)
+    // WebSocket连接由watch监听用户ID变化自动处理
 })
 
 // 组件卸载时断开WebSocket连接
@@ -505,6 +690,9 @@ onUnmounted(() => {
     height: 40px;
     border-radius: 50%;
     object-fit: cover;
+    background-color: #f0f0f0;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .message-content {
