@@ -273,7 +273,7 @@ export default createStore({
                         commit('setData', response.data.data);
                         callSuccess('登录成功');
                         setTimeout(()=>{
-                            router.push('/profile');
+                            router.push('/home');
                         }, 1000);
                     }
                     else callError(response.data.message);
