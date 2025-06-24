@@ -83,8 +83,17 @@ export default {
             }
         }
     },
-    async mounted() {
-        
+    computed: {
+        // 计算属性获取统计数据
+        projectStats() {
+            return this.work.stats || { visitCount: 0, comments: 0, favorites: 0, memberCount: 0 };
+        }
+    },
+    mounted() {
+        // 更新统计数据
+        this.memberCount = this.projectStats.memberCount;
+        this.comments = this.projectStats.comments;
+        this.favorites = this.projectStats.favorites;
     },
     methods: {
         getColor(value) {
@@ -108,13 +117,7 @@ export default {
             }
         },
         goToField(fieldName) {
-            let mp = {
-                'article': 0,
-                'patent': 1,
-                'project': 2,
-                'award': 3
-            }
-            window.open(`/search/null/${mp[this.work.type]}/${fieldName}`,'_self');
+            window.open(`/search/null/2/${fieldName}`,'_self');
         },
         goToAchievement(id) {
             window.open("/achievement-detail/"+id,'_self');
@@ -138,6 +141,13 @@ export default {
                     const projectLead = newWork.researcherList.find(r => r.role === '项目负责人') || newWork.researcherList[0];
                     this.owner.name = projectLead.name;
                     this.owner.institution = projectLead.institution;
+                }
+                
+                // 当work更新时，更新统计数据
+                if (newWork && newWork.stats) {
+                    this.memberCount = newWork.stats.memberCount || 0;
+                    this.comments = newWork.stats.comments || 0;
+                    this.favorites = newWork.stats.favorites || 0;
                 }
             },
             immediate: true,
