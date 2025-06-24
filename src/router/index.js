@@ -127,35 +127,38 @@ const router = createRouter({
 
 router.beforeEach((to, from, next)=>{
 
-    if (to.path !== '/login')  setNav(true); // 开导航条
-    else setNav(false); // 关导航条
-
     const hasToken = store.getters.getToken;
-
-    // next();
+    console.log(`路由守卫: ${from.path} → ${to.path}, hasToken: ${hasToken != null}`);
 
     if (hasToken != null){
-
+        // 用户已登录
         if (to.path === '/login') {
-            //已经登录了，去首页
+            // 已经登录了，去首页
+            console.log('用户已登录，从登录页重定向到首页');
+            setNav(true); // 确保导航栏显示
             next({ path: '/home' })
         }else{
+            // 访问其他页面，显示导航栏
+            console.log('用户已登录，显示导航栏');
+            setNav(true);
             if (to.meta.title) {
                 document.title = `${to.meta.title}`;
             }
-            //直接放行
             next();
         }
 
     }else{
-        //没有登录
-
+        // 用户未登录
         if (to.path === '/login'){
-            // 登录
+            // 访问登录页面，隐藏导航栏
+            console.log('访问登录页面，隐藏导航栏');
+            setNav(false);
             next();
         }else{
+            // 访问其他页面，重定向到登录页面并隐藏导航栏
+            console.log('用户未登录，重定向到登录页面并隐藏导航栏');
+            setNav(false);
             window.alert('您辛苦了，请先登录吧');
-            // 没有登录，去登录页面
             next('/login');
         }
     }
@@ -163,8 +166,20 @@ router.beforeEach((to, from, next)=>{
 })
 
 router.afterEach((to, from)=>{
-    //切换路由成功
-    //console.log('change page succeed')
+    // 路由切换成功后，再次确保导航栏状态正确
+    const hasToken = store.getters.getToken;
+    
+    if (to.path === '/login') {
+        // 确保登录页面隐藏导航栏
+        console.log('路由切换完成：登录页面，强制隐藏导航栏');
+        setNav(false);
+    } else if (hasToken != null) {
+        // 确保已登录用户在其他页面显示导航栏
+        console.log('路由切换完成：其他页面，已登录用户显示导航栏');
+        setNav(true);
+    }
+    
+    console.log('路由切换成功', 'path:', to.path, 'hasToken:', hasToken != null, 'navOpen:', store.getters.getNavStat)
 })
 
 export default router
