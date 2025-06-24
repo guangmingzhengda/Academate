@@ -1,9 +1,9 @@
 
 
-## 搜索科研人员
+## 更改密码-验证并修改
 
 
-**接口地址**:`/api/user/search`
+**接口地址**:`/api/user/update_password/verify`
 
 
 **请求方式**:`POST`
@@ -23,12 +23,9 @@
 
 ```javascript
 {
-  "userName": "",
-  "field": "",
-  "researchTitle": "",
-  "institution": "",
-  "current": 0,
-  "pageSize": 0
+  "email": "",
+  "newPassword": "",
+  "captcha": ""
 }
 ```
 
@@ -41,13 +38,10 @@
 
 | 参数名称 | 参数说明 | 请求类型    | 是否必须 | 数据类型 | schema |
 | -------- | -------- | ----- | -------- | -------- | ------ |
-|userSearchRequest|UserSearchRequest|body|true|UserSearchRequest|UserSearchRequest|
-|&emsp;&emsp;userName|||false|string||
-|&emsp;&emsp;field|||false|string||
-|&emsp;&emsp;researchTitle|||false|string||
-|&emsp;&emsp;institution|||false|string||
-|&emsp;&emsp;current|||false|integer(int32)||
-|&emsp;&emsp;pageSize|||false|integer(int32)||
+|userPasswordResetRequest|UserPasswordResetRequest|body|true|UserPasswordResetRequest|UserPasswordResetRequest|
+|&emsp;&emsp;email|||false|string||
+|&emsp;&emsp;newPassword|||false|string||
+|&emsp;&emsp;captcha|||false|string||
 
 
 **响应状态**:
@@ -55,7 +49,7 @@
 
 | 状态码 | 说明 | schema |
 | -------- | -------- | ----- | 
-|200|OK|BaseResponsePageResultUserDetailVO|
+|200|OK|BaseResponseVoid|
 
 
 **响应参数**:
@@ -64,33 +58,7 @@
 | 参数名称 | 参数说明 | 类型 | schema |
 | -------- | -------- | ----- |----- | 
 |code||integer(int32)|integer(int32)|
-|data||PageResultUserDetailVO|PageResultUserDetailVO|
-|&emsp;&emsp;pageNum||integer(int64)||
-|&emsp;&emsp;pageSize||integer(int64)||
-|&emsp;&emsp;total||integer(int64)||
-|&emsp;&emsp;list||array|UserDetailVO|
-|&emsp;&emsp;&emsp;&emsp;id||integer||
-|&emsp;&emsp;&emsp;&emsp;account||string||
-|&emsp;&emsp;&emsp;&emsp;email||string||
-|&emsp;&emsp;&emsp;&emsp;institution||string||
-|&emsp;&emsp;&emsp;&emsp;field||string||
-|&emsp;&emsp;&emsp;&emsp;profile||string||
-|&emsp;&emsp;&emsp;&emsp;avatar||string||
-|&emsp;&emsp;&emsp;&emsp;createTime||string||
-|&emsp;&emsp;&emsp;&emsp;researchOutcomes||array|ResearchOutcomeVO|
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;outcomeId||integer||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;type||string||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;title||string||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;authors||string||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;journal||string||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;volume||integer||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;issue||integer||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;pages||string||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;publishDate||integer||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;doi||string||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;url||string||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;patentNumber||string||
-|&emsp;&emsp;&emsp;&emsp;&emsp;&emsp;authorOrder||integer||
+|data||object||
 |message||string||
 
 
@@ -98,40 +66,7 @@
 ```javascript
 {
 	"code": 0,
-	"data": {
-		"pageNum": 0,
-		"pageSize": 0,
-		"total": 0,
-		"list": [
-			{
-				"id": 0,
-				"account": "",
-				"email": "",
-				"institution": "",
-				"field": "",
-				"profile": "",
-				"avatar": "",
-				"createTime": "",
-				"researchOutcomes": [
-					{
-						"outcomeId": 0,
-						"type": "",
-						"title": "",
-						"authors": "",
-						"journal": "",
-						"volume": 0,
-						"issue": 0,
-						"pages": "",
-						"publishDate": 0,
-						"doi": "",
-						"url": "",
-						"patentNumber": "",
-						"authorOrder": 0
-					}
-				]
-			}
-		]
-	},
+	"data": {},
 	"message": ""
 }
 ```
