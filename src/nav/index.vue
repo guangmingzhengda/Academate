@@ -97,8 +97,9 @@ setInterval(async() =>{
     // console.log('token: '+store.getters.getToken)
     if (store.getters.getToken) {
         // const url = store.getters.getData.avatar;
-        const res = await getUserAuthorId(store.getters.getId);
-        const url = res.avatar;
+        // const res = await getUserAuthorId(store.getters.getId);
+        // const url = res.avatar;
+        const url = 'https://chkbigevent.oss-cn-beijing.aliyuncs.com/a4d13b91-47a6-4e13-b30f-39928e351ace.webp'
         if (url !== null) {
             avatarUrl.value = url;
             if (avatarUrl.value%6 === 0) {

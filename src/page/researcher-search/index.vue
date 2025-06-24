@@ -574,11 +574,41 @@ export default {
     background: white;
     border: 1px solid #e0e0e0;
     padding: 20px;
+    min-height: 600px; /* 确保与左边图片+卡片高度匹配 */
+    display: flex;
+    flex-direction: column;
+}
+
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    color: #409eff;
+}
+
+.loading-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    font-size: 16px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .empty-state {
-    text-align: center;
-    padding: 60px 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
     color: #999;
 }
 
