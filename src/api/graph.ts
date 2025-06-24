@@ -3,7 +3,7 @@ import {callError} from "@/call";
 
 export async function getGraph(id: number) : Promise<any> {
     try {
-        const response = await axios.get(`author/relationship?id=${id}`);
+        const response = await axios.get(`/author/relationship?id=${id}`);
         if (response.status === 200) {
             if (response.data.code == 0) {
 
