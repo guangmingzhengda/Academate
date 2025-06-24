@@ -290,21 +290,57 @@ export default createStore({
         //邮箱登录
         async eLogin({commit, state}, credentials) {
             try {
-                const response = await axios.post('/user/emailLogin', credentials);
+                // 根据API文档构造请求体
+                const requestData = {
+                    email: credentials.userEmail,
+                    userPassword: credentials.userPassword
+                };
+                
+                console.log('邮箱登录请求数据:', requestData);
+                
+                const response = await axios.post('/user/login/email', requestData);
+                console.log('邮箱登录响应:', response.data);
+                
                 if (response.status === 200){
                     if (response.data.code == 0){
+                        // 根据API文档，响应数据包含id, account, avatar, profile, institution, role, email, token
+                        const userData = {
+                            id: response.data.data.id,
+                            name: response.data.data.account, // 映射account到name
+                            nickname: response.data.data.account, // 使用account作为nickname
+                            avatar: response.data.data.avatar,
+                            profile: response.data.data.profile,
+                            role: response.data.data.role,
+                            email: response.data.data.email,
+                            isTA: null,
+                            isVip: false // 默认非VIP，后续可从其他接口获取
+                        };
+                        
                         commit('setToken', response.data.data.token);
-                        commit('setData', response.data.data);
-                        callSuccess('登录成功');
+                        commit('setData', userData);
+                        callSuccess('邮箱登录成功');
                         setTimeout(()=>{
-                            router.push('/profile');
+                            router.push('/home');
                         }, 1000);
-                    }else callError(response.data.message);
+                    }else {
+                        callError(response.data.message || '登录失败');
+                    }
                 }
-                else callError('网络错误');
+                else {
+                    callError('网络错误');
+                }
             } catch (error) {
-                //console.log('there are some errors in login');
-                callError('密码错误或用户不存在');
+                console.error('邮箱登录错误:', error);
+                if (error.response) {
+                    // 服务器返回了错误响应
+                    callError(error.response.data?.message || '登录失败');
+                } else if (error.request) {
+                    // 请求发送了但没有收到响应
+                    callError('网络连接错误');
+                } else {
+                    // 其他错误
+                    callError('登录失败，请重试');
+                }
             }
         },
 

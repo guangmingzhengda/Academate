@@ -97,8 +97,8 @@ setInterval(async() =>{
     // console.log('token: '+store.getters.getToken)
     if (store.getters.getToken) {
         // const url = store.getters.getData.avatar;
-        const res = await getUserAuthorId(store.getters.getId);
-        const url = res.avatar;
+        // const res = null;
+        const url = null;
         if (url !== null) {
             avatarUrl.value = url;
             if (avatarUrl.value%6 === 0) {

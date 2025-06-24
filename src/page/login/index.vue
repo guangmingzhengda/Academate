@@ -24,7 +24,7 @@
           </div>
           <div :class="{notSelectedButton: situation!==4, selectedButton: situation === 4}"
                @click="setSituation(4)">
-            修改密码
+            找回密码
           </div>
         </div>
 

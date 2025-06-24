@@ -2,7 +2,12 @@
     <div class="sidebar-overlay" :class="{ 'show': visible }" @click="closeSidebar">
         <div class="sidebar" :class="{ 'open': visible }" @click.stop>
             <div class="sidebar-header">
-                <h3>消息中心</h3>
+                <div class="header-left">
+                    <h3>消息中心</h3>
+                    <div class="connection-status">
+                        <span class="status-dot" :class="{'dot-connected': wsConnected, 'dot-disconnected': !wsConnected}"></span>
+                    </div>
+                </div>
                 <button class="close-btn" @click="closeSidebar">
                     <el-icon><Close /></el-icon>
                 </button>
@@ -88,10 +93,11 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Close } from '@element-plus/icons-vue'
 import { agree_project_invite } from '@/api/project'
 import { callSuccess, callError } from '@/call'
+import store from '@/store'
 
 const props = defineProps({
     visible: {
@@ -102,80 +108,168 @@ const props = defineProps({
 
 const emit = defineEmits(['close', 'unread-count-update'])
 
-// 五种消息类型的示例数据
-const messages = ref([
-    {
-        id: 1,
-        type: 'project_invite', // 项目邀请
-        sender: '张教授',
-        content: '邀请您加入"基于深度学习的智能推荐系统"项目，该项目将持续12个月，主要研究推荐算法优化。',
-        time: new Date(Date.now() - 15 * 60 * 1000), // 15分钟前
-        avatar: require('@/asset/home/user.png'),
-        read: false,
-        projectId: 101,
-        status: null // null: 未处理, 'accepted': 已同意, 'rejected': 已拒绝
-    },
-    {
-        id: 2,
-        type: 'project_apply', // 项目申请
-        sender: '李研究员',
-        content: '申请加入您负责的"人工智能在教育领域的应用研究"项目，我在机器学习和教育技术方面有丰富经验。',
-        time: new Date(Date.now() - 45 * 60 * 1000), // 45分钟前
-        avatar: require('@/asset/home/user.png'),
-        read: false,
-        projectId: 102,
-        status: null
-    },
-    {
-        id: 3,
-        type: 'researcher_update', // 研究人员状态更新
-        sender: '王博士',
-        content: '更新了个人研究状态：刚刚完成了关于"量子计算在密码学中的应用"的最新研究论文，正在寻求合作伙伴进行进一步验证。',
-        time: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2小时前
-        avatar: require('@/asset/home/user.png'),
-        read: true
-    },
-    {
-        id: 4,
-        type: 'data_request', // 数据/全文请求
-        sender: '陈院士',
-        content: '希望获取您论文《深度学习算法优化研究》的完整数据集和实验代码，用于我们团队的相关研究对比分析。',
-        time: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4小时前
-        avatar: require('@/asset/home/user.png'),
-        read: false,
-        paperId: 203,
-        status: null
-    },
-    {
-        id: 5,
-        type: 'question_reply', // 问题回复提醒
-        sender: '刘教授',
-        content: '回复了您关注的问题"如何提高神经网络的训练效率？"：建议使用批量归一化和学习率调度策略，具体可以参考我最近的研究成果...',
-        time: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6小时前
-        avatar: require('@/asset/home/user.png'),
-        read: true,
-        questionId: 304
-    }
-])
+// WebSocket相关状态
+const ws = ref(null)
+const wsConnected = ref(false)
+const reconnectTimer = ref(null)
+const reconnectAttempts = ref(0)
+const maxReconnectAttempts = 5
+
+// 消息数据改为响应式数组，初始为空
+const messages = ref([])
 
 const closeSidebar = () => {
     emit('close')
 }
 
 const formatTime = (time) => {
+    // 如果传入的是字符串，转换为Date对象
+    const messageTime = typeof time === 'string' ? new Date(time) : time
     const now = new Date()
-    const diff = now - time
+    const diff = now - messageTime
     const minutes = Math.floor(diff / (1000 * 60))
     const hours = Math.floor(diff / (1000 * 60 * 60))
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
     
-    if (minutes < 60) {
+    if (minutes <= 0) {
+        return '刚刚'
+    } else if (minutes < 60) {
         return `${minutes}分钟前`
     } else if (hours < 24) {
         return `${hours}小时前`
     } else {
         return `${days}天前`
     }
+}
+
+// WebSocket连接函数
+const connectWebSocket = () => {
+    const userId = store.getters.getId
+    if (!userId) {
+        console.error('用户ID未找到，无法建立WebSocket连接')
+        return
+    }
+
+    const wsUrl = `ws://123.56.50.152:8081/api/websocket/${userId}`
+    console.log('正在连接WebSocket:', wsUrl)
+
+    try {
+        ws.value = new WebSocket(wsUrl)
+
+        ws.value.onopen = () => {
+            console.log('WebSocket连接成功')
+            wsConnected.value = true
+            reconnectAttempts.value = 0
+        }
+
+        ws.value.onmessage = (event) => {
+            console.log('收到WebSocket消息:', event.data)
+            
+            try {
+                const messageData = JSON.parse(event.data)
+                console.log('解析后的消息数据:', messageData)
+                
+                // 处理接收到的消息
+                handleIncomingMessage(messageData)
+                
+            } catch (error) {
+                // console.log('解析WebSocket消息失败，不是JSON:', error)
+                console.log('解析WebSocket消息失败，不是JSON: ', event.data)
+            }
+        }
+
+        ws.value.onclose = (event) => {
+            console.log('WebSocket连接关闭:', event.code, event.reason)
+            wsConnected.value = false
+            
+            // 非正常关闭时尝试重连
+            if (event.code !== 1000 && reconnectAttempts.value < maxReconnectAttempts) {
+                console.log(`尝试重连 (${reconnectAttempts.value + 1}/${maxReconnectAttempts})`)
+                reconnectAttempts.value++
+                reconnectTimer.value = setTimeout(() => {
+                    connectWebSocket()
+                }, 3000 * reconnectAttempts.value) // 递增延迟重连
+            }
+        }
+
+        ws.value.onerror = (error) => {
+            console.error('WebSocket连接错误:', error)
+            wsConnected.value = false
+        }
+
+    } catch (error) {
+        console.error('创建WebSocket连接失败:', error)
+    }
+}
+
+// 处理接收到的消息
+const handleIncomingMessage = (messageData) => {
+    console.log('=== WebSocket消息调试信息 ===')
+    console.log('消息类型:', typeof messageData)
+    console.log('消息内容:', messageData)
+    console.log('消息的所有属性:')
+    for (let key in messageData) {
+        console.log(`  ${key}:`, messageData[key], `(类型: ${typeof messageData[key]})`)
+    }
+    console.log('=== 消息调试信息结束 ===')
+    
+    // 根据WebSocket消息格式适配到显示格式
+    if (messageData.message && messageData.messageId) {
+        // 判断消息类型 - 如果包含"邀请"关键词，则认为是项目邀请
+        let messageType = 'unknown'
+        let senderName = '未知发送者'
+        
+        if (messageData.message.includes('邀请')) {
+            messageType = 'project_invite'
+            // 从消息内容中提取发送者信息
+            const match = messageData.message.match(/用户(\w+)向您发送/)
+            if (match) {
+                senderName = `用户${match[1]}`
+            }
+        }
+        
+        // 创建适配的消息对象
+        const newMessage = {
+            id: messageData.messageId,
+            type: messageType,
+            sender: senderName,
+            content: messageData.message,
+            time: new Date(messageData.sentAt || Date.now()),
+            avatar: require('@/asset/home/user.png'),
+            read: false,
+            projectId: messageData.projectId || null,
+            status: null // 新消息默认未处理
+        }
+        
+        console.log('创建的新消息对象:', newMessage)
+        
+        // 添加到消息列表开头（最新消息在上面）
+        messages.value.unshift(newMessage)
+        
+        // 限制消息数量，避免内存占用过多
+        if (messages.value.length > 100) {
+            messages.value = messages.value.slice(0, 100)
+        }
+        
+        console.log('当前消息列表长度:', messages.value.length)
+    } else {
+        console.log('消息格式不符合预期，跳过处理')
+    }
+}
+
+// 断开WebSocket连接
+const disconnectWebSocket = () => {
+    if (reconnectTimer.value) {
+        clearTimeout(reconnectTimer.value)
+        reconnectTimer.value = null
+    }
+    
+    if (ws.value) {
+        console.log('断开WebSocket连接')
+        ws.value.close(1000, '组件卸载')
+        ws.value = null
+    }
+    wsConnected.value = false
 }
 
 // 处理项目邀请
@@ -265,9 +359,17 @@ watch(unreadCount, (newCount) => {
     emit('unread-count-update', newCount)
 }, { immediate: true })
 
-// 组件挂载时立即发送未读数量
+// 组件挂载时建立WebSocket连接
 onMounted(() => {
+    console.log('MessageSidebar组件挂载，准备建立WebSocket连接')
+    connectWebSocket()
     emit('unread-count-update', unreadCount.value)
+})
+
+// 组件卸载时断开WebSocket连接
+onUnmounted(() => {
+    console.log('MessageSidebar组件卸载，断开WebSocket连接')
+    disconnectWebSocket()
 })
 </script>
 
@@ -316,11 +418,37 @@ onMounted(() => {
     background-color: #f8f9fa;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .sidebar-header h3 {
     margin: 0;
     color: #333;
     font-size: 18px;
     font-weight: 600;
+}
+
+.connection-status {
+    display: flex;
+    align-items: center;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.status-dot.dot-connected {
+    background-color: #67c23a;
+}
+
+.status-dot.dot-disconnected {
+    background-color: #f56c6c;
 }
 
 .close-btn {
