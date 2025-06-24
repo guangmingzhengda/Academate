@@ -2,10 +2,10 @@
     <div class="project-manager">
         <div class="manager-card">
             <div class="card-header">
-                <h3>个人项目</h3>
+                <h3>参与项目</h3>
                 <el-button type="primary" @click="openAddDialog">
                     <el-icon><Plus /></el-icon>
-                    添加项目
+                    创建项目
                 </el-button>
             </div>
             
@@ -29,20 +29,10 @@
                                     <span class="meta-item">状态：{{ project.status }}</span>
                                 </div>
                                 <div class="meta-row">
-                                    <span class="meta-item">负责人：{{ project.leader }}</span>
+                                    <span class="meta-item">身份：{{ roleMap[project.leader] || project.leader }}</span>
                                     <span v-if="project.endDate" class="meta-item">结束时间：{{ project.endDate }}</span>
                                 </div>
                             </div>
-                        </div>
-                        <div class="project-actions">
-                            <el-button type="primary" link @click="editProject(project)">
-                                <el-icon><Edit /></el-icon>
-                                编辑
-                            </el-button>
-                            <el-button type="danger" link @click="deleteProject(project.id)">
-                                <el-icon><Delete /></el-icon>
-                                删除
-                            </el-button>
                         </div>
                     </div>
                 </div>
@@ -69,7 +59,12 @@
         >
             <el-form :model="formData" :rules="rules" ref="formRef" label-width="100px">
                 <el-form-item label="项目名称" prop="name">
-                    <el-input v-model="formData.name" placeholder="请输入项目名称" />
+                    <el-input 
+                        v-model="formData.name" 
+                        placeholder="请输入项目名称" 
+                        maxlength="20"
+                        show-word-limit
+                    />
                 </el-form-item>
                 <el-form-item label="项目描述" prop="description">
                     <el-input 
@@ -77,38 +72,9 @@
                         type="textarea" 
                         :rows="3"
                         placeholder="请输入项目描述"
+                        maxlength="100"
+                        show-word-limit
                     />
-                </el-form-item>
-                <el-form-item label="开始时间" prop="startDate">
-                    <el-date-picker
-                        v-model="formData.startDate"
-                        type="date"
-                        placeholder="选择开始时间"
-                        style="width: 100%;"
-                        format="YYYY-MM-DD"
-                        value-format="YYYY-MM-DD"
-                    />
-                </el-form-item>
-                <el-form-item label="结束时间" prop="endDate">
-                    <el-date-picker
-                        v-model="formData.endDate"
-                        type="date"
-                        placeholder="选择结束时间"
-                        style="width: 100%;"
-                        format="YYYY-MM-DD"
-                        value-format="YYYY-MM-DD"
-                    />
-                </el-form-item>
-                <el-form-item label="项目状态" prop="status">
-                    <el-select v-model="formData.status" placeholder="请选择项目状态" style="width: 100%;">
-                        <el-option label="进行中" value="进行中" />
-                        <el-option label="已完成" value="已完成" />
-                        <el-option label="已暂停" value="已暂停" />
-                        <el-option label="已取消" value="已取消" />
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="项目负责人" prop="leader">
-                    <el-input v-model="formData.leader" placeholder="请输入项目负责人" />
                 </el-form-item>
             </el-form>
             
@@ -123,68 +89,48 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { callSuccess, callWarning, callInfo } from '@/call'
 import { ElMessageBox } from 'element-plus'
-import { create_project } from '@/api/project'
+import { create_project, get_user_projects } from '@/api/project'
 import store from '@/store'
 
 export default {
     name: 'projectManager',
-    setup() {
+    props: {
+        userId: {
+            type: Number,
+            required: true
+        }
+    },
+    setup(props) {
         // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(2)
         
         // 项目数据
-        const projects = ref([
-            {
-                id: 1,
-                name: '智能教育平台开发',
-                description: '基于人工智能技术的个性化教育平台，支持自适应学习和智能推荐功能。',
-                startDate: '2023-01-15',
-                endDate: '2023-12-31',
-                status: '进行中',
-                leader: 'HHH'
-            },
-            {
-                id: 2,
-                name: '深度学习算法优化研究',
-                description: '针对计算机视觉领域的深度学习算法进行性能优化和准确性提升研究。',
-                startDate: '2022-06-01',
-                endDate: '2023-05-31',
-                status: '已完成',
-                leader: 'HHH'
-            },
-            {
-                id: 3,
-                name: '知识图谱构建系统',
-                description: '构建面向特定领域的知识图谱系统，实现知识的自动抽取和推理。',
-                startDate: '2023-09-01',
-                endDate: '2024-08-31',
-                status: '进行中',
-                leader: 'HHH'
-            },
-            {
-                id: 4,
-                name: '智能推荐系统优化',
-                description: '基于用户行为分析的智能推荐算法研究与实现。',
-                startDate: '2023-03-01',
-                endDate: '2024-02-29',
-                status: '进行中',
-                leader: 'HHH'
-            },
-            {
-                id: 5,
-                name: '区块链技术应用研究',
-                description: '探索区块链技术在学术诚信和版权保护方面的应用。',
-                startDate: '2022-09-01',
-                endDate: '2023-08-31',
-                status: '已完成',
-                leader: 'HHH'
-            }
-        ])
+        const projects = ref([])
+
+        // 拉取项目数据
+        const fetchProjects = async () => {
+            if (!props.userId) return;
+            const res = await get_user_projects(props.userId);
+            // 格式化字段
+            projects.value = (res || []).map(item => ({
+                id: item.projectId,
+                name: item.title,
+                description: item.description,
+                startDate: item.startDate,
+                endDate: item.endDate,
+                status: item.status,
+                leader: item.role,
+                joinedAt: item.joinedAt
+            }));
+        }
+
+        onMounted(fetchProjects);
+        watch(() => props.userId, fetchProjects);
 
         // 对话框相关
         const dialogVisible = ref(false)
@@ -205,10 +151,7 @@ export default {
         // 表单验证规则
         const rules = {
             name: [{ required: true, message: '请输入项目名称', trigger: 'blur' }],
-            description: [{ required: true, message: '请输入项目描述', trigger: 'blur' }],
-            startDate: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
-            status: [{ required: true, message: '请选择项目状态', trigger: 'change' }],
-            leader: [{ required: true, message: '请输入项目负责人', trigger: 'blur' }]
+            description: [{ required: true, message: '请输入项目描述', trigger: 'blur' }]
         }
 
         // 当前页项目数据
@@ -223,11 +166,7 @@ export default {
             isEdit.value = false
             formData.value = {
                 name: '',
-                description: '',
-                startDate: '',
-                endDate: '',
-                status: '',
-                leader: 'HHH'
+                description: ''
             }
             dialogVisible.value = true
         }
@@ -319,6 +258,12 @@ export default {
             currentPage.value = page
         }
 
+        // 角色映射
+        const roleMap = {
+            'creator': '创建者',
+            'participant': '参与者'
+        }
+
         return {
             currentPage,
             pageSize,
@@ -334,7 +279,8 @@ export default {
             deleteProject,
             saveProject,
             closeDialog,
-            handlePageChange
+            handlePageChange,
+            roleMap
         }
     }
 }

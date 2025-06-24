@@ -38,16 +38,6 @@
                                     </span>
                                     <div class="achievement-title">{{ achievement.title }}</div>
                                 </div>
-                                <div class="achievement-actions">
-                                    <el-button type="primary" link @click="editAchievement(achievement)">
-                                        <el-icon><Edit /></el-icon>
-                                        编辑
-                                    </el-button>
-                                    <el-button type="danger" link @click="deleteAchievement(achievement.id)">
-                                        <el-icon><Delete /></el-icon>
-                                        删除
-                                    </el-button>
-                                </div>
                             </div>
                             <div class="achievement-meta">
                                 <div class="meta-row">
