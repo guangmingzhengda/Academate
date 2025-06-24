@@ -400,7 +400,7 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Plus, Edit, Delete, Upload, UploadFilled, Search, DocumentAdd, Document } from '@element-plus/icons-vue'
 import { callSuccess, callWarning, callInfo, callError } from '@/call'
 import { ElMessageBox } from 'element-plus'
@@ -410,7 +410,13 @@ import dayjs from 'dayjs'
 
 export default {
     name: 'achievementManager',
-    setup() {
+    props: {
+        researchOutcomes: {
+            type: Array,
+            default: () => []
+        }
+    },
+    setup(props) {
         // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(3)
@@ -426,120 +432,16 @@ export default {
             '海报': '海报'
         }
 
-        // 学术成果数据
-        const achievements = ref([
-            {
-                id: 1,
-                type: '期刊论文',
-                title: '基于深度学习的图像识别算法研究',
-                authors: 'HHH, 张三, 李四',
-                journal: 'IEEE Transactions on Pattern Analysis and Machine Intelligence',
-                volume: '45',
-                issue: '3',
-                pages: '123-135',
-                publishDate: '2023-03-15',
-                doi: '10.1109/TPAMI.2023.1234567'
-            },
-            {
-                id: 2,
-                type: '会议论文',
-                title: '自然语言处理中的注意力机制优化',
-                authors: 'HHH, 王五',
-                conference: 'AAAI Conference on Artificial Intelligence',
-                location: 'Vancouver, Canada',
-                publishDate: '2023-06-20',
-                pages: '1001-1008'
-            },
-            {
-                id: 3,
-                type: '专利',
-                title: '一种基于机器学习的智能推荐系统',
-                authors: 'HHH',
-                patentNumber: 'CN123456789A',
-                patentType: '发明专利',
-                publishDate: '2023-01-10'
-            },
-            {
-                id: 4,
-                type: '期刊论文',
-                title: '计算机视觉中的目标检测算法综述',
-                authors: 'HHH, 赵六, 钱七',
-                journal: 'Computer Vision and Image Understanding',
-                volume: '220',
-                issue: '2',
-                pages: '45-62',
-                publishDate: '2023-08-12',
-                doi: '10.1016/j.cviu.2023.103456'
-            },
-            {
-                id: 5,
-                type: '会议论文',
-                title: '基于Transformer的多模态学习方法',
-                authors: 'HHH, 孙八',
-                conference: 'International Conference on Computer Vision',
-                location: 'Paris, France',
-                publishDate: '2023-10-02',
-                pages: '2234-2243'
-            },
-            {
-                id: 6,
-                type: '书',
-                title: '人工智能算法设计与实现',
-                authors: 'HHH',
-                publishDate: '2023-05-20',
-                pages: '1-320'
-            },
-            {
-                id: 7,
-                type: '技术报告',
-                title: '智能数据分析平台V1.0',
-                authors: 'HHH, 开发团队',
-                publishDate: '2023-07-15'
-            },
-            {
-                id: 8,
-                type: '专利',
-                title: '一种基于深度学习的语音识别方法',
-                authors: 'HHH, 李九',
-                patentNumber: 'CN987654321B',
-                patentType: '发明专利',
-                publishDate: '2023-04-25'
-            },
-            {
-                id: 9,
-                type: '期刊论文',
-                title: '强化学习在游戏AI中的应用研究',
-                authors: 'HHH, 周十, 吴十一',
-                journal: 'Artificial Intelligence',
-                volume: '312',
-                issue: '1',
-                pages: '78-95',
-                publishDate: '2023-11-08',
-                doi: '10.1016/j.artint.2023.103789'
-            },
-            {
-                id: 10,
-                type: '会议论文',
-                title: '联邦学习中的隐私保护机制',
-                authors: 'HHH, 郑十二',
-                conference: 'Neural Information Processing Systems',
-                location: 'New Orleans, USA',
-                publishDate: '2023-12-10',
-                pages: '5678-5689'
-            },
-            {
-                id: 11,
-                type: '期刊论文',
-                title: '边缘计算环境下的智能调度算法',
-                authors: 'HHH, 王十三, 刘十四',
-                journal: 'IEEE Internet of Things Journal',
-                volume: '10',
-                issue: '15',
-                pages: '13456-13470',
-                publishDate: '2023-09-28',
-                doi: '10.1109/JIOT.2023.3298765'
-            }
-        ])
+        // 学术成果数据（由父组件传入，响应式）
+        const achievements = ref([])
+        watch(() => props.researchOutcomes, (newVal) => {
+          achievements.value = (newVal && newVal.length > 0)
+            ? newVal.map(item => ({
+                ...item,
+                id: item.outcomeId || item.id
+              }))
+            : []
+        }, { immediate: true })
 
         // 学术成果库数据（模拟全系统的学术成果）
         const libraryAchievements = ref([
@@ -806,7 +708,7 @@ export default {
             formData.value = {
                 type: '',
                 title: '',
-                authors: 'HHH',
+                authors: '',
                 journal: '',
                 volume: 0,
                 issue: 0,
@@ -859,6 +761,11 @@ export default {
             } else if (data.type === '专利') {
                 if (!data.patentNumber) errors.push('专利号')
                 if (!data.patentType) errors.push('专利类型')
+            }
+
+            // 页码必须为数字
+            if (data.pages && isNaN(Number(data.pages))) {
+                errors.push('页码（必须为数字）')
             }
 
             if (errors.length > 0) {
@@ -1061,7 +968,7 @@ export default {
             const newFormData = {
                 type: '',
                 title: '',
-                authors: 'HHH',
+                authors: '',
                 journal: '',
                 volume: 0,
                 issue: 0,

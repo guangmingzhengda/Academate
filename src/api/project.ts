@@ -119,3 +119,25 @@ export interface InviteRes {
 export function invite(params: InviteParams): Promise<InviteRes> {
   return axios.post(`/project/invite`, params);
 }
+
+/**
+ * 获取用户参与的项目列表
+ * @param userId 用户ID
+ * @returns Promise<UserProjectVO[]>
+ */
+export async function get_user_projects(userId: number): Promise<any[]> {
+    try {
+        const response = await axios.get('/user/projects', {
+            params: { userId }
+        });
+        if (response.status === 200 && response.data.code === 0) {
+            return response.data.data || [];
+        } else {
+            callError(response.data.message || '获取项目列表失败');
+            return [];
+        }
+    } catch (error) {
+        callError('网络错误或服务器异常');
+        return [];
+    }
+}

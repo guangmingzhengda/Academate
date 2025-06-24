@@ -19,7 +19,7 @@
                 
                 <div class="avatar-section">
                     <img :src="userInfo.avatar" alt="用户头像" class="user-avatar" @error="altImg"/>
-                    <div class="avatar-overlay" @click="changeAvatar">
+                    <div v-if="isOwnProfile" class="avatar-overlay" @click="changeAvatar">
                         <el-icon><Camera /></el-icon>
                     </div>
                 </div>
@@ -75,7 +75,7 @@
                     </div>
                     <div class="stat-item">
                         <span class="stat-number">{{ userInfo.research.paperCount }}</span>
-                        <span class="stat-label">论文</span>
+                        <span class="stat-label">成果</span>
                     </div>
                 </div>
             </div>
@@ -177,8 +177,8 @@
                         <div class="tab-content">
                             <!-- 项目/学术成果 -->
                             <div v-if="activeTab === 'projects'" class="tab-panel">
-                                <project-manager />
-                                <achievement-manager />
+                                <project-manager :projects="userProjects" />
+                                <achievement-manager :research-outcomes="userInfo.research.researchOutcomes" />
                             </div>
                             
                             <!-- 关注列表 -->
@@ -264,7 +264,6 @@
                         placeholder="请输入您的真实姓名"
                         maxlength="50"
                         show-word-limit
-                        :disabled="!!editProfileForm.name"
                     />
                 </el-form-item>
                 <el-form-item label="用户名" required>
@@ -310,7 +309,7 @@ import followManager from './components/followManager/index.vue'
 import libraryManager from './components/libraryManager/index.vue'
 import { callSuccess, callInfo, callError } from '@/call'
 import { ElMessage } from 'element-plus'
-import { get_user_detail, upload_user_avatar, update_user_info } from '@/api/profile'
+import { get_user_detail, upload_user_avatar, update_user_info, get_user_projects } from '@/api/profile'
 import store from '@/store'
 
 export default {
@@ -346,7 +345,8 @@ export default {
             },
             research: {
                 fields: '',
-                paperCount: 0
+                paperCount: 0,
+                researchOutcomes: []
             }
         })
 
@@ -359,6 +359,55 @@ export default {
 
         // 加载状态
         const loading = ref(false)
+
+        // 静态项目数据
+        const userProjects = ref([
+            {
+                id: 1,
+                name: '智能教育平台开发',
+                description: '基于人工智能技术的个性化教育平台，支持自适应学习和智能推荐功能。',
+                startDate: '2023-01-15',
+                endDate: '2023-12-31',
+                status: '进行中',
+                leader: 'HHH'
+            },
+            {
+                id: 2,
+                name: '深度学习算法优化研究',
+                description: '针对计算机视觉领域的深度学习算法进行性能优化和准确性提升研究。',
+                startDate: '2022-06-01',
+                endDate: '2023-05-31',
+                status: '已完成',
+                leader: 'HHH'
+            },
+            {
+                id: 3,
+                name: '知识图谱构建系统',
+                description: '构建面向特定领域的知识图谱系统，实现知识的自动抽取和推理。',
+                startDate: '2023-09-01',
+                endDate: '2024-08-31',
+                status: '进行中',
+                leader: 'HHH'
+            },
+            {
+                id: 4,
+                name: '智能推荐系统优化',
+                description: '基于用户行为分析的智能推荐算法研究与实现。',
+                startDate: '2023-03-01',
+                endDate: '2024-02-29',
+                status: '进行中',
+                leader: 'HHH'
+            },
+            {
+                id: 5,
+                name: '区块链技术应用研究',
+                description: '探索区块链技术在学术诚信和版权保护方面的应用。',
+                startDate: '2022-09-01',
+                endDate: '2023-08-31',
+                status: '已完成',
+                leader: 'HHH'
+            }
+        ]);
 
         // 获取用户详细信息
         const fetchUserDetail = async () => {
@@ -408,7 +457,8 @@ export default {
                         },
                         research: {
                             fields: userDetail.field || '',
-                            paperCount: userDetail.researchOutcomes ? userDetail.researchOutcomes.length : 0
+                            paperCount: userDetail.researchOutcomes ? userDetail.researchOutcomes.length : 0,
+                            researchOutcomes: userDetail.researchOutcomes || []
                         }
                     }
                     
@@ -493,15 +543,13 @@ export default {
                     const avatarUrl = await upload_user_avatar(file);
                     
                     if (avatarUrl) {
-                        // 更新头像URL
+                        // 更新本地显示
                         userInfo.value.avatar = avatarUrl;
                         
-                        // 更新store中的头像信息
-                        const currentData = store.getters.getData;
-                        store.commit('setData', {
-                            ...currentData,
-                            avatar: avatarUrl
-                        });
+                        // 强制刷新store中的头像信息
+                        let currentData = store.getters.getData || {};
+                        currentData = { ...currentData, avatar: avatarUrl };
+                        store.commit('setData', currentData);
                         
                         // 触发全局事件，通知导航栏更新头像
                         window.dispatchEvent(new CustomEvent('avatarUpdated', {
@@ -772,7 +820,8 @@ export default {
             closeEditProfileDialog,
             formatGraduationDate,
             formatGraduationDateForEdit,
-            isOwnProfile
+            isOwnProfile,
+            userProjects
         }
     }
 }
