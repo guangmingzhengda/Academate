@@ -63,6 +63,15 @@ const router = createRouter({
                 title: '项目详情',
             },
         },
+        
+        {
+            path: '/problem-detail/:id?',
+            name: 'problem-detail',
+            component: defineAsyncComponent(() => import(`../page/problem-detail/index.vue`)),
+            meta: {
+                title: '问题详情',
+            },
+        },
 
         // 用户个人资料
         {
