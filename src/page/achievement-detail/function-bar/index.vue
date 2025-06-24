@@ -130,7 +130,6 @@ import {
 } from "@/page/achievement-detail/api/api";
 import store from "@/store";
 import {ElMessage} from "element-plus";
-import {decode_function} from "@/decode/code";
 export default {
     name: "function-bar",
     props: {
@@ -150,13 +149,7 @@ export default {
         }
     },
     async mounted() {
-        if(this.isLogin()) {
-            let starKinds = await getStarKindsAPI(store.getters.getId, 1, 100);
-            this.categories = starKinds.list;
-            const res = await isFavoredAPI(decode_function(this.$route.params.id));
-            if(res === true)
-                this.isStar = 1;
-        }
+        
     },
     methods: {
         isLogin() {

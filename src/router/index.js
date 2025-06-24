@@ -121,52 +121,6 @@ router.beforeEach((to, from, next)=>{
     if (to.path !== '/login')  setNav(true); // 开导航条
     else setNav(false); // 关导航条
 
-    // if (to.name === 'achievement-detail' && to.params.id){
-    //     // 矩阵乘法
-    //     let achievementId = to.params.id;
-    //     if (!achievementId.includes('-')) {
-    //         // window.alert('原id: '+achievementId);
-    //         // 未加密路由
-    //         let X = [];
-
-    //         for (let i=0;i<7-achievementId.length;i++){
-    //             X.push(0);
-    //         }
-    //         for (let i=0; i<achievementId.length;i++){
-    //             X.push(Number(achievementId[i]));
-    //         }
-
-    //         achievementId = '';
-
-    //         achievementId += (2*X[0]+1*X[1]).toString() + '-';
-    //         achievementId += (       2*X[1]).toString() + '-';
-    //         achievementId += (              1*X[2]).toString() + '-';
-    //         achievementId += (                     7*X[3]+1*X[4]).toString() + '-';
-    //         achievementId += (                            7*X[4]).toString() + '-';
-    //         achievementId += (                            2*X[5]+1*X[6]).toString() + '-';
-    //         achievementId += (                                   2*X[6]).toString();
-
-    //         let newId = ''
-
-    //         for (let i=0; i<achievementId.length;i++){
-    //             const isDigit = (char) => char.length === 1 && char >= '0' && char <= '9';
-    //             if (isDigit(achievementId[i])){
-    //                 const asciiToChar = (ascii) => String.fromCharCode(ascii);
-    //                 newId += asciiToChar(Number(achievementId[i]) + 65);
-    //             }else newId += '-';
-    //         }
-
-    //         // window.alert('解码后id: '+decode_function(newId));
-
-    //         // 重定向到新的路由
-    //         next({
-    //             name: 'achievement-detail',
-    //             params: { id: newId },
-    //         });
-    //         return; // 必须 return，避免重复调用 next()
-    //     }
-    // }
-
     const hasToken = store.getters.getToken;
 
     // next();

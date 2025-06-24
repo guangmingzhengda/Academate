@@ -39,7 +39,6 @@
 <script lang="js">
 import {getAllCommentsAPI, getStarSum} from "@/page/achievement-detail/api/api";
 import {ref} from "vue";
-import {decode_function} from "@/decode/code";
 
 export default {
     name: "side-component",
@@ -56,12 +55,6 @@ export default {
         }
     },
     async mounted() {
-        const commentData = await getAllCommentsAPI(decode_function(this.$route.params.id), 4, 1);
-        this.comments = commentData.total;
-        this.favorites = await getStarSum(decode_function(this.$route.params.id));
-        setTimeout(()=>{
-            this.visitCount = this.work.visitCount;
-        }, 200);
     },
     methods: {
         getColor(value) {

@@ -112,7 +112,6 @@ import {commitCommentAPI, deleteCommentAPI, getAllCommentsAPI, getUserInfo,} fro
 import {callSuccess, callInfo} from "@/call";
 import store from "@/store";
 import {getUserAuthorId} from "@/api/favourite";
-import {decode_function} from "@/decode/code";
 export default {
     name: "comments",
     props: {
@@ -215,7 +214,6 @@ export default {
         //     }
         // },
         async pullData() {
-            // return getAllCommentsAPI(decode_function(this.$route.params.id), 20, 1);
             return null; // Temporarily disabled for static data testing
           // return getAllCommentsAPI(this.$route.params.id, 20, 1);
         },

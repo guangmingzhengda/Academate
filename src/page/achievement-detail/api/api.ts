@@ -162,3 +162,28 @@ export async function getUserInfo(id) {
         callError(error as string);
     }
 }
+
+/**
+ * 根据成果ID获取研究成果信息
+ * @param outcomeId 成果ID
+ * @returns 研究成果信息
+ */
+export async function getResearchOutcomeById(outcomeId: number) {
+    try {
+        const response = await axios.get(`/research_outcome/research_by_id`, {
+            params: {
+                outcome_id: outcomeId
+            }
+        });
+        
+        if (response.status === 200 && response.data.code === 0) {
+            return response.data.data;
+        } else {
+            callError("获取研究成果信息失败: " + (response.data.message || "未知错误"));
+            return null;
+        }
+    } catch (error) {
+        callError("获取研究成果信息失败: " + error);
+        return null;
+    }
+}
