@@ -32,12 +32,12 @@
                             <div class="card-content">
                                 <!-- 关键词输入 -->
                                 <div class="filter-item">
-                                    <label class="filter-label">关键词</label>
+                                    <label class="filter-label">姓名</label>
                                     <el-input
-                                        v-model="searchFilters.keyword"
-                                        placeholder="请输入姓名或关键词"
+                                        v-model="searchFilters.userName"
+                                        placeholder="请输入科研人员姓名"
                                         clearable
-                                        @input="filterResearchers"
+                                        @input="searchResearchers"
                                     />
                                 </div>
 
@@ -45,10 +45,10 @@
                                 <div class="filter-item">
                                     <label class="filter-label">成果题目</label>
                                     <el-input
-                                        v-model="searchFilters.achievementTitle"
+                                        v-model="searchFilters.researchTitle"
                                         placeholder="请输入成果题目关键词"
                                         clearable
-                                        @input="filterResearchers"
+                                        @input="searchResearchers"
                                     />
                                 </div>
 
@@ -56,12 +56,12 @@
                                 <div class="filter-item">
                                     <label class="filter-label">所在机构</label>
                                     <el-select
-                                        v-model="searchFilters.organization"
+                                        v-model="searchFilters.institution"
                                         placeholder="选择或输入机构名称"
                                         filterable
                                         allow-create
                                         clearable
-                                        @change="filterResearchers"
+                                        @change="searchResearchers"
                                     >
                                         <el-option
                                             v-for="org in organizations"
@@ -76,10 +76,11 @@
                                 <div class="filter-item">
                                     <label class="filter-label">研究领域</label>
                                     <el-select
-                                        v-model="searchFilters.researchField"
-                                        placeholder="选择研究领域"
+                                        v-model="searchFilters.field"
+                                        placeholder="选择或输入研究领域"
                                         clearable
-                                        @change="filterResearchers"
+                                        filterable
+                                        @change="searchResearchers"
                                     >
                                         <el-option
                                             v-for="field in researchFields"
@@ -98,65 +99,93 @@
                     <!-- 右侧搜索结果 -->
                     <div class="results-content">
                         <div class="results-list">
-                            <div v-if="currentPageResearchers.length === 0" class="empty-state">
+                            <!-- 加载状态 -->
+                            <div v-if="loading" class="loading-state">
+                                <el-icon class="loading-icon"><Loading /></el-icon>
+                                <div class="loading-text">正在搜索科研人员...</div>
+                            </div>
+                            
+                            <!-- 空状态 -->
+                            <div v-else-if="researchers.length === 0" class="empty-state">
                                 <el-icon class="empty-icon"><Search /></el-icon>
                                 <div class="empty-text">暂无符合条件的科研人员</div>
                                 <div class="empty-desc">请尝试调整搜索条件</div>
                             </div>
                             
+                            <!-- 搜索结果列表 -->
                             <div v-else class="researcher-list">
                                 <div 
-                                    v-for="researcher in currentPageResearchers" 
+                                    v-for="researcher in researchers" 
                                     :key="researcher.id" 
                                     class="researcher-item"
+                                    style="position: relative;"
                                 >
-                                    <div class="researcher-info">
-                                        <div class="researcher-content">
-                                            <div class="avatar-section">
-                                                <div class="researcher-avatar" :style="{ backgroundColor: getRandomColor(researcher.id) }">
-                                                    {{ researcher.name.charAt(0) }}
+                                    <div class="action-buttons card-action-buttons">
+                                        <el-button 
+                                            type="primary"
+                                            size="small"
+                                            @click="toggleFollow(researcher)"
+                                        >
+                                            关注
+                                        </el-button>
+                                        <el-button 
+                                            type="default" 
+                                            size="small"
+                                            @click="sendMessage(researcher)"
+                                        >
+                                            私信
+                                        </el-button>
+                                    </div>
+                                    <div class="researcher-info" style="display: flex; align-items: flex-start;">
+                                        <router-link :to="`/profile/${researcher.id}`" class="avatar-section" style="text-decoration:none;">
+                                            <div class="researcher-avatar" :style="{ backgroundColor: getRandomColor(researcher.id) }">
+                                                {{ researcher.name ? researcher.name.charAt(0) : 'U' }}
+                                            </div>
+                                        </router-link>
+                                        <div class="info-section">
+                                            <div class="info-header">
+                                                <router-link :to="`/profile/${researcher.id}`" class="researcher-name" style="text-decoration:none;">
+                                                    {{ researcher.name || '未知用户' }}
+                                                </router-link>
+                                                <span v-if="researcher.field" class="researcher-field">{{ researcher.field }}</span>
+                                            </div>
+                                            <div class="profile-text">
+                                                <div class="info-row">
+                                                    <span class="info-label">个人简介：</span>
+                                                    <span>{{ researcher.profile ? researcher.profile : '这个人很神秘，什么都没有留下~' }}</span>
                                                 </div>
                                             </div>
-                                            <div class="basic-info">
-                                                <div class="name-title-row">
-                                                    <div class="name-title-section">
-                                                        <div class="researcher-name">{{ researcher.name }}</div>
-                                                        <div class="researcher-title">{{ researcher.title }}</div>
-                                                    </div>
-                                                    <div class="action-buttons">
-                                                        <el-button 
-                                                            :type="researcher.isFollowing ? 'info' : 'primary'"
-                                                            size="small"
-                                                            @click="toggleFollow(researcher)"
-                                                        >
-                                                            {{ researcher.isFollowing ? '已关注' : '关注' }}
-                                                        </el-button>
-                                                        <el-button 
-                                                            type="default" 
-                                                            size="small"
-                                                            @click="sendMessage(researcher)"
-                                                        >
-                                                            私信
-                                                        </el-button>
-                                                    </div>
+                                            <div class="info-footer">
+                                                <div class="info-row">
+                                                    <span class="info-label">所属机构：</span>
+                                                    <span>{{ researcher.institution || '暂无' }}</span>
                                                 </div>
-                                                <div class="organization">{{ researcher.email }}</div>
-                                                <div class="research-fields">
-                                                    <span 
-                                                        v-for="field in researcher.researchFields.slice(0, 3)" 
-                                                        :key="field" 
-                                                        class="field-tag"
-                                                    >
-                                                        {{ field }}
-                                                    </span>
-                                                    <span v-if="researcher.researchFields.length > 3" class="more-fields">
-                                                        +{{ researcher.researchFields.length - 3 }}
-                                                    </span>
+                                                <div class="info-row">
+                                                    <span class="info-label">Email：</span>
+                                                    <span>{{ researcher.email || '暂无' }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="info-footer">
+                                                <div class="info-row">
+                                                    <span class="info-label">研究成果：</span>
+                                                    <div v-if="researcher.researchOutcomes && researcher.researchOutcomes.length > 0">
+                                                        <div v-for="(outcome, idx) in researcher.researchOutcomes.slice(0, 3)" :key="outcome.outcomeId">
+                                                            <span class="ach-title">{{ outcome.title || '无标题' }}</span>
+                                                            <span v-if="outcome.type" class="ach-sep">·</span>
+                                                            <span v-if="outcome.type" class="ach-type">{{ outcome.type }}</span>
+                                                            <span v-if="outcome.journal" class="ach-sep">|</span>
+                                                            <span v-if="outcome.journal" class="ach-journal">{{ outcome.journal }}</span>
+                                                            <span v-if="outcome.patentNumber" class="ach-sep">|</span>
+                                                            <span v-if="outcome.patentNumber" class="ach-patent">专利号: {{ outcome.patentNumber }}</span>
+                                                            <span v-if="outcome.publishDate" class="ach-sep">|</span>
+                                                            <span v-if="outcome.publishDate" class="ach-year">{{ outcome.publishDate.slice(0, 4) }}</span>
+                                                        </div>
+                                                        <div v-if="researcher.researchOutcomes.length > 3" class="ach-more-tip">更多成果请前往个人主页查看</div>
+                                                    </div>
+                                                    <div v-else><span class="ach-title">暂无</span></div>
                                                 </div>
                                             </div>
                                         </div>
-
-
                                     </div>
                                 </div>
                             </div>
@@ -164,11 +193,10 @@
                             <!-- 分页 -->
                             <div class="pagination-container">
                                 <el-pagination
-                                    v-if="filteredResearchers.length > pageSize"
                                     v-model:current-page="currentPage"
                                     :page-size="pageSize"
-                                    :total="filteredResearchers.length"
-                                    layout="prev, pager, next, jumper"
+                                    :total="total"
+                                    layout="prev, pager, next, jumper, total"
                                     class="pagination"
                                     @current-change="handlePageChange"
                                 />
@@ -190,11 +218,11 @@
         <div class="message-dialog">
             <div class="recipient-info">
                 <div class="recipient-avatar" :style="{ backgroundColor: getRandomColor(selectedResearcher?.id || 1) }">
-                    {{ selectedResearcher?.name?.charAt(0) || '' }}
+                    {{ selectedResearcher?.name ? selectedResearcher.name.charAt(0) : 'U' }}
                 </div>
                 <div>
-                    <div class="recipient-name">{{ selectedResearcher?.name }}</div>
-                    <div class="recipient-org">{{ selectedResearcher?.email }}</div>
+                    <div class="recipient-name">{{ selectedResearcher?.name || '未知用户' }}</div>
+                    <div class="recipient-org">{{ selectedResearcher?.institution || '未知机构' }}</div>
                 </div>
             </div>
             
@@ -223,9 +251,10 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
-import { Refresh, Search } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { Refresh, Search, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import { search_researchers } from '@/api/profile'
 
 export default {
     name: "researcher-search",
@@ -234,248 +263,114 @@ export default {
         
         // 搜索筛选条件
         const searchFilters = ref({
-            keyword: '',
-            achievementTitle: '',
-            organization: '',
-            researchField: ''
+            userName: '',
+            researchTitle: '',
+            institution: '',
+            field: ''
         })
 
-        // 排序方式
-        const sortBy = ref('default')
-        
         // 分页相关
         const currentPage = ref(1)
-        const pageSize = ref(5)
+        const pageSize = ref(10)
+        const total = ref(0)
 
         // 私信相关
         const messageDialogVisible = ref(false)
         const selectedResearcher = ref(null)
         const messageContent = ref('')
 
-        // 筛选选项数据
-        const organizations = ref([
-            '清华大学', '北京大学', '中科院', '复旦大学', '上海交大', 
-            '浙江大学', '南京大学', '华中科技大学', '西安交大', '同济大学'
-        ])
-
-        const researchFields = ref([
-            '人工智能', '机器学习', '深度学习', '计算机视觉', '自然语言处理',
-            '数据挖掘', '云计算', '物联网', '区块链', '网络安全',
-            '软件工程', '数据库', '分布式系统', '算法设计', '生物信息学'
-        ])
-
-
+        // 筛选选项数据 - 从搜索结果中动态获取
+        const organizations = ref([])
+        const researchFields = ref([])
 
         // 科研人员数据
-        const allResearchers = ref([
-            {
-                id: 1,
-                name: '张三',
-                title: '教授',
-                organization: '清华大学',
-                email: 'zhangsan@tsinghua.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['人工智能', '机器学习', '深度学习'],
-                education: '博士',
-                paperCount: 156,
-                followersCount: 2340,
-                impactFactor: 8.5,
-                hIndex: 45,
-                isFollowing: false,
-                recentAchievements: [
-                    { id: 1, title: 'Deep Learning for Computer Vision Applications', journal: 'Nature AI', year: 2024 },
-                    { id: 2, title: 'Advanced Machine Learning Algorithms', journal: 'Science', year: 2023 }
-                ]
-            },
-            {
-                id: 2,
-                name: '李四',
-                title: '副教授',
-                organization: '北京大学',
-                email: 'lisi@pku.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['自然语言处理', '计算机视觉'],
-                education: '博士',
-                paperCount: 89,
-                followersCount: 1560,
-                impactFactor: 6.2,
-                hIndex: 32,
-                isFollowing: true,
-                recentAchievements: [
-                    { id: 3, title: 'Natural Language Processing in Healthcare', journal: 'ACL', year: 2024 }
-                ]
-            },
-            {
-                id: 3,
-                name: '王五',
-                title: '研究员',
-                organization: '中科院',
-                email: 'wangwu@cas.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['数据挖掘', '区块链', '网络安全'],
-                education: '博士',
-                paperCount: 134,
-                followersCount: 1890,
-                impactFactor: 7.3,
-                hIndex: 38,
-                isFollowing: false,
-                recentAchievements: [
-                    { id: 4, title: 'Blockchain Security and Privacy Protection', journal: 'IEEE Security', year: 2024 },
-                    { id: 5, title: 'Data Mining Techniques for Big Data', journal: 'TKDE', year: 2023 }
-                ]
-            },
-            {
-                id: 4,
-                name: '赵六',
-                title: '教授',
-                organization: '复旦大学',
-                email: 'zhaoliu@fudan.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['云计算', '分布式系统'],
-                education: '博士',
-                paperCount: 201,
-                followersCount: 3120,
-                impactFactor: 9.1,
-                hIndex: 52,
-                isFollowing: false,
-                recentAchievements: [
-                    { id: 6, title: 'Distributed Computing in Cloud Environments', journal: 'TPDS', year: 2024 }
-                ]
-            },
-            {
-                id: 5,
-                name: '陈七',
-                title: '副教授',
-                organization: '上海交大',
-                email: 'chenqi@sjtu.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['物联网', '嵌入式系统'],
-                education: '博士',
-                paperCount: 67,
-                followersCount: 980,
-                impactFactor: 5.4,
-                hIndex: 25,
-                isFollowing: false,
-                recentAchievements: [
-                    { id: 7, title: 'IoT Security and Privacy in Smart Cities', journal: 'IoT Journal', year: 2024 }
-                ]
-            },
-            {
-                id: 6,
-                name: '刘八',
-                title: '讲师',
-                organization: '浙江大学',
-                email: 'liuba@zju.edu.cn',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['软件工程', '算法设计'],
-                education: '博士',
-                paperCount: 45,
-                followersCount: 650,
-                impactFactor: 4.2,
-                hIndex: 18,
-                isFollowing: true,
-                recentAchievements: [
-                    { id: 8, title: 'Advanced Software Engineering Practices', journal: 'TSE', year: 2023 }
-                ]
+        const researchers = ref([])
+        const loading = ref(false)
+
+        // 获取科研人员数据
+        const fetchResearchers = async () => {
+            loading.value = true
+            try {
+                const searchData = {
+                    userName: searchFilters.value.userName || undefined,
+                    researchTitle: searchFilters.value.researchTitle || undefined,
+                    institution: searchFilters.value.institution || undefined,
+                    field: searchFilters.value.field || undefined,
+                    current: currentPage.value,
+                    pageSize: pageSize.value
+                }
+
+                // 移除undefined的字段
+                Object.keys(searchData).forEach(key => {
+                    if (searchData[key] === undefined) {
+                        delete searchData[key]
+                    }
+                })
+
+                const result = await search_researchers(searchData)
+                if (result) {
+                    researchers.value = result.list
+                    total.value = result.total
+                    console.log(researchers.value)
+                    // 动态更新筛选选项
+                    updateFilterOptions(result.list)
+                } else {
+                    researchers.value = []
+                    total.value = 0
+                }
+            } catch (error) {
+                console.error('获取科研人员数据失败:', error)
+                ElMessage.error('获取数据失败，请稍后重试')
+                researchers.value = []
+                total.value = 0
+            } finally {
+                loading.value = false
             }
-        ])
-
-        // 过滤后的科研人员列表
-        const filteredResearchers = ref([...allResearchers.value])
-
-        // 当前页的科研人员
-        const currentPageResearchers = computed(() => {
-            const start = (currentPage.value - 1) * pageSize.value
-            const end = start + pageSize.value
-            return filteredResearchers.value.slice(start, end)
-        })
-
-        // 过滤科研人员
-        const filterResearchers = () => {
-            let filtered = [...allResearchers.value]
-
-            // 关键词过滤
-            if (searchFilters.value.keyword) {
-                const keyword = searchFilters.value.keyword.toLowerCase()
-                filtered = filtered.filter(researcher =>
-                    researcher.name.toLowerCase().includes(keyword) ||
-                    researcher.researchFields.some(field => field.toLowerCase().includes(keyword))
-                )
-            }
-
-            // 成果题目过滤
-            if (searchFilters.value.achievementTitle) {
-                const title = searchFilters.value.achievementTitle.toLowerCase()
-                filtered = filtered.filter(researcher =>
-                    researcher.recentAchievements.some(achievement =>
-                        achievement.title.toLowerCase().includes(title)
-                    )
-                )
-            }
-
-            // 机构过滤
-            if (searchFilters.value.organization) {
-                filtered = filtered.filter(researcher =>
-                    researcher.organization === searchFilters.value.organization
-                )
-            }
-
-            // 研究领域过滤
-            if (searchFilters.value.researchField) {
-                filtered = filtered.filter(researcher =>
-                    researcher.researchFields.includes(searchFilters.value.researchField)
-                )
-            }
-
-            filteredResearchers.value = filtered
-            currentPage.value = 1 // 重置到第一页
         }
 
-        // 排序科研人员
-        const sortResearchers = () => {
-            let sorted = [...filteredResearchers.value]
+        // 更新筛选选项
+        const updateFilterOptions = (researcherList) => {
+            // 提取机构列表
+            const orgSet = new Set()
+            researcherList.forEach(researcher => {
+                if (researcher.institution) {
+                    orgSet.add(researcher.institution)
+                }
+            })
+            organizations.value = Array.from(orgSet).sort()
 
-            switch (sortBy.value) {
-                case 'papers':
-                    sorted.sort((a, b) => b.paperCount - a.paperCount)
-                    break
-                case 'followers':
-                    sorted.sort((a, b) => b.followersCount - a.followersCount)
-                    break
-                case 'impact':
-                    sorted.sort((a, b) => b.impactFactor - a.impactFactor)
-                    break
-                default:
-                    // 默认排序，保持原顺序
-                    break
-            }
+            // 提取研究领域列表
+            const fieldSet = new Set()
+            researcherList.forEach(researcher => {
+                if (researcher.field) {
+                    fieldSet.add(researcher.field)
+                }
+            })
+            researchFields.value = Array.from(fieldSet).sort()
+        }
 
-            filteredResearchers.value = sorted
+        // 搜索科研人员
+        const searchResearchers = () => {
+            currentPage.value = 1 // 重置到第一页
+            fetchResearchers()
         }
 
         // 重置筛选条件
         const resetFilters = () => {
             searchFilters.value = {
-                keyword: '',
-                achievementTitle: '',
-                organization: '',
-                researchField: ''
+                userName: '',
+                researchTitle: '',
+                institution: '',
+                field: ''
             }
-            sortBy.value = 'default'
-            filteredResearchers.value = [...allResearchers.value]
             currentPage.value = 1
+            fetchResearchers()
         }
 
         // 关注/取消关注
         const toggleFollow = (researcher) => {
-            researcher.isFollowing = !researcher.isFollowing
-            if (researcher.isFollowing) {
-                researcher.followersCount++
-                ElMessage.success(`已关注 ${researcher.name}`)
-            } else {
-                researcher.followersCount--
-                ElMessage.info(`已取消关注 ${researcher.name}`)
-            }
+            // 这里应该调用关注/取消关注的API
+            ElMessage.success(`已关注 ${researcher.name | "未知用户"}`)
         }
 
         // 发送私信
@@ -506,6 +401,7 @@ export default {
         // 分页处理
         const handlePageChange = (page) => {
             currentPage.value = page
+            fetchResearchers()
         }
 
         // 生成随机颜色
@@ -518,20 +414,35 @@ export default {
             return colors[id % colors.length]
         }
 
+        // 监听搜索条件变化，实现实时搜索
+        watch(searchFilters, () => {
+            // 使用防抖，避免频繁请求
+            clearTimeout(searchTimeout.value)
+            searchTimeout.value = setTimeout(() => {
+                searchResearchers()
+            }, 500)
+        }, { deep: true })
+
+        const searchTimeout = ref(null)
+
+        // 组件挂载时获取数据
+        onMounted(() => {
+            fetchResearchers()
+        })
+
         return {
             searchFilters,
-            sortBy,
             currentPage,
             pageSize,
+            total,
             messageDialogVisible,
             selectedResearcher,
             messageContent,
             organizations,
             researchFields,
-            filteredResearchers,
-            currentPageResearchers,
-            filterResearchers,
-            sortResearchers,
+            researchers,
+            loading,
+            searchResearchers,
             resetFilters,
             toggleFollow,
             sendMessage,
@@ -598,6 +509,9 @@ export default {
 .search-sidebar {
     width: 350px;
     flex-shrink: 0;
+    position: sticky;
+    top: 80px;
+    z-index: 10;
 }
 
 .search-title-image {
@@ -682,6 +596,32 @@ export default {
     font-size: 14px;
 }
 
+.loading-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.loading-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    animation: rotate 1s linear infinite;
+}
+
+.loading-text {
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+@keyframes rotate {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .researcher-list {
     display: flex;
     flex-direction: column;
@@ -691,12 +631,18 @@ export default {
 .researcher-item {
     border: 1px solid #e8e8e8;
     padding: 12px 15px;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
 }
 
 .researcher-item:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    border-color: #2c5aa0;
+    box-shadow: 0 8px 24px rgba(44,90,160,0.13), 0 1.5px 6px rgba(44,90,160,0.10);
+    border-color: #22529a55;
+    background: #fdfeff;
+    transform: translateY(-4px) scale(1.007);
+    z-index: 2;
 }
 
 .researcher-content {
@@ -782,14 +728,83 @@ export default {
     font-size: 12px;
 }
 
+.profile-text {
+    margin-top: 8px;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-align: left;
+}
+
+.info-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    margin-left: 15px;
+}
+
+.info-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
+}
+
+.researcher-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c5aa0;
+}
+
+.researcher-field {
+    background: #e8f4fd;
+    color: #1890ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-left: 8px;
+}
+
+.info-footer {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 30px;
+}
+
+.info-row {
+    display: flex;
+    align-items: center;
+    font-size: 13px;
+    color: #444;
+    min-width: 180px;
+    margin-top: 2px;
+}
+
+.info-label {
+    color: #888;
+    font-weight: 500;
+    margin-right: 4px;
+}
+
 .action-buttons {
     display: flex;
     gap: 8px;
 }
 
-
-
-
+.card-action-buttons {
+    position: absolute;
+    right: 20px;
+    top: 18px;
+    z-index: 2;
+    gap: 10px;
+}
 
 .pagination-container {
     margin-top: 20px;
@@ -840,5 +855,53 @@ export default {
     font-size: 14px;
     color: #666;
     text-align: left;
+}
+
+.ach-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c5aa0;
+}
+
+.ach-sep {
+    margin: 0 4px;
+}
+
+.ach-type {
+    background: #e8f4fd;
+    color: #1890ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.ach-journal {
+    background: #e8f4fd;
+    color: #1890ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.ach-patent {
+    background: #e8f4fd;
+    color: #1890ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.ach-year {
+    background: #e8f4fd;
+    color: #1890ff;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+}
+
+.ach-more-tip {
+    font-size: 14px;
+    color: #999;
+    text-align: center;
 }
 </style> 
