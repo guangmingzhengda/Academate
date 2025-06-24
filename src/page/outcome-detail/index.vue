@@ -66,7 +66,42 @@
                     <el-button type="primary" icon="el-icon-thumb" size="small">点赞</el-button>
                     <el-button type="primary" icon="el-icon-share" size="small">分享</el-button>
                     <el-button v-if="outcomeData.url" type="success" icon="el-icon-download" size="small" @click="openUrl(outcomeData.url)">查看原文</el-button>
+                    <el-button type="primary" icon="el-icon-upload" size="small" @click="showUploadDialog">上传PDF</el-button>
                   </div>
+                  
+                  <!-- 文件上传对话框 -->
+                  <el-dialog
+                    v-model="uploadDialogVisible"
+                    title="上传研究成果文件"
+                    width="500px"
+                  >
+                    <div class="upload-container">
+                      <p class="upload-tip">请选择要上传的PDF文件</p>
+                      <el-upload
+                        class="pdf-uploader"
+                        :auto-upload="false"
+                        :limit="1"
+                        accept=".pdf"
+                        :on-change="handleFileChange"
+                        :file-list="fileList"
+                      >
+                        <el-button type="primary">选择文件</el-button>
+                        <template #tip>
+                          <div class="el-upload__tip">
+                            只能上传PDF文件
+                          </div>
+                        </template>
+                      </el-upload>
+                    </div>
+                    <template #footer>
+                      <span class="dialog-footer">
+                        <el-button @click="uploadDialogVisible = false">取消</el-button>
+                        <el-button type="primary" @click="uploadFile" :loading="uploading" :disabled="!selectedFile">
+                          上传
+                        </el-button>
+                      </span>
+                    </template>
+                  </el-dialog>
                 </div>
                 
                 <!-- 相关研究成果推荐 -->
@@ -141,7 +176,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { getResearchOutcomeById, ResearchOutcomeVO } from '@/api/outcome';
+import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO } from '@/api/outcome';
 import { ElMessage } from 'element-plus';
 
 export default defineComponent({
@@ -152,6 +187,12 @@ export default defineComponent({
     const loading = ref(true);
     const outcomeData = ref<ResearchOutcomeVO | null>(null);
     const relatedOutcomes = ref<any[]>([]);
+    
+    // 文件上传相关
+    const uploadDialogVisible = ref(false);
+    const fileList = ref<any[]>([]);
+    const selectedFile = ref<File | null>(null);
+    const uploading = ref(false);
     
     // 从路由参数获取ID
     const outcomeId = computed(() => {
@@ -276,6 +317,56 @@ export default defineComponent({
       ];
     };
     
+    // 显示上传对话框
+    const showUploadDialog = () => {
+      uploadDialogVisible.value = true;
+      fileList.value = [];
+      selectedFile.value = null;
+    };
+    
+    // 处理文件选择变化
+    const handleFileChange = (file: any) => {
+      if (file && file.raw) {
+        // 检查是否为PDF文件
+        if (file.raw.type !== 'application/pdf') {
+          ElMessage.warning('只能上传PDF文件');
+          return false;
+        }
+        selectedFile.value = file.raw;
+      } else {
+        selectedFile.value = null;
+      }
+    };
+    
+    // 上传文件
+    const uploadFile = async () => {
+      if (!selectedFile.value) {
+        ElMessage.warning('请先选择要上传的文件');
+        return;
+      }
+      
+      if (!outcomeData.value || !outcomeData.value.outcomeId) {
+        ElMessage.error('无法获取成果ID，上传失败');
+        return;
+      }
+      
+      uploading.value = true;
+      try {
+        const result = await uploadResearchFile(outcomeData.value.outcomeId, selectedFile.value);
+        if (result) {
+          ElMessage.success('文件上传成功');
+          uploadDialogVisible.value = false;
+          // 可以刷新成果信息
+          await loadOutcomeData();
+        }
+      } catch (error) {
+        console.error('上传文件失败:', error);
+        ElMessage.error('上传文件失败');
+      } finally {
+        uploading.value = false;
+      }
+    };
+    
     // 页面加载时获取数据
     onMounted(() => {
       loadOutcomeData();
@@ -289,7 +380,15 @@ export default defineComponent({
       formatVolumeIssue,
       formatDate,
       formatType,
-      openUrl
+      openUrl,
+      // 文件上传相关
+      uploadDialogVisible,
+      fileList,
+      selectedFile,
+      uploading,
+      showUploadDialog,
+      handleFileChange,
+      uploadFile
     };
   }
 });
@@ -474,5 +573,26 @@ export default defineComponent({
 .error-container {
   padding: 40px 0;
   text-align: center;
+}
+
+/* 文件上传相关样式 */
+.upload-container {
+  padding: 10px 0;
+}
+
+.upload-tip {
+  margin-bottom: 15px;
+  color: #606266;
+  font-size: 14px;
+}
+
+.pdf-uploader {
+  width: 100%;
+}
+
+.el-upload__tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
 }
 </style> 
