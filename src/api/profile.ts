@@ -26,6 +26,7 @@ interface UserDetail {
         url: string;
         patentNumber: string;
         likeCount: number;
+        authorOrder: number;
     }>;
     name: string;
     department: string;
@@ -36,6 +37,54 @@ interface UserDetail {
     graduationDate: string;
     totalOutcomeLikes: number;
     followersCount: number;
+}
+
+// 搜索科研人员的请求参数类型
+interface UserSearchRequest {
+    userName?: string;
+    field?: string;
+    researchTitle?: string;
+    institution?: string;
+    current?: number;
+    pageSize?: number;
+}
+
+// 研究成果类型
+interface ResearchOutcomeVO {
+    outcomeId: number;
+    type: string;
+    title: string;
+    authors: string;
+    journal: string;
+    volume: number;
+    issue: number;
+    pages: number;
+    publishDate: string;
+    doi: string;
+    url: string;
+    patentNumber: string;
+}
+
+// 用户详情类型
+interface UserDetailVO {
+    id: number;
+    account: string;
+    email: string;
+    institution: string;
+    field: string;
+    profile: string;
+    avatar: string;
+    createTime: string;
+    researchOutcomes: ResearchOutcomeVO[];
+    name: string;
+}
+
+// 分页结果类型
+interface PageResultUserDetailVO {
+    pageNum: number;
+    pageSize: number;
+    total: number;
+    list: UserDetailVO[];
 }
 
 /*

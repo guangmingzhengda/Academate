@@ -54,20 +54,45 @@ export async function sendEmail(email : string){
     }
 }
 
-export async function resetPassword(data):Promise<boolean>{
+export async function resetPassword(data: {
+    email: string,
+    verificationCode: string,
+    password: string
+}): Promise<boolean> {
     try {
-        const response = await axios.post('/user/resetPassword', data);
+        // 根据API文档构造请求体
+        const requestData = {
+            email: data.email,
+            newPassword: data.password,
+            captcha: data.verificationCode
+        };
+        
+        console.log('找回密码请求数据:', requestData);
+        
+        const response = await axios.post('/user/update_password/verify', requestData);
+        console.log('找回密码响应:', response.data);
+        
         if (response.status === 200) {
             if (response.data.code == 0) {
                 callSuccess('新密码设置成功');
                 return true;
-            } else callInfo(response.data.message);
-            return false;
+            } else {
+                callError(response.data.message || '密码修改失败');
+                return false;
+            }
         } else {
             callError('网络错误');
             return false;
         }
-    } catch (error) {
+    } catch (error: any) {
+        console.error('找回密码错误:', error);
+        if (error.response) {
+            callError(error.response.data?.message || '密码修改失败');
+        } else if (error.request) {
+            callError('网络连接错误');
+        } else {
+            callError('密码修改失败，请重试');
+        }
         return false;
     }
 }
