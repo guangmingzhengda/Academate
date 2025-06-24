@@ -45,4 +45,28 @@ export async function unfollowUser(followedId: number): Promise<boolean> {
         callError('网络错误或服务器异常');
         return false;
     }
+}
+
+/**
+ * 获取当前用户关注的人员列表
+ * @param userId 当前用户ID
+ * @param current 当前页码
+ * @param size 每页数量
+ * @returns Promise<{records: Array<{userId:number, name:string, account:string, avatar:string}>, total:number, size:number, current:number} | null>
+ */
+export async function getFollowedUsers(userId: number, current: number, size: number): Promise<any> {
+    try {
+        const response = await axios.get('/user/followed_users', {
+            params: { userId, current, size }
+        });
+        if (response.status === 200 && response.data.code === 0) {
+            return response.data.data;
+        } else {
+            callError(response.data.message || '获取关注列表失败');
+            return null;
+        }
+    } catch (error) {
+        callError('网络错误或服务器异常');
+        return null;
+    }
 } 
