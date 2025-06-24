@@ -83,6 +83,7 @@
 import { ref, computed } from 'vue'
 import { callSuccess, callInfo, callWarning } from '@/call'
 import { ElMessageBox } from 'element-plus'
+import router from '@/router'
 
 export default {
     name: 'followManager',
@@ -234,7 +235,7 @@ export default {
         
         // 查看用户主页
         const viewProfile = (userId) => {
-            callInfo(`查看用户 ${userId} 的主页`)
+            router.push({ name: 'profile', params: { id: userId } })
         }
         
         // 取消关注

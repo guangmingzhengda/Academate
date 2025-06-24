@@ -51,7 +51,7 @@
             <nav-button v-if="store.getters.getIsAdmin" buttonName="管理界面" dest="/administrator"/> -->
             <nav-button v-if="!store.getters.getToken" buttonName="登录" dest="/login" />
             <!-- <nav-button v-if="store.getters.getToken" buttonName="学者认证" dest="/auth" /> -->
-            <nav-button v-if="store.getters.getToken" buttonName="个人资料" dest="/profile" />
+            <nav-button v-if="store.getters.getToken" buttonName="个人资料" :dest="`/profile/${store.getters.getId}`" />
             <nav-button v-if="store.getters.getToken" buttonName="登出" dest="/logout" />
 
             <div style="margin-left: 10px; border-radius: 270px;
@@ -74,13 +74,13 @@
 <script setup>
 import { useStore } from "vuex";
 import { register, resetPassword, sendEmail } from "@/api/example";
-import {computed, onMounted, provide, ref, watch} from "vue";
+import {computed, onMounted, provide, ref, watch, onUnmounted} from "vue";
 import { callSuccess, callError, callInfo, callWarning } from "@/call";
 import { Search } from '@element-plus/icons-vue'
 import store from "@/store";
 import router from "@/router"
 import NavButton from "@/nav/navButton/index.vue";
-import {getUserAuthorId} from "@/api/favourite";
+import { get_user_detail } from "@/api/profile";
 
 const searchInput = ref('');
 const select = ref('0')
@@ -91,21 +91,64 @@ const altImg = () => {
     avatarUrl.value = require("@/asset/home/user.png");
 }
 
+// 监听头像更新事件
+const handleAvatarUpdate = (event) => {
+    const { avatarUrl: newAvatarUrl } = event.detail;
+    if (newAvatarUrl) {
+        avatarUrl.value = newAvatarUrl + '?t=' + new Date().getTime();
+    }
+};
+
+// 在组件挂载时添加事件监听器
+onMounted(() => {
+    window.addEventListener('avatarUpdated', handleAvatarUpdate);
+    
+    // 初始化时立即从store中获取头像
+    if (store.getters.getToken) {
+        const storeData = store.getters.getData;
+        if (storeData && storeData.avatar) {
+            avatarUrl.value = storeData.avatar;
+        } else {
+            avatarUrl.value = require("@/asset/home/user.png");
+        }
+    } else {
+        avatarUrl.value = require("@/asset/home/user.png");
+    }
+});
+
+// 在组件卸载时移除事件监听器
+onUnmounted(() => {
+    window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+});
+
 setInterval(async() =>{
     // 尝试显示头像
     avatarCnt.value += 1;
     // console.log('token: '+store.getters.getToken)
     if (store.getters.getToken) {
-        // const url = store.getters.getData.avatar;
-        const res = await getUserAuthorId(store.getters.getId);
-        const url = res.avatar;
-        if (url !== null) {
-            avatarUrl.value = url;
-            if (avatarUrl.value%6 === 0) {
-                avatarUrl.value += '?t=' + new Date().getTime();
+        // 优先使用store中的头像信息
+        const storeData = store.getters.getData;
+        if (storeData && storeData.avatar) {
+            avatarUrl.value = storeData.avatar;
+        } else {
+            // 如果store中没有，则尝试从API获取
+            const res = await get_user_detail({ userId: store.getters.getId });
+            if (res && res.avatar) {
+                avatarUrl.value = res.avatar;
+                
+                // 将获取到的头像URL保存到store中
+                const currentData = store.getters.getData;
+                store.commit('setData', {
+                    ...currentData,
+                    avatar: res.avatar
+                });
+                
+                if (avatarCnt.value % 6 === 0) {
+                    avatarUrl.value += '?t=' + new Date().getTime();
+                }
+            } else {
+                avatarUrl.value = require("@/asset/home/user.png");
             }
-        }else {
-            avatarUrl.value = require("@/asset/home/user.png");
         }
     }else{
         avatarUrl.value = require("@/asset/home/user.png");
@@ -114,7 +157,7 @@ setInterval(async() =>{
 }, 1000);
 
 const callPersonal = () => {
-    router.push('/profile');
+    router.push(`/profile/${store.getters.getId}`);
 }
 
 const callSearchPage = () => {

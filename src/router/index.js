@@ -66,7 +66,7 @@ const router = createRouter({
 
         // 用户个人资料
         {
-            path: '/profile',
+            path: '/profile/:id?',
             name: 'profile',
             component: defineAsyncComponent(() => import(`../page/profile/index.vue`)),
             meta: {

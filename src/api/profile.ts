@@ -20,13 +20,22 @@ interface UserDetail {
         journal: string;
         volume: number;
         issue: number;
-        pages: string;
-        year: number;
+        pages: number;
+        publishDate: string;
         doi: string;
         url: string;
         patentNumber: string;
-        authorOrder: number;
+        likeCount: number;
     }>;
+    name: string;
+    department: string;
+    jobTitle: string;
+    highestDegree: string;
+    graduateSchool: string;
+    major: string;
+    graduationDate: string;
+    totalOutcomeLikes: number;
+    followersCount: number;
 }
 
 /*
@@ -43,6 +52,7 @@ interface UserDetail {
 		"profile": "",
 		"avatar": "",
 		"createTime": "",
+		"name": "",
 		"researchOutcomes": [
 			{
 				"outcomeId": 0,
@@ -52,12 +62,11 @@ interface UserDetail {
 				"journal": "",
 				"volume": 0,
 				"issue": 0,
-				"pages": "",
-				"year": 0,
+				"pages": 0,
+				"publishDate": "",
 				"doi": "",
 				"url": "",
-				"patentNumber": "",
-				"authorOrder": 0
+				"patentNumber": ""
 			}
 		]
 	},
@@ -68,7 +77,6 @@ export async function get_user_detail(data : {
   userId: number
 }) :Promise<UserDetail | null> {
   try {
-      // console.log(data);
       const response = await axios.get(`/user/detail/${data.userId}`);
       if (response.status === 200){
           if (response.data.code == 0) {
@@ -88,5 +96,98 @@ export async function get_user_detail(data : {
   catch (error){
       callError('网络错误或服务器异常');
       return null;
+  }
+}
+
+/*
+上传用户头像
+返回示例：
+{
+	"code": 0,
+	"data": "头像URL",
+	"message": ""
+}
+*/
+export async function upload_user_avatar(file: File): Promise<string | null> {
+  try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await axios.post('/user/avatar', formData, {
+          headers: {
+              'Content-Type': 'multipart/form-data'
+          }
+      });
+      
+      if (response.status === 200) {
+          if (response.data.code === 0) {
+              return response.data.data; // 返回头像URL
+          } else {
+              callError(response.data.message);
+              return null;
+          }
+      } else {
+          callError('网络错误');
+          return null;
+      }
+  } catch (error) {
+      callError('网络错误或服务器异常');
+      return null;
+  }
+}
+
+/*
+修改用户个人信息
+请求示例：
+{
+  "institution": "",
+  "userProfile": "",
+  "avatar": "",
+  "field": "",
+  "name": "",
+  "department": "",
+  "jobTitle": "",
+  "highestDegree": "",
+  "graduateSchool": "",
+  "major": "",
+  "graduationDate": ""
+}
+返回示例：
+{
+	"code": 0,
+	"data": "修改成功",
+	"message": ""
+}
+*/
+export async function update_user_info(data: {
+  institution?: string;
+  userProfile?: string;
+  avatar?: string;
+  field?: string;
+  name?: string;
+  department?: string;
+  jobTitle?: string;
+  highestDegree?: string;
+  graduateSchool?: string;
+  major?: string;
+  graduationDate?: string;
+}): Promise<boolean> {
+  try {
+      const response = await axios.post('/user/info_update', data);
+      
+      if (response.status === 200) {
+          if (response.data.code === 0) {
+              return true; // 修改成功
+          } else {
+              callError(response.data.message);
+              return false;
+          }
+      } else {
+          callError('网络错误');
+          return false;
+      }
+  } catch (error) {
+      callError('网络错误或服务器异常');
+      return false;
   }
 }

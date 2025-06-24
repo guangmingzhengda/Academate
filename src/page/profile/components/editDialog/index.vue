@@ -12,7 +12,7 @@
             <div v-if="type === 'education'" class="form-section">
                 <div class="form-row">
                     <label class="form-label">最高学历：</label>
-                    <el-select v-model="formData.degree" placeholder="请选择学历" style="width: 100%;">
+                    <el-select v-model="formData.highestDegree" placeholder="请选择学历" style="width: 100%;">
                         <el-option label="本科" value="本科" />
                         <el-option label="硕士" value="硕士" />
                         <el-option label="博士" value="博士" />
@@ -22,7 +22,7 @@
                 <div class="form-row">
                     <label class="form-label">毕业院校：</label>
                     <el-input 
-                        v-model="formData.university" 
+                        v-model="formData.graduateSchool" 
                         placeholder="请输入毕业院校"
                         clearable
                     />
@@ -37,10 +37,13 @@
                 </div>
                 <div class="form-row">
                     <label class="form-label">毕业时间：</label>
-                    <el-input 
-                        v-model="formData.graduationYear" 
-                        placeholder="请输入毕业时间（如：2005年）"
-                        clearable
+                    <el-date-picker
+                        v-model="formData.graduationDate"
+                        type="month"
+                        placeholder="请选择毕业年月"
+                        format="YYYY-MM"
+                        value-format="YYYY-MM-DD"
+                        style="width: 100%;"
                     />
                 </div>
             </div>
@@ -49,7 +52,7 @@
             <div v-if="type === 'title'" class="form-section">
                 <div class="form-row">
                     <label class="form-label">当前职称：</label>
-                    <el-select v-model="formData.current" placeholder="请选择职称" style="width: 100%;">
+                    <el-select v-model="formData.jobTitle" placeholder="请选择职称" style="width: 100%;">
                         <el-option label="助教" value="助教" />
                         <el-option label="讲师" value="讲师" />
                         <el-option label="副教授" value="副教授" />
@@ -62,7 +65,7 @@
                 <div class="form-row">
                     <label class="form-label">工作单位：</label>
                     <el-input 
-                        v-model="formData.organization" 
+                        v-model="formData.institution" 
                         placeholder="请输入工作单位"
                         clearable
                     />
@@ -75,53 +78,19 @@
                         clearable
                     />
                 </div>
-                <div class="form-row">
-                    <label class="form-label">任职时间：</label>
-                    <el-input 
-                        v-model="formData.startDate" 
-                        placeholder="请输入任职时间（如：2018年）"
-                        clearable
-                    />
-                </div>
             </div>
 
             <!-- 研究领域编辑 -->
             <div v-if="type === 'research'" class="form-section">
                 <div class="form-row">
                     <label class="form-label">主要研究领域：</label>
-                    <div class="research-fields-editor">
-                        <div class="current-fields">
-                            <div 
-                                v-for="(field, index) in formData.fields" 
-                                :key="index" 
-                                class="field-tag"
-                            >
-                                {{ field }}
-                                <el-icon class="remove-field" @click="removeField(index)">
-                                    <Close />
-                                </el-icon>
-                            </div>
-                        </div>
-                        <div class="add-field">
-                            <el-input 
-                                v-model="newField" 
-                                placeholder="添加新的研究方向"
-                                @keydown.enter="addField"
-                                style="margin-bottom: 10px;"
-                            />
-                            <el-button type="primary" plain size="small" @click="addField">
-                                添加领域
-                            </el-button>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <label class="form-label">研究兴趣：</label>
                     <el-input 
-                        v-model="formData.interests" 
+                        v-model="formData.field" 
                         type="textarea"
                         :rows="4"
-                        placeholder="请详细描述您的研究兴趣和方向"
+                        placeholder="请输入您的主要研究领域..."
+                        maxlength="200"
+                        show-word-limit
                     />
                 </div>
                 <div class="form-row">
@@ -168,7 +137,6 @@ export default {
     emits: ['close', 'save'],
     setup(props, { emit }) {
         const formData = ref({})
-        const newField = ref('')
 
         // 对话框标题
         const dialogTitle = computed(() => {
@@ -183,7 +151,8 @@ export default {
         // 监听数据变化，初始化表单
         watch(() => props.data, (newData) => {
             if (newData && Object.keys(newData).length > 0) {
-                formData.value = JSON.parse(JSON.stringify(newData))
+                const data = JSON.parse(JSON.stringify(newData));
+                formData.value = data;
             }
         }, { immediate: true, deep: true })
 
@@ -192,39 +161,35 @@ export default {
             emit('close')
         }
 
-        // 添加研究领域
-        const addField = () => {
-            if (newField.value.trim()) {
-                if (!formData.value.fields.includes(newField.value.trim())) {
-                    formData.value.fields.push(newField.value.trim())
-                    newField.value = ''
-                } else {
-                    callWarning('该研究领域已存在')
-                }
-            }
-        }
-
-        // 移除研究领域
-        const removeField = (index) => {
-            formData.value.fields.splice(index, 1)
-        }
-
         // 保存数据
         const saveData = () => {
             // 简单验证
             if (props.type === 'education') {
-                if (!formData.value.degree || !formData.value.university) {
+                if (!formData.value.highestDegree || !formData.value.graduateSchool) {
                     callWarning('请填写必要信息')
                     return
                 }
+                
+                // 处理毕业时间，确保是完整的date-time格式
+                if (formData.value.graduationDate) {
+                    // 如果只有年月，补全为完整的日期时间
+                    const date = new Date(formData.value.graduationDate);
+                    if (!isNaN(date.getTime())) {
+                        // 格式化为 YYYY-MM-DD 00:00:00
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        formData.value.graduationDate = `${year}-${month}-${day} 00:00:00`;
+                    }
+                }
             } else if (props.type === 'title') {
-                if (!formData.value.current || !formData.value.organization) {
+                if (!formData.value.jobTitle || !formData.value.institution) {
                     callWarning('请填写必要信息')
                     return
                 }
             } else if (props.type === 'research') {
-                if (!formData.value.fields || formData.value.fields.length === 0) {
-                    callWarning('请至少添加一个研究领域')
+                if (!formData.value.field || formData.value.field.trim() === '') {
+                    callWarning('请填写研究领域')
                     return
                 }
                 // 保存时保留原始的论文数量，不允许编辑
@@ -239,11 +204,8 @@ export default {
 
         return {
             formData,
-            newField,
             dialogTitle,
             closeDialog,
-            addField,
-            removeField,
             saveData
         }
     }
