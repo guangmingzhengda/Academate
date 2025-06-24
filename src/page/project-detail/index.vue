@@ -201,7 +201,6 @@ export default {
         }
         this.userId = store.getters.getId;
         this.role = "creator";
-        // this.isMember = store.getters.isMember;
     },
     methods: {
         applyToJoin() {
