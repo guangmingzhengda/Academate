@@ -359,11 +359,26 @@ watch(unreadCount, (newCount) => {
     emit('unread-count-update', newCount)
 }, { immediate: true })
 
-// 组件挂载时建立WebSocket连接
+// 监听用户ID变化，自动连接/断开WebSocket
+watch(() => store.getters.getId, (newUserId, oldUserId) => {
+    console.log('用户ID变化:', { oldUserId, newUserId })
+    
+    if (newUserId && newUserId !== null && !wsConnected.value) {
+        // 用户已登录且没有建立连接，重新连接
+        console.log('用户已登录，建立WebSocket连接')
+        connectWebSocket()
+    } else if (!newUserId || newUserId === null) {
+        // 用户退出登录，断开连接
+        console.log('用户已退出，断开WebSocket连接')
+        disconnectWebSocket()
+    }
+}, { immediate: true })
+
+// 组件挂载时初始化
 onMounted(() => {
-    console.log('MessageSidebar组件挂载，准备建立WebSocket连接')
-    connectWebSocket()
+    console.log('MessageSidebar组件挂载')
     emit('unread-count-update', unreadCount.value)
+    // WebSocket连接由watch监听用户ID变化自动处理
 })
 
 // 组件卸载时断开WebSocket连接
