@@ -9,10 +9,6 @@
              right: 0; z-index: 21; opacity: 0;" @click="tokenInfo">
             </div>
 
-            <div v-if="padSet && !vipSet" style="width: 100px; height: 100px;position: fixed; bottom: 0;
-             right: 0; z-index: 20; opacity: 0;"
-            @click="countEvent">
-            </div>
 
             <navigator :class="{'nav-open': navOpen, 'nav-close': !navOpen}"/>
 
@@ -69,28 +65,6 @@ export default {
             callInfo('使用人工智能前请先登录');
         }
 
-        const countEvent = async () => {
-
-            padSet.value = false;
-            setTimeout(() => {
-                padSet.value = true;
-            }, 500);
-
-            // 计数事件
-            const ok = await canUseAI();
-            if (!ok) {
-                padSet.value = true;
-                if (!store.getters.getVipState)
-                    callInfo("非vip每24h至多使用10次");
-                else
-                    callInfo("vip每24h至多使用50次");
-                // setTimeout(() => {
-                //     location.reload();
-                // }, 3000)
-            }
-
-        }
-
         const openMessageSidebar = () => {
             sidebarVisible.value = true;
         }
@@ -121,7 +95,6 @@ export default {
             chatVisible,
             unreadCount,
             tokenInfo,
-            countEvent,
             openMessageSidebar,
             closeSidebar,
             openChat,

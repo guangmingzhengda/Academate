@@ -86,3 +86,129 @@ export async function searchResearchers(searchParams: UserSearchRequest): Promis
         return null;
     }
 }
+
+// 参数接口
+export interface SearchUsersParams {
+  /* 用户名 */
+  userName?: string;
+
+  /* 研究领域 */
+  field?: string;
+
+  /* 研究成果标题 */
+  researchTitle?: string;
+
+  /* 所属机构 */
+  institution?: string;
+
+  /* 当前页码 */
+  current?: number;
+
+  /* 每页数量 */
+  pageSize?: number;
+}
+
+// 响应接口
+export interface SearchUsersRes {
+  /* 响应码 */
+  code: number;
+
+  /* 响应数据 */
+  data: {
+    /* 当前页码 */
+    pageNum: number;
+
+    /* 每页数量 */
+    pageSize: number;
+
+    /* 总记录数 */
+    total: number;
+
+    /* 用户列表 */
+    list: {
+      /* 用户ID */
+      id: number;
+
+      /* 用户账号 */
+      account: string;
+
+      /* 邮箱 */
+      email: string;
+
+      /* 所属机构 */
+      institution: string;
+
+      /* 研究领域 */
+      field: string;
+
+      /* 个人简介 */
+      profile: string;
+
+      /* 头像 */
+      avatar: string;
+
+      /* 创建时间 */
+      createTime: Record<string, unknown>;
+
+      /* 研究成果 */
+      researchOutcomes: {
+        /* 成果ID */
+        outcomeId: number;
+
+        /* 成果类型 */
+        type: string;
+
+        /* 成果标题 */
+        title: string;
+
+        /* 作者 */
+        authors: string;
+
+        /* 期刊 */
+        journal: string;
+
+        /* 卷号 */
+        volume: number;
+
+        /* 期号 */
+        issue: number;
+
+        /* 页码 */
+        pages: string;
+
+        /* 年份 */
+        year: number;
+
+        /* DOI */
+        doi: string;
+
+        /* URL */
+        url: string;
+
+        /* 专利号 */
+        patentNumber: string;
+
+        /* 作者顺序 */
+        authorOrder: number;
+      }[];
+    }[];
+  };
+
+  /* 响应消息 */
+  message: string;
+}
+
+/** 
+ * 搜索科研人员
+ * @param {object} params UserSearchRequest
+ * @param {string} params.userName 用户名
+ * @param {string} params.field 研究领域
+ * @param {string} params.researchTitle 研究成果标题
+ * @param {string} params.institution 所属机构
+ * @param {number} params.current 当前页码
+ * @param {number} params.pageSize 每页数量
+ * @returns Promise<SearchUsersRes> 搜索结果
+ */
+export function searchUsers(params: SearchUsersParams): Promise<SearchUsersRes> {
+  return axios.post(`/user/search`, params);
+}

@@ -79,3 +79,43 @@ export async function agree_project_invite(data: {
         return false;
     }
 }
+
+// 参数接口
+export interface InviteParams {
+  /* 邀请者ID */
+  inviter?: number;
+
+  /* 被邀请者ID数组 */
+  invitee?: number[];
+
+  /* 项目ID */
+  projectId?: number;
+
+  /* 项目标题 */
+  title?: string;
+}
+
+// 响应接口
+export interface InviteRes {
+  /* 响应码 */
+  code: number;
+
+  /* 响应数据 */
+  data: Record<string, unknown>;
+
+  /* 响应消息 */
+  message: string;
+}
+
+/** 
+ * 邀请研究人员进入项目
+ * @param {object} params ProjectInviteRequest
+ * @param {number} params.inviter 邀请者ID
+ * @param {array} params.invitee 被邀请者ID数组
+ * @param {number} params.projectId 项目ID
+ * @param {string} params.title 项目标题
+ * @returns Promise<InviteRes> 邀请结果
+ */
+export function invite(params: InviteParams): Promise<InviteRes> {
+  return axios.post(`/project/invite`, params);
+}
