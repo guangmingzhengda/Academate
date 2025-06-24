@@ -138,8 +138,13 @@
                                     </div>
                                     <div class="researcher-info" style="display: flex; align-items: flex-start;">
                                         <router-link :to="`/profile/${researcher.id}`" class="avatar-section" style="text-decoration:none;">
-                                            <div class="researcher-avatar" :style="{ backgroundColor: getRandomColor(researcher.id) }">
-                                                {{ researcher.name ? researcher.name.charAt(0) : 'U' }}
+                                            <div class="researcher-avatar" :style="{ backgroundColor: !researcher.avatar ? getRandomColor(researcher.id) : '' }">
+                                                <template v-if="researcher.avatar">
+                                                    <img :src="researcher.avatar" alt="avatar" class="avatar-img" />
+                                                </template>
+                                                <template v-else>
+                                                    {{ researcher.name ? researcher.name.charAt(0) : 'U' }}
+                                                </template>
                                             </div>
                                         </router-link>
                                         <div class="info-section">
@@ -217,8 +222,13 @@
     >
         <div class="message-dialog">
             <div class="recipient-info">
-                <div class="recipient-avatar" :style="{ backgroundColor: getRandomColor(selectedResearcher?.id || 1) }">
-                    {{ selectedResearcher?.name ? selectedResearcher.name.charAt(0) : 'U' }}
+                <div class="recipient-avatar" :style="{ backgroundColor: !selectedResearcher?.avatar ? getRandomColor(selectedResearcher?.id || 1) : '' }">
+                    <template v-if="selectedResearcher?.avatar">
+                        <img :src="selectedResearcher.avatar" alt="avatar" class="avatar-img" />
+                    </template>
+                    <template v-else>
+                        {{ selectedResearcher?.name ? selectedResearcher.name.charAt(0) : 'U' }}
+                    </template>
                 </div>
                 <div>
                     <div class="recipient-name">{{ selectedResearcher?.name || '未知用户' }}</div>
@@ -933,5 +943,13 @@ export default {
     font-size: 14px;
     color: #999;
     text-align: center;
+}
+
+.avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    display: block;
 }
 </style> 

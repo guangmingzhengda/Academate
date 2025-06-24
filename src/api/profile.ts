@@ -149,6 +149,40 @@ export async function get_user_detail(data : {
 }
 
 /*
+搜索科研人员
+接口地址: /api/user/search
+请求方式: POST
+请求示例：
+{
+  "userName": "",
+  "field": "",
+  "researchTitle": "",
+  "institution": "",
+  "current": 0,
+  "pageSize": 0
+}
+*/
+export async function search_researchers(data: UserSearchRequest): Promise<PageResultUserDetailVO | null> {
+    try {
+        const response = await axios.post('/user/search', data);
+        if (response.status === 200) {
+            if (response.data.code === 0) {
+                return response.data.data; // 返回分页搜索结果
+            } else {
+                callError(response.data.message);
+                return null;
+            }
+        } else {
+            callError('网络错误');
+            return null;
+        }
+    } catch (error) {
+        callError('网络错误或服务器异常');
+        return null;
+    }
+}
+
+/*
 上传用户头像
 返回示例：
 {
