@@ -59,12 +59,11 @@
                                         v-model="searchFilters.institution"
                                         placeholder="选择或输入机构名称"
                                         filterable
-                                        allow-create
                                         clearable
                                         @change="searchResearchers"
                                     >
                                         <el-option
-                                            v-for="org in organizations"
+                                            v-for="org in organizations.slice(0, 5)"
                                             :key="org"
                                             :label="org"
                                             :value="org"
@@ -83,7 +82,7 @@
                                         @change="searchResearchers"
                                     >
                                         <el-option
-                                            v-for="field in researchFields"
+                                            v-for="field in researchFields.slice(0, 5)"
                                             :key="field"
                                             :label="field"
                                             :value="field"
@@ -120,16 +119,26 @@
                                     class="researcher-item"
                                     style="position: relative;"
                                 >
-                                    <div class="action-buttons card-action-buttons">
-                                        <el-button 
+                                    <div class="action-buttons card-action-buttons" v-if="researcher.id !== currentUserId">
+                                        <el-button
+                                            v-if="!researcher.isFollowing"
                                             type="primary"
                                             size="small"
                                             @click="toggleFollow(researcher)"
                                         >
                                             关注
                                         </el-button>
-                                        <el-button 
-                                            type="default" 
+                                        <el-button
+                                            v-else
+                                            type="info"
+                                            plain
+                                            size="small"
+                                            @click="toggleFollow(researcher)"
+                                        >
+                                            已关注
+                                        </el-button>
+                                        <el-button
+                                            type="default"
                                             size="small"
                                             @click="sendMessage(researcher)"
                                         >
@@ -157,37 +166,45 @@
                                             <div class="profile-text">
                                                 <div class="info-row">
                                                     <span class="info-label">个人简介：</span>
-                                                    <span>{{ researcher.profile ? researcher.profile : '这个人很神秘，什么都没有留下~' }}</span>
+                                                    <span class="info-content">{{ researcher.profile ? researcher.profile : '这个人很神秘，什么都没有留下~' }}</span>
                                                 </div>
                                             </div>
                                             <div class="info-footer">
                                                 <div class="info-row">
                                                     <span class="info-label">所属机构：</span>
-                                                    <span>{{ researcher.institution || '暂无' }}</span>
+                                                    <span class="info-content">{{ researcher.institution || '暂无' }}</span>
                                                 </div>
                                                 <div class="info-row">
                                                     <span class="info-label">Email：</span>
-                                                    <span>{{ researcher.email || '暂无' }}</span>
+                                                    <span class="info-content">{{ researcher.email || '暂无' }}</span>
                                                 </div>
                                             </div>
                                             <div class="info-footer">
                                                 <div class="info-row">
                                                     <span class="info-label">研究成果：</span>
-                                                    <div v-if="researcher.researchOutcomes && researcher.researchOutcomes.length > 0">
-                                                        <div v-for="(outcome, idx) in researcher.researchOutcomes.slice(0, 3)" :key="outcome.outcomeId">
-                                                            <span class="ach-title">{{ outcome.title || '无标题' }}</span>
-                                                            <span v-if="outcome.type" class="ach-sep">·</span>
-                                                            <span v-if="outcome.type" class="ach-type">{{ outcome.type }}</span>
-                                                            <span v-if="outcome.journal" class="ach-sep">|</span>
-                                                            <span v-if="outcome.journal" class="ach-journal">{{ outcome.journal }}</span>
-                                                            <span v-if="outcome.patentNumber" class="ach-sep">|</span>
-                                                            <span v-if="outcome.patentNumber" class="ach-patent">专利号: {{ outcome.patentNumber }}</span>
-                                                            <span v-if="outcome.publishDate" class="ach-sep">|</span>
-                                                            <span v-if="outcome.publishDate" class="ach-year">{{ outcome.publishDate.slice(0, 4) }}</span>
-                                                        </div>
-                                                        <div v-if="researcher.researchOutcomes.length > 3" class="ach-more-tip">更多成果请前往个人主页查看</div>
-                                                    </div>
-                                                    <div v-else><span class="ach-title">暂无</span></div>
+                                                    <span class="info-value research-outcomes-list">
+                                                        <template v-if="researcher.researchOutcomes && researcher.researchOutcomes.length > 0">
+                                                            <div v-for="(outcome, idx) in researcher.researchOutcomes.slice(0, 3)" :key="outcome.outcomeId" class="research-outcome-item">
+                                                                <span class="ach-title">{{ outcome.title || '无标题' }}</span>
+                                                                <span v-if="outcome.type" class="ach-sep">·</span>
+                                                                <span v-if="outcome.type" class="ach-type">{{ outcome.type }}</span>
+                                                                <span v-if="outcome.journal" class="ach-sep">|</span>
+                                                                <span v-if="outcome.journal" class="ach-journal">{{ outcome.journal }}</span>
+                                                                <span v-if="outcome.patentNumber" class="ach-sep">|</span>
+                                                                <span v-if="outcome.patentNumber" class="ach-patent">专利号:{{ outcome.patentNumber }}</span>
+                                                                <span v-if="outcome.publishDate" class="ach-sep">|</span>
+                                                                <span v-if="outcome.publishDate" class="ach-year">{{ outcome.publishDate.slice(0, 4) }}</span>
+                                                            </div>
+                                                            <div v-if="researcher.researchOutcomes.length > 3" class="ach-more-tip">
+                                                                更多成果请
+                                                                <router-link :to="`/profile/${researcher.id}`" class="to-profile-link">前往个人主页</router-link>
+                                                                查看
+                                                            </div>
+                                                        </template>
+                                                        <template v-else>
+                                                            暂无
+                                                        </template>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
@@ -265,6 +282,8 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Refresh, Search, Loading } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { search_researchers } from '@/api/profile'
+import { followUser, unfollowUser } from '@/api/follow'
+import store from '@/store'
 
 export default {
     name: "researcher-search",
@@ -296,6 +315,9 @@ export default {
         // 科研人员数据
         const researchers = ref([])
         const loading = ref(false)
+
+        // 当前用户ID（从store获取）
+        const currentUserId = computed(() => store.getters.getData.id)
 
         // 获取科研人员数据
         const fetchResearchers = async () => {
@@ -378,9 +400,14 @@ export default {
         }
 
         // 关注/取消关注
-        const toggleFollow = (researcher) => {
-            // 这里应该调用关注/取消关注的API
-            ElMessage.success(`已关注 ${researcher.name | "未知用户"}`)
+        const toggleFollow = async (researcher) => {
+            if (researcher.isFollowing) {
+                const ok = await unfollowUser(researcher.id)
+                if (ok) researcher.isFollowing = false
+            } else {
+                const ok = await followUser(researcher.id)
+                if (ok) researcher.isFollowing = true
+            }
         }
 
         // 发送私信
@@ -459,7 +486,8 @@ export default {
             closeMessageDialog,
             sendPrivateMessage,
             handlePageChange,
-            getRandomColor
+            getRandomColor,
+            currentUserId
         }
     }
 }
@@ -671,7 +699,7 @@ export default {
 .researcher-item {
     border: 1px solid #e8e8e8;
     padding: 12px 15px;
-    transition: all 0.3s cubic-bezier(.4,0,.2,1);
+    transition: all 0.2s cubic-bezier(.4,0,.2,1);
     position: relative;
     background: #fff;
     border-radius: 12px;
@@ -681,7 +709,6 @@ export default {
     box-shadow: 0 8px 24px rgba(44,90,160,0.13), 0 1.5px 6px rgba(44,90,160,0.10);
     border-color: #22529a55;
     background: #fdfeff;
-    transform: translateY(-4px) scale(1.007);
     z-index: 2;
 }
 
@@ -820,7 +847,7 @@ export default {
 
 .info-row {
     display: flex;
-    align-items: center;
+    align-items: top;
     font-size: 13px;
     color: #444;
     min-width: 180px;
@@ -831,6 +858,14 @@ export default {
     color: #888;
     font-weight: 500;
     margin-right: 4px;
+    min-width: 70px;
+    text-align: right;
+    line-height: 22px;
+}
+
+.info-content{
+    display: inline-flex;
+    align-items: center;
 }
 
 .action-buttons {
@@ -907,36 +942,13 @@ export default {
     margin: 0 4px;
 }
 
-.ach-type {
-    background: #e8f4fd;
+.ach-type, .ach-journal, .ach-patent, .ach-year {
+    background: #f5f7fa;
     color: #1890ff;
-    padding: 2px 8px;
+    padding: 0 6px;
     border-radius: 10px;
     font-size: 12px;
-}
-
-.ach-journal {
-    background: #e8f4fd;
-    color: #1890ff;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 12px;
-}
-
-.ach-patent {
-    background: #e8f4fd;
-    color: #1890ff;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 12px;
-}
-
-.ach-year {
-    background: #e8f4fd;
-    color: #1890ff;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 12px;
+    margin-right: 2px;
 }
 
 .ach-more-tip {
@@ -951,5 +963,28 @@ export default {
     object-fit: cover;
     border-radius: 50%;
     display: block;
+}
+
+.research-outcomes-list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+}
+
+.research-outcome-item {
+    font-size: 13px;
+    margin-bottom: 0;
+    line-height: 20px;
+    text-align: left;
+}
+
+.to-profile-link {
+    color: #2c5aa0;
+    margin-left: 3px;
+    margin-right: 3px;
+    text-decoration: underline;
+    cursor: pointer;
 }
 </style> 
