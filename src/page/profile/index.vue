@@ -150,7 +150,7 @@
                                     <span class="info-value">{{ userInfo.research.fields || '未填写' }}</span>
                                 </div>
                                 <div class="info-item">
-                                    <span class="info-label">发表论文数：</span>
+                                    <span class="info-label">学术成果数：</span>
                                     <span class="info-value">{{ userInfo.research.paperCount }}</span>
                                 </div>
                             </div>
@@ -177,7 +177,7 @@
                         <div class="tab-content">
                             <!-- 项目/学术成果 -->
                             <div v-if="activeTab === 'projects'" class="tab-panel">
-                                <project-manager :projects="userProjects" />
+                                <project-manager :user-id="userId" />
                                 <achievement-manager :research-outcomes="userInfo.research.researchOutcomes" />
                             </div>
                             
@@ -323,6 +323,7 @@ export default {
     },
     setup() {
         const route = useRoute();
+        const userId = computed(() => Number(route.params.id));
         
         // 用户信息
         const userInfo = ref({
@@ -821,7 +822,8 @@ export default {
             formatGraduationDate,
             formatGraduationDateForEdit,
             isOwnProfile,
-            userProjects
+            userProjects,
+            userId
         }
     }
 }
