@@ -183,12 +183,12 @@
                             
                             <!-- 关注列表 -->
                             <div v-if="activeTab === 'following'" class="tab-panel">
-                                <follow-manager :default-tab="'following'" />
+                                <follow-manager :default-tab="'following'" :user-id="userId" :is-own-profile="isOwnProfile"/>
                             </div>
                             
                             <!-- 被关注列表 -->
                             <div v-if="activeTab === 'followers'" class="tab-panel">
-                                <follow-manager :default-tab="'followers'" />
+                                <follow-manager :default-tab="'followers'" :user-id="userId" :is-own-profile="isOwnProfile"/>
                             </div>
                             
                             <!-- 我的文献库 -->

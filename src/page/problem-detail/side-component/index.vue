@@ -41,16 +41,6 @@
         
         <div class="panel-section action-section">
             <el-button type="primary" size="large" style="width: 100%" @click="$emit('answer-click')">回答问题</el-button>
-            <div class="action-buttons">
-                <el-button
-                    :type="problem?.isLiked ? 'primary' : 'default'"
-                    :icon="problem?.isLiked ? 'el-icon-star-on' : 'el-icon-star-off'"
-                    size="small"
-                >
-                    {{ problem?.isLiked ? '已点赞' : '点赞' }}
-                </el-button>
-                <el-button icon="el-icon-share" size="small">分享</el-button>
-            </div>
         </div>
     </div>
 </template>
@@ -319,10 +309,5 @@ export default {
     display: flex;
     flex-direction: column;
     gap: 16px;
-}
-
-.action-buttons {
-    display: flex;
-    justify-content: space-between;
 }
 </style> 

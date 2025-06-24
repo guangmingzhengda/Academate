@@ -4,7 +4,7 @@
         <div class="follow-content">
             <div class="section-card">
                 <div class="card-header">
-                    <h3>{{ followTab === 'following' ? '我的关注' : '我的粉丝' }}</h3>
+                    <h3>{{ titleText }}</h3>
                 </div>
                 
                 <div class="card-content">
@@ -14,49 +14,81 @@
                     
                     <div v-else class="user-list">
                         <div 
-                            v-for="user in currentPageUsers" 
-                            :key="user.id" 
+                            v-for="user in currentList" 
+                            :key="user.userId" 
                             class="user-item"
                         >
-                            <div class="user-info">
-                                <img :src="user.avatar" alt="用户头像" class="user-avatar" @error="handleAvatarError"/>
-                                <div class="user-details">
-                                    <div class="user-name">{{ user.name }}</div>
-                                    <div class="user-title">{{ user.title }}</div>
-                                    <div class="user-organization">{{ user.organization }}</div>
-                                    <div class="user-research">
-                                        <span v-for="field in user.researchFields.slice(0, 3)" :key="field" class="research-tag">
-                                            {{ field }}
-                                        </span>
+                            <div class="user-info" style="display: flex; align-items: flex-start;">
+                                <div class="avatar-section">
+                                    <img :src="user.avatar || defaultAvatar" alt="用户头像" class="user-avatar" @error="handleAvatarError"/>
+                                </div>
+                                <div class="info-section">
+                                    <div class="info-header">
+                                        <span class="user-name">{{ user.name || '未知用户' }}</span>
+                                        <span v-if="user.field" class="user-field">{{ user.field }}</span>
+                                    </div>
+                                    <div class="profile-text">
+                                        <div class="info-row">
+                                            <span class="info-label">个人简介：</span>
+                                            <span class="info-content">{{ user.profile || '这个人很神秘，什么都没有留下~' }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="info-footer">
+                                        <div class="info-row">
+                                            <span class="info-label">所属机构：</span>
+                                            <span class="info-content">{{ user.institution || '暂无' }}</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <span class="info-label">部门：</span>
+                                            <span class="info-content">{{ user.department || '暂无' }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="info-footer">
+                                        <div class="info-row">
+                                            <span class="info-label">职称：</span>
+                                            <span class="info-content">{{ user.jobTitle || '暂无' }}</span>
+                                        </div>
+                                        <div class="info-row">
+                                            <span class="info-label">Email：</span>
+                                            <span class="info-content">{{ user.email || '暂无' }}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="user-actions">
-                                <div class="user-stats">
-                                    <span class="stat-item">{{ user.paperCount }} 论文</span>
-                                    <span class="stat-item">{{ user.followersCount }} 关注者</span>
-                                </div>
                                 <div class="action-buttons">
-                                    <el-button type="primary" plain size="small" @click="viewProfile(user.id)">
+                                    <el-button type="primary" plain size="small" style="width: 80px;" @click="viewProfile(user.userId)">
                                         查看主页
                                     </el-button>
-                                    <el-button 
-                                        v-if="followTab === 'following'" 
-                                        type="danger" 
-                                        plain 
-                                        size="small" 
-                                        @click="unfollowUser(user.id)"
-                                    >
-                                        取消关注
-                                    </el-button>
-                                    <el-button 
-                                        v-else
-                                        type="primary" 
-                                        size="small" 
-                                        @click="followUser(user.id)"
-                                    >
-                                        关注
-                                    </el-button>
+                                    <template v-if="isOwnProfile">
+                                        <el-button 
+                                            v-if="followTab === 'following'" 
+                                            type="danger" 
+                                            plain 
+                                            size="small"
+                                            style="width: 80px;"
+                                            @click="handleUnfollow(user.userId)"
+                                        >
+                                            取消关注
+                                        </el-button>
+                                        <el-button 
+                                            v-else-if="!user.isFollowing"
+                                            type="primary" 
+                                            size="small"
+                                            style="width: 80px;"
+                                            @click="handleFollow(user.userId)"
+                                        >
+                                            关注
+                                        </el-button>
+                                        <el-button 
+                                            v-else
+                                            type="info" 
+                                            plain
+                                            size="small"
+                                            style="width: 80px;"
+                                            @click="handleUnfollow(user.userId)"
+                                        >
+                                            已关注
+                                        </el-button>
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -64,10 +96,10 @@
                     
                     <!-- 分页 -->
                     <el-pagination
-                        v-if="currentList.length > pageSize"
+                        v-if="total > pageSize"
                         v-model:current-page="currentPage"
                         :page-size="pageSize"
-                        :total="currentList.length"
+                        :total="total"
                         layout="prev, pager, next"
                         class="pagination"
                         small
@@ -80,10 +112,13 @@
 </template>
 
 <script>
-import { ref, computed } from 'vue'
-import { callSuccess, callInfo, callWarning } from '@/call'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
+import { callSuccess, callError } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import router from '@/router'
+import { getFollowedUsers, getFollowers, followUser, unfollowUser } from '@/api/follow'
+import store from '@/store'
 
 export default {
     name: 'followManager',
@@ -91,190 +126,154 @@ export default {
         defaultTab: {
             type: String,
             default: 'following'
+        },
+        userId: {
+            type: Number,
+            required: true
+        },
+        isOwnProfile: {
+            type: Boolean,
+            required: true
         }
     },
     setup(props) {
-        // 当前选中的tab
+        const route = useRoute();
+        const currentLoginUserId = computed(() => store.getters.getData.id);
+        const profileId = computed(() => props.userId);
+
         const followTab = ref(props.defaultTab)
         
-        // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(5)
+        const total = ref(0)
         
-        // 关注列表数据
-        const followingList = ref([
-            {
-                id: 1,
-                name: '张教授',
-                title: '教授/博士生导师',
-                organization: '清华大学',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['机器学习', '深度学习', '计算机视觉'],
-                paperCount: 89,
-                followersCount: 1245
-            },
-            {
-                id: 2,
-                name: '李研究员',
-                title: '研究员',
-                organization: '中科院计算所',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['自然语言处理', '知识图谱', '人工智能'],
-                paperCount: 156,
-                followersCount: 892
-            },
-            {
-                id: 3,
-                name: '王博士',
-                title: '副教授',
-                organization: '北京大学',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['数据挖掘', '推荐系统', '机器学习'],
-                paperCount: 67,
-                followersCount: 534
-            },
-            {
-                id: 4,
-                name: '陈院士',
-                title: '院士/教授',
-                organization: '中国科学院',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['人工智能', '模式识别', '图像处理'],
-                paperCount: 234,
-                followersCount: 3456
-            },
-            {
-                id: 5,
-                name: '刘副教授',
-                title: '副教授',
-                organization: '复旦大学',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['软件工程', '系统架构', '云计算'],
-                paperCount: 78,
-                followersCount: 667
-            },
-            {
-                id: 6,
-                name: '赵研究员',
-                title: '高级研究员',
-                organization: '微软亚洲研究院',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['语音识别', '深度学习', '神经网络'],
-                paperCount: 123,
-                followersCount: 1089
+        const followingList = ref([])
+        const followersList = ref([])
+        const followedUserIds = ref(new Set());
+        
+        const defaultAvatar = require('@/asset/home/user.png');
+
+        const fetchFollowedUserIds = async () => {
+            if (!currentLoginUserId.value) return;
+            const res = await getFollowedUsers(currentLoginUserId.value, 1, 1000); // 获取所有关注的人
+            if (res && res.records) {
+                followedUserIds.value = new Set(res.records.map(u => u.userId));
             }
-        ])
-        
-        // 粉丝列表数据
-        const followersList = ref([
-            {
-                id: 11,
-                name: '小明同学',
-                title: '博士研究生',
-                organization: '北京航空航天大学',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['机器学习', '数据分析'],
-                paperCount: 12,
-                followersCount: 45
-            },
-            {
-                id: 12,
-                name: '小红',
-                title: '硕士研究生',
-                organization: '清华大学',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['计算机视觉', '图像处理'],
-                paperCount: 8,
-                followersCount: 23
-            },
-            {
-                id: 13,
-                name: '小李博士',
-                title: '博士后',
-                organization: '中科院',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['自然语言处理', '知识图谱'],
-                paperCount: 34,
-                followersCount: 156
-            },
-            {
-                id: 14,
-                name: '张工程师',
-                title: '高级工程师',
-                organization: '百度',
-                avatar: require('@/asset/home/user.png'),
-                researchFields: ['深度学习', '推荐系统'],
-                paperCount: 23,
-                followersCount: 89
+        };
+
+        const fetchFollowing = async () => {
+            const res = await getFollowedUsers(profileId.value, currentPage.value, pageSize.value)
+            if (res) {
+                followingList.value = res.records
+                total.value = res.total
             }
-        ])
+        }
         
-        // 当前显示的列表
+        const fetchFollowers = async () => {
+            const res = await getFollowers(profileId.value, currentPage.value, pageSize.value)
+            if (res) {
+                // Check if current user is following these followers
+                await fetchFollowedUserIds();
+                followersList.value = res.records.map(follower => ({
+                    ...follower,
+                    isFollowing: followedUserIds.value.has(follower.userId)
+                }));
+                total.value = res.total;
+            }
+        }
+        
+        const fetchData = () => {
+            currentPage.value = 1;
+            if (followTab.value === 'following') {
+                fetchFollowing()
+            } else {
+                fetchFollowers()
+            }
+        }
+
+        onMounted(() => {
+            fetchData()
+        });
+
+        // 监听 userId 的变化
+        watch(() => props.userId, (newId, oldId) => {
+            if (newId !== oldId) {
+                fetchData();
+            }
+        });
+
+        // 监听 defaultTab 的变化
+        watch(() => props.defaultTab, (newTab) => {
+            followTab.value = newTab;
+            fetchData();
+        });
+
         const currentList = computed(() => {
             return followTab.value === 'following' ? followingList.value : followersList.value
         })
         
-        // 当前页面的用户
-        const currentPageUsers = computed(() => {
-            const start = (currentPage.value - 1) * pageSize.value
-            const end = start + pageSize.value
-            return currentList.value.slice(start, end)
-        })
-        
-
-        
-        // 分页处理
         const handlePageChange = (page) => {
             currentPage.value = page
+            if (followTab.value === 'following') {
+                fetchFollowing()
+            } else {
+                fetchFollowers()
+            }
         }
         
-        // 头像错误处理
         const handleAvatarError = (event) => {
-            event.target.src = require('@/asset/home/user.png')
+            event.target.src = defaultAvatar;
         }
         
-        // 查看用户主页
         const viewProfile = (userId) => {
             router.push({ name: 'profile', params: { id: userId } })
         }
         
-        // 取消关注
-        const unfollowUser = async (userId) => {
-            try {
-                await ElMessageBox.confirm('确定要取消关注这位用户吗？', '确认操作', {
-                    confirmButtonText: '确定',
-                    cancelButtonText: '取消',
-                    type: 'warning'
-                })
-                
-                const index = followingList.value.findIndex(user => user.id === userId)
-                if (index > -1) {
-                    followingList.value.splice(index, 1)
-                    callSuccess('已取消关注')
+        const handleUnfollow = async (userId) => {
+            const success = await unfollowUser(userId);
+            if(success) {
+                if (followTab.value === 'following') {
+                    fetchFollowing(); // 重新加载关注列表
+                } else {
+                    const user = followersList.value.find(u => u.userId === userId);
+                    if (user) user.isFollowing = false;
                 }
-            } catch {
-                callInfo('已取消操作')
             }
         }
-        
-        // 关注用户
-        const followUser = (userId) => {
-            callSuccess('关注成功！')
+
+        const handleFollow = async (userId) => {
+            const success = await followUser(userId);
+            if (success) {
+                if (followTab.value === 'followers') {
+                    const user = followersList.value.find(u => u.userId === userId);
+                    if(user) user.isFollowing = true;
+                }
+            }
         }
-        
+
+        // 修改标题文本
+        const titleText = computed(() => {
+            if (props.isOwnProfile) {
+                return followTab.value === 'following' ? '我的关注' : '我的粉丝';
+            } else {
+                return followTab.value === 'following' ? 'TA的关注' : 'TA的粉丝';
+            }
+        });
+
         return {
             followTab,
             currentPage,
             pageSize,
-            followingList,
-            followersList,
+            total,
             currentList,
-            currentPageUsers,
             handlePageChange,
             handleAvatarError,
             viewProfile,
-            unfollowUser,
-            followUser
+            handleUnfollow,
+            handleFollow,
+            defaultAvatar,
+            titleText,
+            isOwnProfile: computed(() => props.isOwnProfile)
         }
     }
 }
@@ -282,71 +281,65 @@ export default {
 
 <style scoped>
 .follow-manager {
-    width: 100%;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
 }
 
-/* 内容区域 */
 .follow-content {
-    width: 100%;
+    margin-top: 10px;
 }
 
 .section-card {
-    background-color: rgba(255, 255, 255, 0.95);
-    border-radius: 0;
-    padding: 30px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
 }
 
 .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
-    padding-bottom: 15px;
-    border-bottom: 2px solid #f0f2f5;
+    padding: 15px 0;
+    border-bottom: 1px solid #eee;
 }
 
 .card-header h3 {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 20px;
-    font-weight: bold;
-    color: #2c3e50;
     margin: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.card-content {
+    padding: 20px 0;
 }
 
 .empty-state {
-    text-align: left;
-    color: #999;
-    padding: 40px;
-    font-size: 14px;
+    text-align: center;
+    color: #909399;
+    padding: 30px 0;
 }
 
-/* 用户列表样式 */
 .user-list {
     display: flex;
     flex-direction: column;
-    gap: 0px;
+    gap: 15px;
 }
 
 .user-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    transition: all 0.3s ease;
+    border: 1px solid #e8e8e8;
+    padding: 12px 15px;
+    transition: all 0.2s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    background: #fff;
+    border-radius: 12px;
 }
 
 .user-item:hover {
-    background-color: #e3f2fd;
-    border-color: #409eff;
+    box-shadow: 0 8px 24px rgba(44,90,160,0.13), 0 1.5px 6px rgba(44,90,160,0.10);
+    border-color: #22529a55;
+    background: #fdfeff;
+    z-index: 2;
 }
 
-.user-info {
-    display: flex;
-    align-items: center;
-    flex: 1;
+.avatar-section {
+    margin-right: 15px;
 }
 
 .user-avatar {
@@ -354,102 +347,98 @@ export default {
     height: 60px;
     border-radius: 50%;
     object-fit: cover;
-    margin-right: 15px;
-    border: 2px solid #ddd;
+    border: 2px solid #e0e0e0;
 }
 
-.user-details {
+.info-section {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    margin-left: 15px;
+}
+
+.info-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 4px;
 }
 
 .user-name {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 16px;
-    font-weight: bold;
-    color: #2c3e50;
-    margin-bottom: 4px;
-    text-align: left;
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c5aa0;
 }
 
-.user-title {
-    font-family: 'Meiryo', sans-serif;
+.user-field {
+    background: #e8f4fd;
+    color: #1890ff;
+    padding: 2px 8px;
+    border-radius: 10px;
     font-size: 13px;
+    margin-left: 8px;
+}
+
+.profile-text {
+    margin-top: 8px;
     color: #666;
-    margin-bottom: 2px;
+    font-size: 14px;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
     text-align: left;
 }
 
-.user-organization {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 12px;
-    color: #8e8e8e;
-    margin-bottom: 8px;
-    text-align: left;
-}
-
-.user-research {
+.info-footer {
+    margin-top: 8px;
     display: flex;
-    gap: 6px;
     flex-wrap: wrap;
+    gap: 10px 30px;
 }
 
-.research-tag {
-    background-color: rgba(64, 158, 255, 0.1);
-    color: #409eff;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 11px;
+.info-row {
+    display: flex;
+    align-items: top;
+    font-size: 14px;
+    color: #444;
+    min-width: 180px;
+    margin-top: 2px;
+}
+
+.info-label {
+    color: #888;
     font-weight: 500;
-    border: 1px solid rgba(64, 158, 255, 0.3);
+    margin-right: 4px;
+    min-width: 70px;
+    text-align: right;
+    line-height: 22px;
 }
 
-.user-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
-}
-
-.user-stats {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 5px;
-}
-
-.stat-item {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 11px;
-    color: #8e8e8e;
+.info-content {
+    display: inline-flex;
+    align-items: center;
 }
 
 .action-buttons {
-    display: flex;
-    gap: 8px;
+    position: absolute;
+    right: 20px;
+    top: 18px;
+    z-index: 2;
+    gap: 10px;
 }
 
-/* 分页样式 */
+.action-buttons .el-button {
+    font-size: 13px;
+    width: 80px !important;
+}
+
 .pagination {
     margin-top: 20px;
     display: flex;
-    justify-content: flex-end;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .user-item {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
-    }
-    
-    .user-actions {
-        width: 100%;
-        align-items: flex-start;
-    }
-    
-    .action-buttons {
-        width: 100%;
-        justify-content: flex-start;
-    }
+    justify-content: center;
 }
 </style> 

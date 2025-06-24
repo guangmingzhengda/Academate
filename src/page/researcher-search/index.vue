@@ -863,7 +863,7 @@ export default {
 .info-row {
     display: flex;
     align-items: top;
-    font-size: 13px;
+    font-size: 14px;
     color: #444;
     min-width: 180px;
     margin-top: 2px;
@@ -970,6 +970,7 @@ export default {
     font-size: 14px;
     color: #999;
     text-align: center;
+    margin-top: 5px;
 }
 
 .avatar-img {
