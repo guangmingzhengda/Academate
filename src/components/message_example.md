@@ -1,7 +1,7 @@
 五种类型的消息
 
 ```
-{
+    {
         id: 1,
         type: 'project_invite', // 项目邀请
         sender: '张教授',
