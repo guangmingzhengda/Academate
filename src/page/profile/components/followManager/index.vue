@@ -4,7 +4,7 @@
         <div class="follow-content">
             <div class="section-card">
                 <div class="card-header">
-                    <h3>{{ followTab === 'following' ? '我的关注' : '我的粉丝' }}</h3>
+                    <h3>{{ titleText }}</h3>
                 </div>
                 
                 <div class="card-content">
@@ -58,35 +58,37 @@
                                     <el-button type="primary" plain size="small" style="width: 80px;" @click="viewProfile(user.userId)">
                                         查看主页
                                     </el-button>
-                                    <el-button 
-                                        v-if="followTab === 'following'" 
-                                        type="danger" 
-                                        plain 
-                                        size="small"
-                                        style="width: 80px;"
-                                        @click="handleUnfollow(user.userId)"
-                                    >
-                                        取消关注
-                                    </el-button>
-                                    <el-button 
-                                        v-else-if="!user.isFollowing"
-                                        type="primary" 
-                                        size="small"
-                                        style="width: 80px;"
-                                        @click="handleFollow(user.userId)"
-                                    >
-                                        关注
-                                    </el-button>
-                                    <el-button 
-                                        v-else
-                                        type="info" 
-                                        plain
-                                        size="small"
-                                        style="width: 80px;"
-                                        @click="handleUnfollow(user.userId)"
-                                    >
-                                        已关注
-                                    </el-button>
+                                    <template v-if="isOwnProfile">
+                                        <el-button 
+                                            v-if="followTab === 'following'" 
+                                            type="danger" 
+                                            plain 
+                                            size="small"
+                                            style="width: 80px;"
+                                            @click="handleUnfollow(user.userId)"
+                                        >
+                                            取消关注
+                                        </el-button>
+                                        <el-button 
+                                            v-else-if="!user.isFollowing"
+                                            type="primary" 
+                                            size="small"
+                                            style="width: 80px;"
+                                            @click="handleFollow(user.userId)"
+                                        >
+                                            关注
+                                        </el-button>
+                                        <el-button 
+                                            v-else
+                                            type="info" 
+                                            plain
+                                            size="small"
+                                            style="width: 80px;"
+                                            @click="handleUnfollow(user.userId)"
+                                        >
+                                            已关注
+                                        </el-button>
+                                    </template>
                                 </div>
                             </div>
                         </div>
@@ -127,6 +129,10 @@ export default {
         },
         userId: {
             type: Number,
+            required: true
+        },
+        isOwnProfile: {
+            type: Boolean,
             required: true
         }
     },
@@ -189,13 +195,20 @@ export default {
             fetchData()
         });
 
+        // 监听 userId 的变化
+        watch(() => props.userId, (newId, oldId) => {
+            if (newId !== oldId) {
+                fetchData();
+            }
+        });
+
+        // 监听 defaultTab 的变化
         watch(() => props.defaultTab, (newTab) => {
             followTab.value = newTab;
             fetchData();
         });
 
         const currentList = computed(() => {
-            console.log('current', followingList.value)
             return followTab.value === 'following' ? followingList.value : followersList.value
         })
         
@@ -217,11 +230,6 @@ export default {
         }
         
         const handleUnfollow = async (userId) => {
-            // await ElMessageBox.confirm('确定要取消关注这位用户吗？', '确认操作', {
-            //     confirmButtonText: '确定',
-            //     cancelButtonText: '取消',
-            //     type: 'warning'
-            // })
             const success = await unfollowUser(userId);
             if(success) {
                 if (followTab.value === 'following') {
@@ -243,6 +251,15 @@ export default {
             }
         }
 
+        // 修改标题文本
+        const titleText = computed(() => {
+            if (props.isOwnProfile) {
+                return followTab.value === 'following' ? '我的关注' : '我的粉丝';
+            } else {
+                return followTab.value === 'following' ? 'TA的关注' : 'TA的粉丝';
+            }
+        });
+
         return {
             followTab,
             currentPage,
@@ -255,6 +272,8 @@ export default {
             handleUnfollow,
             handleFollow,
             defaultAvatar,
+            titleText,
+            isOwnProfile: computed(() => props.isOwnProfile)
         }
     }
 }
