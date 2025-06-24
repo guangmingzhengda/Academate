@@ -73,6 +73,15 @@ const router = createRouter({
             },
         },
 
+        {
+            path: '/outcome-detail/:id?',
+            name: 'outcome-detail',
+            component: defineAsyncComponent(() => import(`../page/outcome-detail/index.vue`)),
+            meta: {
+                title: '学术成果详情',
+            },
+        },
+
         // 用户个人资料
         {
             path: '/profile/:id?',
