@@ -4,8 +4,8 @@
     <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 70px">
         <div style="width: 1400px">
             <el-container class="el-main" style="display: flex;">
-                <el-row style="width: 100%">
-                    <el-col :span="18">
+                <el-row style="width: 100%; display: flex;" :gutter="24">
+                    <el-col :span="17">
                         <div class="main-container" style="width: 100%;">
                             <div v-if="loading" class="loading-container">
                                 <el-skeleton :rows="10" animated />
@@ -149,7 +149,7 @@
                             </div>
                         </div>
                     </el-col>
-                    <el-col :span="6">
+                    <el-col :span="7">
                         <div class="side-container">
                             <problem-side-component :questionId="questionId" @answer-click="showAnswerDialog" />
                         </div>
@@ -471,7 +471,7 @@ export default {
     text-align: left;
 }
 .side-container {
-    margin-left: 24px;
+    width: 100%;
 }
 
 /* 答案样式 */

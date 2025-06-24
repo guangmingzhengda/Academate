@@ -117,5 +117,5 @@ export interface InviteRes {
  * @returns Promise<InviteRes> 邀请结果
  */
 export function invite(params: InviteParams): Promise<InviteRes> {
-  return axios.post(`/project/invite`, params);
+  return axios.post(`/project/invite`, params).then(res => res.data);
 }
