@@ -86,12 +86,11 @@ import References from "@/page/achievement-detail/references/index.vue";
 import Citing from "@/page/achievement-detail/citing/index.vue";
 import Comments from "@/page/achievement-detail/comments/index.vue";
 import {setNav} from "@/nav/set";
-import {getWorkAPI} from "@/page/achievement-detail/api/api";
-import {callInfo} from "@/call";
+import {getWorkAPI, getResearchOutcomeById} from "@/page/achievement-detail/api/api";
+import {callInfo, callError} from "@/call";
 import store from "@/store";
 import NavButton from "@/nav/navButton/index.vue";
 import homeBottom from "@/page/home/component/homeBottom/index.vue";
-import {decode_function} from "@/decode/code";
 
 let isIframeLoaded = ref(true);
 export default {
@@ -188,24 +187,63 @@ export default {
         console.log("mounted");
         //setNav(true);
         window.scrollTo(0, 0);
-        if(this.$route.params.id) {
-            const res = await this.pullWorkData();
-            if (res != null && (res.articleDetail || res.patentDetail || res.projectDetail || res.awardDetail))
-                this.work = res;
-            else {
-                callInfo("当前学术成果不存在，将返回首页");
-                setTimeout(() => {
-                    window.location.href = "/home";
-                }, 2000);
+        
+        // 从路由获取outcomeId
+        const outcomeId = this.$route.params.id ? this.$route.params.id : null;
+        
+        if(outcomeId) {
+            // 优先尝试使用新API获取研究成果
+            try {
+                const researchOutcome = await getResearchOutcomeById(outcomeId);
+                if (researchOutcome) {
+                    // 将API返回的数据转换为页面需要的格式
+                    this.work = this.convertResearchOutcome(researchOutcome);
+                }
+            } catch (error) {
+                console.error("获取研究成果失败:", error);
+                callError("获取研究成果失败");
             }
+        } else {
+            // 没有outcomeId，使用静态数据（已在data中定义）
+            console.log("使用静态数据");
         }
+        
         this.userId = store.getters.getId;
     },
     methods: {
-        pullWorkData() {
-            // console.log(decode_function(this.$route.params.id));
-            return getWorkAPI(decode_function(this.$route.params.id), store.getters.getId);
-        },
+        // 将研究成果数据转换为页面需要的格式
+        convertResearchOutcome(researchOutcome) {
+            // 提取作者列表
+            const authors = researchOutcome.authors ? researchOutcome.authors.split(',').map((name, index) => ({
+                id: index + 1, // 生成临时ID
+                name: name.trim()
+            })) : [];
+            
+            // 根据成果类型构建不同的详情对象
+            let articleDetail = null;
+            if (researchOutcome) {
+                articleDetail = {
+                    id: researchOutcome.outcomeId,
+                    title: researchOutcome.title || "无标题",
+                    url: researchOutcome.url,
+                    type: researchOutcome.type || "article",
+                    citedByCount: 0, // API没有提供
+                    fwci: 0, // API没有提供
+                    doi: researchOutcome.doi,
+                    publicationDate: researchOutcome.publishDate,
+                    lang: "zh", // 假设默认语言
+                    abstractText: "" // API没有提供摘要
+                };
+            }
+            
+            return {
+                id: researchOutcome.outcomeId,
+                type: researchOutcome.type || "article",
+                articleDetail: articleDetail,
+                authorNameIdList: authors,
+                visitCount: 0 // API没有提供
+            };
+        }
     },
     setup() {
         const activeName = ref('third');

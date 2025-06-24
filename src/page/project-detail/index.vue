@@ -118,7 +118,6 @@ import {callInfo, callSuccess} from "@/call";
 import store from "@/store";
 import NavButton from "@/nav/navButton/index.vue";
 import homeBottom from "@/page/home/component/homeBottom/index.vue";
-import {decode_function} from "@/decode/code";
 
 let isIframeLoaded = ref(true);
 export default {
