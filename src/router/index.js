@@ -3,7 +3,6 @@ import {computed, defineAsyncComponent} from 'vue'
 import store from "@/store";
 import {callSuccess, callError, callInfo, callWarning} from "@/call";
 import {setNav} from "@/nav/set";
-import {decode_function} from "@/decode/code";
 //路由设置
 
 const router = createRouter({
@@ -72,10 +71,19 @@ const router = createRouter({
                 title: '问题详情',
             },
         },
+        
+        {
+            path: '/outcome-detail/:id?',
+            name: 'outcome-detail',
+            component: defineAsyncComponent(() => import(`../page/outcome-detail/index.vue`)),
+            meta: {
+                title: '学术成果详情',
+            },
+        },
 
         // 用户个人资料
         {
-            path: '/profile/:id?',
+            path: '/profile',
             name: 'profile',
             component: defineAsyncComponent(() => import(`../page/profile/index.vue`)),
             meta: {
