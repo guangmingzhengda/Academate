@@ -21,12 +21,12 @@
                         class="message-item"
                         :class="{ 'unread': !message.read }"
                     >
-                                        <div class="message-avatar">
+                                        <div class="message-avatar" @click.stop="navigateToUserProfile(message.senderId)">
                     <img :src="message.avatar" :alt="message.sender" @error="handleAvatarError" />
                 </div>
                         <div class="message-content">
                             <div class="message-header">
-                                <span class="sender-name">{{ message.sender }}</span>
+                                <span class="sender-name" @click.stop="navigateToUserProfile(message.senderId)">{{ message.sender }}</span>
                             </div>
                             <div class="message-text">{{ message.content }}</div>
                             
@@ -99,6 +99,7 @@ import { agree_project_invite, reject_project_invite } from '@/api/project'
 import { pullAllMessages, MessageVO } from '@/api/msg'
 import { callSuccess, callError } from '@/call'
 import store from '@/store'
+import { useRouter } from 'vue-router'
 
 const props = defineProps({
     visible: {
@@ -108,6 +109,9 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'unread-count-update'])
+
+// 路由实例
+const router = useRouter()
 
 // WebSocket相关状态
 const ws = ref(null)
@@ -216,7 +220,7 @@ const handleIncomingMessage = (messageData) => {
     
     // 根据WebSocket消息格式适配到显示格式
     if (messageData.message && messageData.messageId) {
-        // 判断消息类型 - 如果包含"邀请"关键词，则认为是项目邀请
+        // 判断消息类型 - 根据关键词识别消息类型
         let messageType = 'unknown'
         let senderName = '未知发送者'
         
@@ -224,6 +228,19 @@ const handleIncomingMessage = (messageData) => {
             messageType = 'project_invite'
             // 从消息内容中提取发送者信息
             const match = messageData.message.match(/用户(\w+)向您发送/)
+            if (match) {
+                senderName = `用户${match[1]}`
+            }
+        } else if (messageData.message.includes('申请')) {
+            messageType = 'project_apply'
+            // 从消息内容中提取发送者信息 - 支持多种格式
+            let match = messageData.message.match(/用户(\w+)申请/)
+            if (!match) {
+                match = messageData.message.match(/(\w+)申请/)
+            }
+            if (!match) {
+                match = messageData.message.match(/申请.*?用户[：:](\w+)/)
+            }
             if (match) {
                 senderName = `用户${match[1]}`
             }
@@ -245,6 +262,7 @@ const handleIncomingMessage = (messageData) => {
         
         console.log('创建的新消息对象:', newMessage)
         console.log(`WebSocket消息头像: 原始="${messageData.avatar}", 处理后="${newMessage.avatar}"`)
+        console.log(`WebSocket消息类型识别: 消息内容="${messageData.message}", 识别类型="${messageType}"`)
         
         // 检查消息是否已存在（避免重复添加）
         const existingMessage = messages.value.find(m => m.id === newMessage.id)
@@ -296,7 +314,14 @@ const convertMessageVOToMessage = (messageVO) => {
         }
     } else if (messageVO.message.includes('申请')) {
         messageType = 'project_apply'
-        const match = messageVO.message.match(/用户(\w+)申请/)
+        // 从消息内容中提取发送者信息 - 支持多种格式
+        let match = messageVO.message.match(/用户(\w+)申请/)
+        if (!match) {
+            match = messageVO.message.match(/(\w+)申请/)
+        }
+        if (!match) {
+            match = messageVO.message.match(/申请.*?用户[：:](\w+)/)
+        }
         if (match) {
             senderName = `用户${match[1]}`
         }
@@ -321,7 +346,7 @@ const convertMessageVOToMessage = (messageVO) => {
                     messageVO.isAccepted === 'reject' ? 'rejected' : null
         }
         
-        console.log(`消息转换: ID=${messageVO.messageId}, 原始头像="${messageVO.avatar}", 处理后头像="${convertedMessage.avatar}", status="${messageVO.status}", isAccepted="${messageVO.isAccepted}" → read=${isRead}, status="${convertedMessage.status}"`)
+        console.log(`消息转换: ID=${messageVO.messageId}, 消息内容="${messageVO.message}", 识别类型="${messageType}", 原始头像="${messageVO.avatar}", 处理后头像="${convertedMessage.avatar}", status="${messageVO.status}", isAccepted="${messageVO.isAccepted}" → read=${isRead}, status="${convertedMessage.status}"`)
         
         return convertedMessage
 }
@@ -490,6 +515,29 @@ const getValidAvatarUrl = (avatarUrl) => {
 const handleAvatarError = (event) => {
     // 头像加载失败时，设置为默认头像
     event.target.src = require('@/asset/home/user.png')
+}
+
+// 导航到用户个人资料页面
+const navigateToUserProfile = (senderId) => {
+    if (!senderId || senderId === null) {
+        console.warn('发送者ID为空，无法跳转到用户资料页面')
+        callError('无法获取用户信息')
+        return
+    }
+    
+    console.log(`跳转到用户${senderId}的个人资料页面`)
+    
+    // 关闭消息侧边栏
+    emit('close')
+    
+    // 跳转到用户个人资料页面
+    router.push({
+        name: 'profile',
+        params: { id: senderId.toString() }
+    }).catch(error => {
+        console.error('页面跳转失败:', error)
+        callError('页面跳转失败')
+    })
 }
 
 // 计算未读消息数量
@@ -683,6 +731,12 @@ onUnmounted(() => {
 .message-avatar {
     flex-shrink: 0;
     margin-right: 12px;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+
+.message-avatar:hover {
+    transform: scale(1.05);
 }
 
 .message-avatar img {
@@ -710,6 +764,13 @@ onUnmounted(() => {
     font-weight: 600;
     color: #333;
     font-size: 14px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.sender-name:hover {
+    color: #409eff;
+    text-decoration: underline;
 }
 
 .message-text {

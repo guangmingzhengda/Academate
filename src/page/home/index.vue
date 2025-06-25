@@ -80,11 +80,15 @@
                         </div>
                         
                         <div class="card-content">
-                            <div v-if="achievements.length === 0" class="empty-state">
+                            <div v-if="achievementLoading" class="empty-state">
+                                正在加载学术成果数据...
+                            </div>
+                            
+                            <div v-else-if="achievements.length === 0" class="empty-state">
                                 暂无学术成果数据
                             </div>
                             
-                            <div v-else class="achievement-list">
+                            <div v-else-if="achievements.length > 0" class="achievement-list">
                                 <div 
                                     v-for="achievement in currentPageAchievements" 
                                     :key="achievement.id" 
@@ -94,7 +98,7 @@
                                         <div class="achievement-header">
                                             <div class="title-type-row">
                                                 <span class="achievement-type-tag" :class="achievement.type">
-                                                    {{ typeLabels[achievement.type] }}
+                                                    {{ typeLabels[achievement.type] || achievement.type }}
                                                 </span>
                                                 <div class="achievement-title">{{ achievement.title }}</div>
                                             </div>
@@ -121,10 +125,10 @@
                             
                             <!-- 学术成果分页 -->
                             <el-pagination
-                                v-if="achievements.length > achievementPageSize"
+                                v-if="achievementTotal > achievementPageSize"
                                 v-model:current-page="achievementCurrentPage"
                                 :page-size="achievementPageSize"
-                                :total="achievements.length"
+                                :total="achievementTotal"
                                 layout="prev, pager, next"
                                 class="pagination"
                                 small
@@ -155,6 +159,7 @@ import fadeBox from "@/page/home/component/fadeBox/index.vue";
 import logo from "@/page/home/component/logo/index.vue"
 import homeBottom from "@/page/home/component/homeBottom/index.vue"
 import leftPin from "@/page/home/component/leftPin/index.vue";
+import { getAllOutcomes, ResourceOutcomeSearchVO } from "@/api/home";
 
 
 export default {
@@ -234,82 +239,20 @@ export default {
         // 学术成果相关数据
         const achievementCurrentPage = ref(1);
         const achievementPageSize = ref(5);
-        const achievements = ref([
-            {
-                id: 1,
-                type: 'journal',
-                title: '基于深度学习的图像识别算法研究',
-                authors: 'HHH, 张三, 李四',
-                journal: 'IEEE Transactions on Image Processing',
-                volume: '32',
-                issue: '5',
-                pages: '1234-1245',
-                publishDate: '2023-05-15',
-                doi: '10.1109/TIP.2023.1234567'
-            },
-            {
-                id: 2,
-                type: 'conference',
-                title: '智能教育系统中的个性化推荐算法',
-                authors: 'HHH, 王五, 赵六',
-                conference: 'International Conference on Educational Technology',
-                location: '北京',
-                publishDate: '2023-08-20'
-            },
-            {
-                id: 3,
-                type: 'patent',
-                title: '一种基于人工智能的学习路径推荐方法',
-                authors: 'HHH, 孙七',
-                patentNumber: 'CN202310123456.7',
-                patentType: 'invention',
-                publishDate: '2023-06-10'
-            },
-            {
-                id: 4,
-                type: 'journal',
-                title: '知识图谱在教育领域的应用研究',
-                authors: 'HHH, 周八',
-                journal: 'Computers & Education',
-                volume: '195',
-                issue: '3',
-                pages: '456-467',
-                publishDate: '2023-07-01'
-            },
-            {
-                id: 5,
-                type: 'conference',
-                title: '基于强化学习的智能推荐系统',
-                authors: 'HHH, 吴九, 郑十',
-                conference: 'AAAI Conference on Artificial Intelligence',
-                location: '华盛顿',
-                publishDate: '2023-09-12'
-            },
-            {
-                id: 6,
-                type: 'book',
-                title: '人工智能在教育中的应用',
-                authors: 'HHH',
-                publisher: '清华大学出版社',
-                publishDate: '2023-03-01'
-            },
-            {
-                id: 7,
-                type: 'software',
-                title: '智能学习管理系统V1.0',
-                authors: 'HHH, 技术团队',
-                registrationNumber: '2023SR0123456',
-                publishDate: '2023-04-15'
-            }
-        ]);
+        const achievements = ref([]);
+        const achievementTotal = ref(0);
+        const achievementLoading = ref(false);
 
         // 成果类型标签
         const typeLabels = {
-            journal: '期刊论文',
-            conference: '会议论文',
-            patent: '专利',
-            book: '专著',
-            software: '软件著作权'
+            '期刊论文': '期刊论文',
+            '会议论文': '会议论文', 
+            '专利': '专利',
+            '书': '书',
+            '技术报告': '技术报告',
+            '海报': '海报',
+            '数据': '数据',
+            '其他': '其他'
         };
 
         // 项目分页计算属性
@@ -319,11 +262,9 @@ export default {
             return projects.value.slice(start, end);
         });
 
-        // 学术成果分页计算属性
+        // 学术成果分页计算属性 - 现在直接返回当前页的数据
         const currentPageAchievements = computed(() => {
-            const start = (achievementCurrentPage.value - 1) * achievementPageSize.value;
-            const end = start + achievementPageSize.value;
-            return achievements.value.slice(start, end);
+            return achievements.value;
         });
 
         // 项目分页处理
@@ -332,8 +273,47 @@ export default {
         };
 
         // 学术成果分页处理
-        const handleAchievementPageChange = (page) => {
+        const handleAchievementPageChange = async (page) => {
             achievementCurrentPage.value = page;
+            await loadAchievements();
+        };
+
+        // 加载学术成果数据
+        const loadAchievements = async () => {
+            achievementLoading.value = true;
+            try {
+                const result = await getAllOutcomes(achievementCurrentPage.value, achievementPageSize.value);
+                if (result) {
+                    achievements.value = result.list.map(item => ({
+                        id: item.outcomeId,
+                        type: item.type,
+                        title: item.title,
+                        authors: item.authors,
+                        journal: item.journal,
+                        publishDate: item.publishDate ? formatTimestamp(item.publishDate) : null
+                    }));
+                    achievementTotal.value = result.total;
+                    console.log(`成功加载 ${achievements.value.length} 条成果数据，总计 ${achievementTotal.value} 条`);
+                } else {
+                    achievements.value = [];
+                    achievementTotal.value = 0;
+                }
+            } catch (error) {
+                console.error('加载成果数据失败:', error);
+                achievements.value = [];
+                achievementTotal.value = 0;
+            } finally {
+                achievementLoading.value = false;
+            }
+        };
+
+        // 时间戳格式化函数
+        const formatTimestamp = (timestamp) => {
+            if (!timestamp) return null;
+            const date = new Date(timestamp);
+            return date.getFullYear() + '-' + 
+                   String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(date.getDate()).padStart(2, '0');
         };
 
         // 随机图标函数
@@ -352,6 +332,9 @@ export default {
         onMounted(async () => {
             // 设置导航状态
             //setNav(false);
+            
+            // 加载学术成果数据
+            await loadAchievements();
         });
 
         return {
@@ -366,9 +349,12 @@ export default {
             achievements,
             achievementCurrentPage,
             achievementPageSize,
+            achievementTotal,
+            achievementLoading,
             currentPageAchievements,
             typeLabels,
             handleAchievementPageChange,
+            loadAchievements,
             
             // 工具函数
             getRandomIcon
@@ -476,10 +462,14 @@ export default {
 }
 
 .empty-state {
-    text-align: left;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     color: #999;
     padding: 40px;
-    font-size: 14px;
+    font-size: 18px;
+    min-height: 200px;
+    text-align: center;
 }
 
 /* 项目样式 */
@@ -611,24 +601,36 @@ export default {
     white-space: nowrap;
 }
 
-.achievement-type-tag.journal {
+.achievement-type-tag.期刊论文 {
     background-color: #67c23a;
 }
 
-.achievement-type-tag.conference {
+.achievement-type-tag.会议论文 {
     background-color: #409eff;
 }
 
-.achievement-type-tag.patent {
+.achievement-type-tag.专利 {
     background-color: #e6a23c;
 }
 
-.achievement-type-tag.book {
+.achievement-type-tag.书 {
     background-color: #909399;
 }
 
-.achievement-type-tag.software {
-    background-color: #f56c6c;
+.achievement-type-tag.技术报告 {
+    background-color: #8e44ad;
+}
+
+.achievement-type-tag.海报 {
+    background-color: #e67e22;
+}
+
+.achievement-type-tag.数据 {
+    background-color: #1abc9c;
+}
+
+.achievement-type-tag.其他 {
+    background-color: #95a5a6;
 }
 
 .achievement-title {
