@@ -41,3 +41,23 @@ export async function uploadAchievementMeta(
     callError(error as string);
   }
 }
+
+/**
+ * 成果自动填入接口
+ * @param integers 成果ID数组
+ * @returns Promise<BaseResponseLong>
+ */
+export async function autoAddResearchOutcomes(
+  integers: number[]
+): Promise<BaseResponseLong | undefined> {
+  try {
+    const response = await axios.post("/research_outcome/auto_add", integers);
+    if (response.status === 200) {
+      return response.data;
+    } else {
+      callError("网络错误");
+    }
+  } catch (error) {
+    callError(error as string);
+  }
+}

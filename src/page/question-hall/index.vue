@@ -45,7 +45,7 @@
 
                 <!-- 问题列表 -->
                 <div class="questions-section">
-                    <div v-if="filteredQuestions.length === 0" class="empty-state">
+                    <div v-if="questions.length === 0" class="empty-state">
                         <el-empty description="暂无问题，快来提出第一个问题吧！" />
                     </div>
                     
@@ -101,10 +101,10 @@
                     
                     <!-- 分页 -->
                     <el-pagination
-                        v-if="filteredQuestions.length > pageSize"
+                        v-if="total > 0"
                         v-model:current-page="currentPage"
                         :page-size="pageSize"
-                        :total="filteredQuestions.length"
+                        :total="total"
                         layout="prev, pager, next, jumper, total"
                         class="pagination"
                         @current-change="handlePageChange"
@@ -207,11 +207,13 @@ export default {
             try {
                 const data = await getQuestionList({
                     current: currentPage.value,
-                    size: pageSize.value
+                    size: pageSize.value,
+                    keyword: searchKeyword.value
                 })
-                questions.value = data
-                total.value = data.length // 实际项目中这个值应该从后端获取
-                console.log(questions.value);
+                console.log('data', data)
+                questions.value = data.list
+                total.value = data.total
+                console.log('total', total.value);
             } catch (error) {
                 console.error('加载问题列表失败:', error)
             }
@@ -229,29 +231,14 @@ export default {
             '#795548', '#607d8b', '#e91e63', '#00bcd4', '#8bc34a'
         ]
         
-        // 过滤后的问题列表
-        const filteredQuestions = computed(() => {
-            if (!searchKeyword.value) {
-                return questions.value
-            }
-            
-            const keyword = searchKeyword.value.toLowerCase()
-            return questions.value.filter(question =>
-                question.questionTitle.toLowerCase().includes(keyword) ||
-                question.userName.toLowerCase().includes(keyword)
-            )
-        })
-        
-        // 当前页问题数据
+        // 当前显示的问题列表 - 直接使用从后端获取的当前页数据
         const currentPageQuestions = computed(() => {
-            const start = (currentPage.value - 1) * pageSize.value
-            const end = start + pageSize.value
-            return filteredQuestions.value.slice(start, end)
+            return questions.value
         })
         
-        // 搜索处理
+        // 搜索处理 - 重置页码并重新加载数据
         const handleSearch = () => {
-            currentPage.value = 1
+            currentPage.value = 1 // 重置到第一页
             loadQuestions()
         }
         
@@ -354,7 +341,6 @@ export default {
             questionForm,
             questionRules,
             questions,
-            filteredQuestions,
             currentPageQuestions,
             handleSearch,
             handlePageChange,

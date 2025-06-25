@@ -10,7 +10,7 @@
             </div>
             
             <div class="card-content">
-                <div v-if="projects.length === 0" class="empty-state">
+                <div v-if="projects.length === 0" class="empty-state project-empty-center">
                     暂无项目数据
                 </div>
                 
@@ -317,7 +317,7 @@ export default {
 
 .empty-state {
     text-align: left;
-    color: #999;
+    color: #5c5c5c;
     padding: 40px;
     font-size: 14px;
 }
@@ -415,5 +415,13 @@ export default {
         width: 100%;
         justify-content: flex-end;
     }
+}
+
+.project-empty-center {
+    text-align: center;
+    color: #a1a1a1;
+    font-size: 18px;
+    font-weight: 500;
+    padding: 40px 0;
 }
 </style> 

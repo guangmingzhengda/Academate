@@ -26,7 +26,11 @@
                         </div>
                         
                         <div class="card-content">
-                            <div v-if="projects.length === 0" class="empty-state">
+                            <div v-if="projectLoading" class="empty-state">
+                                正在加载项目数据...
+                            </div>
+                            
+                            <div v-else-if="projects.length === 0" class="empty-state">
                                 暂无项目数据
                             </div>
                             
@@ -47,10 +51,6 @@
                                                 <span class="meta-item">开始时间：{{ project.startDate }}</span>
                                                 <span class="meta-item">状态：{{ project.status }}</span>
                                             </div>
-                                            <div class="meta-row">
-                                                <span class="meta-item">负责人：{{ project.leader }}</span>
-                                                <span v-if="project.endDate" class="meta-item">结束时间：{{ project.endDate }}</span>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -58,10 +58,10 @@
                             
                             <!-- 项目分页 -->
                             <el-pagination
-                                v-if="projects.length > projectPageSize"
+                                v-if="projectTotal > projectPageSize"
                                 v-model:current-page="projectCurrentPage"
                                 :page-size="projectPageSize"
-                                :total="projects.length"
+                                :total="projectTotal"
                                 layout="prev, pager, next"
                                 class="pagination"
                                 small
@@ -160,6 +160,7 @@ import logo from "@/page/home/component/logo/index.vue"
 import homeBottom from "@/page/home/component/homeBottom/index.vue"
 import leftPin from "@/page/home/component/leftPin/index.vue";
 import { getAllOutcomes, ResourceOutcomeSearchVO } from "@/api/home";
+import { get_all_projects } from "@/api/project";
 
 
 export default {
@@ -170,71 +171,9 @@ export default {
         // 项目相关数据
         const projectCurrentPage = ref(1);
         const projectPageSize = ref(5);
-        const projects = ref([
-            {
-                id: 1,
-                name: '智能教育平台开发',
-                description: '基于人工智能技术的个性化教育平台，支持自适应学习和智能推荐功能。',
-                startDate: '2023-01-15',
-                endDate: '2023-12-31',
-                status: '进行中',
-                leader: 'HHH'
-            },
-            {
-                id: 2,
-                name: '深度学习算法优化研究',
-                description: '针对计算机视觉领域的深度学习算法进行性能优化和准确性提升研究。',
-                startDate: '2022-06-01',
-                endDate: '2023-05-31',
-                status: '已完成',
-                leader: 'HHH'
-            },
-            {
-                id: 3,
-                name: '知识图谱构建系统',
-                description: '构建面向特定领域的知识图谱系统，实现知识的自动抽取和推理。',
-                startDate: '2023-09-01',
-                endDate: '2024-08-31',
-                status: '进行中',
-                leader: 'HHH'
-            },
-            {
-                id: 4,
-                name: '智能推荐系统优化',
-                description: '基于用户行为分析的智能推荐算法研究与实现。',
-                startDate: '2023-03-01',
-                endDate: '2024-02-29',
-                status: '进行中',
-                leader: 'HHH'
-            },
-            {
-                id: 5,
-                name: '区块链技术应用研究',
-                description: '探索区块链技术在学术诚信和版权保护方面的应用。',
-                startDate: '2022-09-01',
-                endDate: '2023-08-31',
-                status: '已完成',
-                leader: 'HHH'
-            },
-            {
-                id: 6,
-                name: '机器学习框架优化',
-                description: '研究和开发高效的机器学习框架，提升模型训练和推理效率。',
-                startDate: '2023-07-01',
-                endDate: '2024-06-30',
-                status: '进行中',
-                leader: 'HHH'
-            },
-            {
-                id: 7,
-                name: '自然语言处理系统',
-                description: '开发面向中文的自然语言处理系统，支持文本分析和语义理解。',
-                startDate: '2023-05-01',
-                endDate: '2024-04-30',
-                status: '进行中',
-                leader: 'HHH'
-            }
-        ]);
+        const projects = ref([]);
+        const projectTotal = ref(0);
+        const projectLoading = ref(false);
 
         // 学术成果相关数据
         const achievementCurrentPage = ref(1);
@@ -255,11 +194,9 @@ export default {
             '其他': '其他'
         };
 
-        // 项目分页计算属性
+        // 项目分页计算属性 - 现在直接返回当前页的数据
         const currentPageProjects = computed(() => {
-            const start = (projectCurrentPage.value - 1) * projectPageSize.value;
-            const end = start + projectPageSize.value;
-            return projects.value.slice(start, end);
+            return projects.value;
         });
 
         // 学术成果分页计算属性 - 现在直接返回当前页的数据
@@ -268,14 +205,46 @@ export default {
         });
 
         // 项目分页处理
-        const handleProjectPageChange = (page) => {
+        const handleProjectPageChange = async (page) => {
             projectCurrentPage.value = page;
+            await loadProjects();
         };
 
         // 学术成果分页处理
         const handleAchievementPageChange = async (page) => {
             achievementCurrentPage.value = page;
             await loadAchievements();
+        };
+
+        // 加载项目数据
+        const loadProjects = async () => {
+            projectLoading.value = true;
+            try {
+                const result = await get_all_projects({
+                    page: projectCurrentPage.value,
+                    size: projectPageSize.value
+                });
+                if (result) {
+                    projects.value = result.records.map(item => ({
+                        id: item.projectId,
+                        name: item.title,
+                        description: item.description,
+                        startDate: item.startDate,
+                        status: item.status
+                    }));
+                    projectTotal.value = result.total;
+                    console.log(`成功加载 ${projects.value.length} 条项目数据，总计 ${projectTotal.value} 条`);
+                } else {
+                    projects.value = [];
+                    projectTotal.value = 0;
+                }
+            } catch (error) {
+                console.error('加载项目数据失败:', error);
+                projects.value = [];
+                projectTotal.value = 0;
+            } finally {
+                projectLoading.value = false;
+            }
         };
 
         // 加载学术成果数据
@@ -333,6 +302,9 @@ export default {
             // 设置导航状态
             //setNav(false);
             
+            // 加载项目数据
+            await loadProjects();
+            
             // 加载学术成果数据
             await loadAchievements();
         });
@@ -342,8 +314,11 @@ export default {
             projects,
             projectCurrentPage,
             projectPageSize,
+            projectTotal,
+            projectLoading,
             currentPageProjects,
             handleProjectPageChange,
+            loadProjects,
             
             // 学术成果相关
             achievements,
