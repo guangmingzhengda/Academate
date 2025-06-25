@@ -10,7 +10,7 @@
                     <div v-if="loading" class="loading-container">
                         <el-skeleton :rows="10" animated />
                     </div>
-                    <div v-else-if="project.projectDetail !== null">
+                    <div v-else-if="project && project.projectDetail">
                         <div class="header-container">
                             <div class="header-title">{{modifyTitle(project.projectDetail.title)}}</div>
                             <div class="info-container">
@@ -42,7 +42,7 @@
                                     <span class="info-label">项目预算：</span>
                                     <span>{{project.projectDetail.budget}}</span>
                                 </div>
-                                <div class="detail-info" v-if="project.projectDetail.institution">
+                                <div class="detail-info" v-if="project.projectDetail.institution && project.projectDetail.institution.name">
                                     <span class="info-label">所属机构：</span>
                                     <span>{{project.projectDetail.institution.name}}</span>
                                 </div>
@@ -66,20 +66,6 @@
                                     type="card"
                                     class="demo-tabs"
                                     style="max-width: 100%">
-                                    <!-- <el-tab-pane label="项目成果" name="first">
-                                        <div class="achievements-container">
-                                            <div v-if="project.achievements && project.achievements.length > 0">
-                                                <div v-for="achievement in project.achievements" :key="achievement.id" class="achievement-item">
-                                                    <div class="achievement-title">{{achievement.title}}</div>
-                                                    <div class="achievement-type">{{achievement.type}}</div>
-                                                    <div class="achievement-date">{{formatDate(achievement.date)}}</div>
-                                                </div>
-                                            </div>
-                                            <div v-else class="no-data">
-                                                暂无项目成果
-                                            </div>
-                                        </div>
-                                    </el-tab-pane> -->
                                     <el-tab-pane label="评论" name="third">
                                         <comments :work="project" :userId="userId" :role="role"/>
                                     </el-tab-pane>
@@ -115,125 +101,150 @@
 
 <script lang="js">
 import SideComponent from "@/page/project-detail/side-component/index.vue";
-import {ref} from "vue";
+import {ref, onMounted} from "vue";
 import FunctionBar from "@/page/project-detail/function-bar/index.vue";
 import Comments from "@/page/project-detail/comments/index.vue";
 import {setNav} from "@/nav/set";
 import {getProjectDetail} from "@/page/project-detail/api/api";
-import {callInfo, callSuccess} from "@/call";
+import {callInfo, callSuccess, callError} from "@/call";
 import store from "@/store";
 import NavButton from "@/nav/navButton/index.vue";
 import homeBottom from "@/page/home/component/homeBottom/index.vue";
 
-let isIframeLoaded = ref(true);
 export default {
     name: "project-detail",
     components: {NavButton, Comments, FunctionBar, SideComponent, homeBottom},
     data() {
         return {
-            userId: ref(0),
-            loading: ref(true),
-            project: ref({
-                "projectDetail": {
-                    "projectId": 1,
-                    "title": "人工智能在医疗诊断中的应用研究",
-                    "description": "本项目旨在研究人工智能技术在医疗诊断领域的应用，通过深度学习算法提高疾病诊断的准确性和效率。项目将收集大量医疗影像数据，训练AI模型，并验证其在临床实践中的有效性。",
-                    "startDate": "2024-01-01",
-                    "status": "进行中"
+            userId: 0,
+            loading: true,
+            project: {
+                projectDetail: {
+                    projectId: 1,
+                    title: "人工智能在医疗诊断中的应用研究",
+                    description: "本项目旨在研究人工智能技术在医疗诊断领域的应用，通过深度学习算法提高疾病诊断的准确性和效率。项目将收集大量医疗影像数据，训练AI模型，并验证其在临床实践中的有效性。",
+                    startDate: "2024-01-01",
+                    status: "进行中"
                 },
-                "researcherList": [
+                researcherList: [
                     {
-                        "id": 1,
-                        "name": "张三",
-                        "role": "项目负责人",
-                        "institution": "清华大学医学院"
+                        id: 1,
+                        name: "张三",
+                        role: "项目负责人",
+                        institution: "清华大学医学院"
                     },
                     {
-                        "id": 2,
-                        "name": "李四",
-                        "role": "技术专家",
-                        "institution": "清华大学计算机系"
+                        id: 2,
+                        name: "李四",
+                        role: "技术专家",
+                        institution: "清华大学计算机系"
                     },
                     {
-                        "id": 3,
-                        "name": "王五",
-                        "role": "临床专家",
-                        "institution": "北京协和医院"
+                        id: 3,
+                        name: "王五",
+                        role: "临床专家",
+                        institution: "北京协和医院"
                     }
                 ],
-                "subfield": "人工智能与医疗健康",
-                "stats": {
-                    "visitCount": 156,
-                    "comments": 10,
-                    "favorites": 5,
-                    "memberCount": 15
+                subfield: "人工智能与医疗健康",
+                stats: {
+                    visitCount: 156,
+                    comments: 10,
+                    favorites: 5,
+                    memberCount: 15
                 }
-            }),
-            role: ref(""),
+            },
+            role: "creator", // 设置默认值，避免空值
         };
     },
-    async mounted() {
-        this.userId = store.getters.getId;
-        this.role = "creator"; // 默认为创建者
-        
-        if (this.$route.params.id) {
+    mounted() {
+        this.initializeProject();
+    },
+    methods: {
+        async initializeProject() {
+            console.log("项目详情页面初始化开始");
             try {
-                this.loading = true;
-                const res = await this.pullProjectData();
-                if (res && res.code === 0 && res.data) {
-                    // 将API返回的数据转换为组件所需的格式
-                    this.project = {
-                        projectDetail: {
-                            projectId: res.data.projectId,
-                            title: res.data.title,
-                            description: res.data.description,
-                            startDate: res.data.startDate,
-                            status: res.data.status
-                        },
-                        // 保留其他必要数据，如研究人员列表等
-                        researcherList: this.project.researcherList,
-                        subfield: this.project.subfield,
-                        stats: {
-                            visitCount: this.project.stats?.visitCount || 0,
-                            comments: this.project.stats?.comments || 0,
-                            favorites: this.project.stats?.favorites || 0,
-                            memberCount: this.project.stats?.memberCount || 0
-                        }
-                    };
+                this.userId = store.getters.getId || 0;
+                console.log("当前用户ID:", this.userId);
+                
+                if (this.$route.params.id) {
+                    console.log("正在获取项目ID:", this.$route.params.id);
+                    this.loading = true;
+                    const res = await this.pullProjectData();
+                    console.log("项目详情API响应:", res);
+                    
+                    if (res && res.code === 0 && res.data) {
+                        // 保存用户在项目中的角色
+                        this.role = res.data.role || "visitor";
+                        console.log("用户角色:", this.role);
+                        
+                        // 将API返回的数据转换为组件所需的格式
+                        const projectData = res.data;
+                        
+                        this.project = {
+                            projectDetail: {
+                                projectId: projectData.projectId || projectData.id || 1,
+                                title: projectData.title || "未命名项目",
+                                description: projectData.description || "",
+                                startDate: projectData.startDate || "",
+                                endDate: projectData.endDate || "",
+                                status: projectData.status || "未知",
+                                budget: projectData.budget || "",
+                                institution: projectData.institution || { name: "" }
+                            },
+                            researcherList: Array.isArray(projectData.researcherList) ? projectData.researcherList : [],
+                            subfield: projectData.subfield || "",
+                            stats: {
+                                visitCount: projectData.visitCount || 0,
+                                comments: projectData.commentCount || 0,
+                                favorites: projectData.favoriteCount || 0,
+                                memberCount: projectData.memberCount || 0
+                            }
+                        };
+                        
+                        console.log("处理后的项目数据:", JSON.stringify(this.project));
+                    } else {
+                        callInfo("获取项目信息失败，将显示默认数据");
+                        console.warn("API响应无效:", res);
+                    }
                 } else {
-                    callInfo("获取项目信息失败，将显示默认数据");
+                    console.warn("未提供项目ID");
                 }
             } catch (error) {
                 console.error("获取项目详情出错:", error);
-                callInfo("获取项目信息出错，将显示默认数据");
+                callError("获取项目信息出错，将显示默认数据");
             } finally {
                 this.loading = false;
+                console.log("项目详情页面初始化完成");
             }
-        } else {
-            // 如果没有传入ID，使用静态数据
-            this.loading = false;
-        }
-    },
-    methods: {
+        },
         applyToJoin() {
             // 在实际场景中，这里会触发API调用
             callSuccess('您的加入申请已发送，请等待项目创建者批准。');
         },
         pullProjectData() {
+            console.log("调用getProjectDetail API");
             return getProjectDetail(this.$route.params.id);
         },
     },
     setup() {
         const activeName = ref('third');
         function goToResearcher(id) {
+            if (!id) return;
             window.open("/profile/"+id,'_blank');
         }
         function formatDate(dateString) {
             if (!dateString) return '';
-            const date = new Date(dateString);
-            return date.toLocaleDateString('zh-CN');
+            try {
+                const date = new Date(dateString);
+                return date.toLocaleDateString('zh-CN');
+            } catch (e) {
+                console.error("日期格式化错误:", e);
+                return dateString;
+            }
         }
         function getStatusClass(status) {
+            if (!status) return 'status-default';
             switch(status) {
                 case '进行中':
                     return 'status-ongoing';
@@ -248,13 +259,12 @@ export default {
             }
         }
         function modifyTitle(s) {
-            if (!s) return '';
-            return s.replace(/[</>]/g, "").slice(0, 200);
+            if (!s) return '未命名项目';
+            return s;
         }
         return {
             activeName,
             goToResearcher,
-            isIframeLoaded,
             formatDate,
             getStatusClass,
             modifyTitle,

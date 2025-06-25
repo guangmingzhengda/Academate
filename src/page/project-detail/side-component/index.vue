@@ -86,16 +86,24 @@ export default {
     computed: {
         // 计算属性获取统计数据
         projectStats() {
-            return this.work.stats || { visitCount: 0, comments: 0, favorites: 0, memberCount: 0 };
+            if (!this.work || !this.work.stats) {
+                return { visitCount: 0, comments: 0, favorites: 0, memberCount: 0 };
+            }
+            return this.work.stats;
         }
     },
     mounted() {
         // 更新统计数据
-        this.memberCount = this.projectStats.memberCount;
-        this.comments = this.projectStats.comments;
-        this.favorites = this.projectStats.favorites;
+        this.updateStats();
     },
     methods: {
+        updateStats() {
+            if (this.work && this.work.stats) {
+                this.memberCount = this.projectStats.memberCount || 0;
+                this.comments = this.projectStats.comments || 0;
+                this.favorites = this.projectStats.favorites || 0;
+            }
+        },
         getColor(value) {
             if (value < 10) {
                 return '#4994c4';
@@ -108,6 +116,7 @@ export default {
             }
         },
         formatNumber(value) {
+            if (!value && value !== 0) return '0';
             if (value >= 1000000) {
                 return (value / 1000000).toFixed(1) + ' M';
             } else if (value >= 1000) {
@@ -128,6 +137,7 @@ export default {
     },
     setup() {
         function modifyTitle(s) {
+            if (!s) return '';
             return s.replace(/\(<i>.*?<\/i>\)/g, '').replace(/<scp>.*?<\/scp>/g, '');
         }
         return {
@@ -139,16 +149,15 @@ export default {
             handler(newWork) {
                 if (newWork && newWork.researcherList && newWork.researcherList.length > 0) {
                     const projectLead = newWork.researcherList.find(r => r.role === '项目负责人') || newWork.researcherList[0];
-                    this.owner.name = projectLead.name;
-                    this.owner.institution = projectLead.institution;
+                    if (projectLead) {
+                        this.owner.name = projectLead.name || this.owner.name;
+                        this.owner.institution = projectLead.institution || this.owner.institution;
+                        this.owner.user_id = projectLead.id || this.owner.user_id;
+                    }
                 }
                 
                 // 当work更新时，更新统计数据
-                if (newWork && newWork.stats) {
-                    this.memberCount = newWork.stats.memberCount || 0;
-                    this.comments = newWork.stats.comments || 0;
-                    this.favorites = newWork.stats.favorites || 0;
-                }
+                this.updateStats();
             },
             immediate: true,
             deep: true

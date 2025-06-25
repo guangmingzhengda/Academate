@@ -149,18 +149,56 @@ export function invite(params: InviteParams): Promise<InviteRes> {
  * @param id 项目ID
  * @returns 项目详情
  */
-export async function getProjectDetail(id) {
+export async function getProjectDetail(id: number | string) {
+    if (!id) {
+        console.error("getProjectDetail: 项目ID不能为空");
+        callError("项目ID不能为空");
+        return null;
+    }
+    
+    console.log(`正在获取项目详情，ID: ${id}`);
+    
     try {
         const response = await axios.get(`/project/detail/${id}`);
+        console.log("项目详情API响应:", response);
+        
         if (response.status === 200) {
-            return response.data;
+            // 检查响应数据是否符合预期
+            if (response.data && typeof response.data === 'object') {
+                return response.data;
+            } else {
+                console.error("API响应格式异常:", response.data);
+                callError("API响应格式异常");
+                return {
+                    code: -1,
+                    data: null,
+                    message: "API响应格式异常"
+                };
+            }
         } else {
-            callError("获取项目详情时出错：" + response.data.message);
+            console.error("获取项目详情时出错:", response);
+            callError("获取项目详情时出错：" + (response.data?.message || "未知错误"));
             return null;
         }
-    } catch (error) {
-        callError(error as string);
-        return null;
+    } catch (error: any) {
+        console.error("获取项目详情异常:", error);
+        if (error.response) {
+            console.error("错误响应:", error.response);
+            callError(`获取项目详情失败: ${error.response.status} - ${error.response.data?.message || "未知错误"}`);
+        } else if (error.request) {
+            console.error("无响应:", error.request);
+            callError("服务器未响应，请检查网络连接");
+        } else {
+            console.error("请求配置错误:", error.message);
+            callError(error.message || "获取项目详情失败");
+        }
+        
+        // 返回一个结构化的错误响应，而不是null
+        return {
+            code: -1,
+            data: null,
+            message: error.message || "获取项目详情失败"
+        };
     }
 }
 
@@ -280,6 +318,65 @@ export async function cancelLikeComment(uid: number, commentId: number) {
     } catch (error) {
         callError("取消点赞失败");
         console.error("取消点赞评论出错：", error);
+        return false;
+    }
+}
+
+/**
+ * 添加项目评论
+ * @param projectId 项目ID
+ * @param commentText 评论内容
+ * @param parentCommentId 父评论ID（可选，用于二级评论）
+ * @returns 新评论的ID
+ */
+export async function addProjectComment(projectId: number, commentText: string, parentCommentId?: number) {
+    try {
+        const requestData = {
+            projectId,
+            commentText,
+            parentCommentId
+        };
+        
+        // 如果parentCommentId为undefined或null，则不包含此字段
+        if (!parentCommentId) {
+            delete requestData.parentCommentId;
+        }
+        
+        const response = await axios.post('/project/comment/add', requestData);
+        
+        if (response.status === 200 && response.data.code === 0) {
+            return response.data.data; // 返回新评论的ID
+        } else {
+            callError("发表评论失败：" + response.data.message);
+            return null;
+        }
+    } catch (error) {
+        console.error("发表评论出错：", error);
+        callError("发表评论失败，请稍后再试");
+        return null;
+    }
+}
+
+/**
+ * 删除项目评论
+ * @param commentId 评论ID
+ * @returns 是否删除成功
+ */
+export async function deleteProjectComment(commentId: number) {
+    try {
+        const response = await axios.post(`/project/comment/delete`, null, {
+            params: { commentId }
+        });
+        
+        if (response.status === 200 && response.data.code === 0) {
+            return true;
+        } else {
+            callError("删除评论失败：" + response.data.message);
+            return false;
+        }
+    } catch (error) {
+        console.error("删除评论出错：", error);
+        callError("删除评论失败，请稍后再试");
         return false;
     }
 }

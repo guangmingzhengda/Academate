@@ -51,26 +51,46 @@
             <div class="comment-reply" style="max-width: 80%" v-if="comment.parentComment && getParentComment(comment.parentComment)">
                 <div class="reply-header">
                     <strong>回复: {{ getParentComment(comment.parentComment)?.userAccount }}</strong>
-                    <img src="../assets/goBack.png" class="small-small-image" alt="Icon"
-                         @click="goToComment(comment.parentComment)">
-                </div>
-                <div class="source-comment">
-                    <p class="source-content">
-                        源评论: {{ getParentComment(comment.parentComment)?.commentText }}
-                    </p>
-                    <p class="source-time">
-                        评论时间: {{ formatDate(getParentComment(comment.parentComment)?.commentedAt) }}
-                    </p>
                 </div>
             </div>
             <div class="comment-reply" style="max-width: 100%" v-else-if="comment.parentComment">
                 <div class="reply-header">
                     <strong>回复内容不存在</strong>
                 </div>
-                <div class="source-comment">
-                    <p>
-                        源评论已被删除
-                    </p>
+            </div>
+            
+            <!-- 二级评论展示 -->
+            <div v-if="comment.children && comment.children.length > 0" class="children-comments">
+                <div v-for="childComment in comment.children" :key="childComment.commentId" 
+                     class="child-comment" :ref="el => { if(el) commentRefs[childComment.commentId] = el }">
+                    <div class="child-comment-header">
+                        <div class="comment-info">
+                            <img :src="childComment.userAvatar || defaultAvatar" class="small-image" alt="用户头像"/>
+                            <span class="user">{{ childComment.userAccount }}</span>
+                            <span class="time">{{ formatDate(childComment.commentedAt) }}</span>
+                        </div>
+                        <div class="comment-actions">
+                            <img src="../assets/delete.png" v-if="childComment.userId === userId"
+                                 @click="beforeDelete(childComment.commentId)" class="image" alt="Icon"/>
+                            <el-button 
+                                size="small" 
+                                :type="childComment.isLiked ? 'primary' : 'default'"
+                                icon="el-icon-thumb"
+                                @click="handleLike(childComment)"
+                                :loading="childComment.likeLoading"
+                            >
+                                {{ childComment.likeCount }}
+                            </el-button>
+                        </div>
+                    </div>
+                    <div class="child-comment-body">
+                        <p>{{ childComment.commentText }}</p>
+                    </div>
+                    <div class="child-comment-reply">
+                        <div class="reply-header">
+                            <strong>回复: {{ comment.userAccount }}</strong>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -121,8 +141,16 @@
 </template>
 
 <script lang="js">
-import {ref, onMounted, computed} from "vue";
-import {getProjectComments, getCommentLikeCount, likeComment, isLikedComment, cancelLikeComment} from "@/page/project-detail/api/api";
+import {ref, onMounted, computed, watch} from "vue";
+import {
+    getProjectComments, 
+    getCommentLikeCount, 
+    likeComment, 
+    isLikedComment, 
+    cancelLikeComment, 
+    addProjectComment,
+    deleteProjectComment
+} from "@/page/project-detail/api/api";
 import {callSuccess, callInfo, callError} from "@/call";
 import store from "@/store";
 import { ElMessage } from "element-plus";
@@ -163,13 +191,14 @@ export default {
         
         // 获取项目ID
         const projectId = computed(() => {
-            return props.work.projectDetail?.projectId || props.work.projectDetail?.id;
+            if (!props.work || !props.work.projectDetail) return null;
+            return props.work.projectDetail.projectId || props.work.projectDetail.id;
         });
         
         // 获取项目评论
         const fetchComments = async () => {
             if (!projectId.value) {
-                ElMessage.warning("项目ID不存在");
+                console.error("项目ID不存在");
                 loading.value = false;
                 return;
             }
@@ -177,12 +206,18 @@ export default {
             try {
                 loading.value = true;
                 const result = await getProjectComments(projectId.value);
+                console.log("获取评论结果:", result);
                 
                 if (result && result.code === 0 && result.data) {
                     // 添加额外的字段以支持交互
                     const processedComments = result.data.map(comment => ({
                         ...comment,
-                        likeLoading: false
+                        likeLoading: false,
+                        // 处理二级评论
+                        children: comment.children ? comment.children.map(child => ({
+                            ...child,
+                            likeLoading: false
+                        })) : []
                     }));
                     
                     allComments.value = processedComments;
@@ -222,7 +257,24 @@ export default {
                     commentedAt: '2024-07-20T10:30:00', 
                     likeCount: 5,
                     isLiked: false,
-                    likeLoading: false
+                    likeLoading: false,
+                    children: [
+                        {
+                            commentId: 3,
+                            projectId: projectId.value,
+                            layer: 2,
+                            parentComment: 1,
+                            userId: 102,
+                            userAccount: 'Bob',
+                            userAvatar: 'https://i.pravatar.cc/150?img=2',
+                            commentText: '完全同意你的观点！',
+                            commentedAt: '2024-07-20T11:45:00',
+                            likeCount: 2,
+                            isLiked: false,
+                            likeLoading: false,
+                            children: []
+                        }
+                    ]
                 },
                 { 
                     commentId: 2, 
@@ -236,21 +288,8 @@ export default {
                     commentedAt: '2024-07-20T11:15:00', 
                     likeCount: 3,
                     isLiked: false,
-                    likeLoading: false
-                },
-                { 
-                    commentId: 3, 
-                    projectId: projectId.value, 
-                    layer: 2, 
-                    parentComment: 2, 
-                    userId: 101, 
-                    userAccount: 'Alice', 
-                    userAvatar: 'https://i.pravatar.cc/150?img=1',
-                    commentText: '我们采用了匿名化和数据加密技术，确保所有数据都符合隐私保护法规。', 
-                    commentedAt: '2024-07-20T11:45:00', 
-                    likeCount: 2,
-                    isLiked: false,
-                    likeLoading: false
+                    likeLoading: false,
+                    children: []
                 },
                 { 
                     commentId: 4, 
@@ -264,7 +303,8 @@ export default {
                     commentedAt: '2024-07-21T09:00:00', 
                     likeCount: 7,
                     isLiked: true,
-                    likeLoading: false
+                    likeLoading: false,
+                    children: []
                 },
                 { 
                     commentId: 5, 
@@ -278,7 +318,8 @@ export default {
                     commentedAt: '2024-07-21T14:20:00', 
                     likeCount: 1,
                     isLiked: false,
-                    likeLoading: false
+                    likeLoading: false,
+                    children: []
                 }
             ];
             
@@ -326,8 +367,31 @@ export default {
                 return;
             }
             
+            // 检查是否为二级评论，如果是则不允许回复
+            const comment = findCommentById(commentId);
+            if (comment && comment.layer === 2) {
+                ElMessage.warning('不能对二级评论进行回复');
+                return;
+            }
+            
             commentToId.value = commentId;
             dialogVisible.value = true;
+        };
+        
+        // 根据ID查找评论（包括二级评论）
+        const findCommentById = (commentId) => {
+            // 先在一级评论中查找
+            let comment = allComments.value.find(c => c.commentId === commentId);
+            if (comment) return comment;
+            
+            // 在二级评论中查找
+            for (const parentComment of allComments.value) {
+                if (parentComment.children) {
+                    const childComment = parentComment.children.find(c => c.commentId === commentId);
+                    if (childComment) return childComment;
+                }
+            }
+            return null;
         };
         
         // 提交评论
@@ -337,17 +401,39 @@ export default {
                 return;
             }
             
-            dialogVisible.value = false;
+            if (!props.userId) {
+                ElMessage.warning('请先登录后再评论');
+                dialogVisible.value = false;
+                return;
+            }
             
-            // TODO: 实现评论提交API
-            console.log(`评论提交: ${parentId ? '回复评论' + parentId : '新评论'} - ${userInput.value}`);
+            if (!projectId.value) {
+                ElMessage.error('项目ID不存在，无法提交评论');
+                dialogVisible.value = false;
+                return;
+            }
             
-            // 模拟成功
-            callSuccess("评论成功");
-            userInput.value = "";
-            
-            // 重新加载评论
-            await fetchComments();
+            try {
+                dialogVisible.value = false;
+                
+                // 调用API添加评论
+                const commentId = await addProjectComment(
+                    projectId.value,
+                    userInput.value,
+                    parentId || null  // 如果是回复评论，传入父评论ID
+                );
+                
+                if (commentId) {
+                    callSuccess("评论发布成功");
+                    userInput.value = "";
+                    
+                    // 重新加载评论列表
+                    await fetchComments();
+                }
+            } catch (error) {
+                console.error("提交评论失败:", error);
+                callError("评论提交失败，请稍后再试");
+            }
         };
         
         // 处理删除评论
@@ -358,16 +444,27 @@ export default {
         
         // 执行删除评论
         const deleteComment = async (commentId) => {
-            deleteVisible.value = false;
+            if (!commentId) {
+                deleteVisible.value = false;
+                return;
+            }
             
-            // TODO: 实现删除评论API
-            console.log(`删除评论: ${commentId}`);
-            
-            // 模拟成功
-            callSuccess("删除成功");
-            
-            // 重新加载评论
-            await fetchComments();
+            try {
+                deleteVisible.value = false;
+                
+                // 调用API删除评论
+                const success = await deleteProjectComment(commentId);
+                
+                if (success) {
+                    callSuccess("评论删除成功");
+                    
+                    // 重新加载评论列表
+                    await fetchComments();
+                }
+            } catch (error) {
+                console.error("删除评论失败:", error);
+                callError("删除评论失败，请稍后再试");
+            }
         };
         
         // 处理点赞
@@ -428,32 +525,22 @@ export default {
                     
                     // 获取最新的点赞数
                     comment.likeCount = await getCommentLikeCount(comment.commentId);
+                    
+                    // 处理二级评论
+                    if (comment.children && comment.children.length > 0) {
+                        for (const childComment of comment.children) {
+                            try {
+                                childComment.isLiked = await isLikedComment(props.userId, childComment.commentId);
+                                childComment.likeCount = await getCommentLikeCount(childComment.commentId);
+                            } catch (error) {
+                                console.error(`获取二级评论(${childComment.commentId})点赞状态失败:`, error);
+                            }
+                        }
+                    }
                 } catch (error) {
                     console.error(`获取评论(${comment.commentId})点赞状态失败:`, error);
                 }
             }
-        };
-        
-        // 跳转到评论
-        const goToComment = (commentId) => {
-            // 找到评论在数组中的索引
-            const commentIndex = allComments.value.findIndex(c => c.commentId === commentId);
-            if (commentIndex === -1) return;
-            
-            // 计算评论所在的页码
-            const page = Math.floor(commentIndex / pageSize.value) + 1;
-            currentPage.value = page;
-            
-            // 更新当前页的评论
-            updatePageComments();
-            
-            // 延迟执行滚动操作，确保DOM已更新
-            setTimeout(() => {
-                const commentElement = commentRefs.value[commentId];
-                if (commentElement) {
-                    commentElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 100);
         };
         
         // 申请加入项目
@@ -464,7 +551,19 @@ export default {
         
         // 组件挂载后获取评论
         onMounted(() => {
-            fetchComments();
+            if (projectId.value) {
+                fetchComments();
+            } else {
+                console.error("项目ID不存在，无法获取评论");
+                loading.value = false;
+            }
+        });
+        
+        // 监听项目ID变化，重新获取评论
+        watch(() => projectId.value, (newId, oldId) => {
+            if (newId && newId !== oldId) {
+                fetchComments();
+            }
         });
         
         return {
@@ -489,7 +588,6 @@ export default {
             beforeDelete,
             deleteComment,
             handleLike,
-            goToComment,
             applyJoin
         };
     }
@@ -565,16 +663,7 @@ export default {
     transform: scale(1.2);
 }
 
-.small-small-image {
-    width: 14px;
-    height: 14px;
-    cursor: pointer;
-    transition: transform 0.3s ease;
-}
 
-.small-small-image:hover {
-    transform: scale(1.2);
-}
 
 .small-image {
     width: 32px;
@@ -627,21 +716,7 @@ export default {
     justify-content: space-between;
     align-items: center;
     font-size: 13px;
-    margin-bottom: 8px;
     color: #606266;
-}
-
-.source-comment {
-    font-size: 12px;
-    color: #909399;
-}
-
-.source-content {
-    margin-bottom: 4px;
-}
-
-.source-time {
-    font-size: 11px;
 }
 
 hr {
@@ -649,5 +724,58 @@ hr {
     height: 1px;
     background: #ebeef5;
     margin: 16px 0;
+}
+
+/* 二级评论样式 */
+.children-comments {
+    margin-top: 16px;
+    padding-left: 20px;
+    border-left: 2px solid #e4e7ed;
+}
+
+.child-comment {
+    background-color: #fafafa;
+    border: 1px solid #f0f0f0;
+    margin-bottom: 12px;
+    padding: 12px;
+    border-radius: 6px;
+    position: relative;
+}
+
+.child-comment::before {
+    content: '';
+    position: absolute;
+    left: -22px;
+    top: 20px;
+    width: 20px;
+    height: 1px;
+    background-color: #e4e7ed;
+}
+
+.child-comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.child-comment-body {
+    font-size: 13px;
+    line-height: 1.5;
+    color: #606266;
+    margin: 8px 0;
+}
+
+.child-comment-body p {
+    margin: 0;
+}
+
+.child-comment-reply {
+    background-color: #f5f7fa;
+    border: 1px solid #e4e7ed;
+    padding: 8px;
+    margin-top: 8px;
+    border-radius: 4px;
+    font-size: 12px;
 }
 </style>
