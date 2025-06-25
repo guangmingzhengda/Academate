@@ -3,7 +3,7 @@ node_modules
 /dist
 
 seproj.tar
-sssr.tar
+academate.tar
 # local env files
 .env.local
 .env.*.local
