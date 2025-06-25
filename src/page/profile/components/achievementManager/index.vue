@@ -350,48 +350,6 @@
                         {{ abstractWordCount }} / 200 字/单词
                     </div>
                 </el-form-item>
-
-                <!-- <el-form-item label="科研全文" prop="fullTextFile">
-                    <div class="file-upload-section">
-                        <div class="upload-row">
-                            <el-upload
-                                v-if="!formData.fullTextFile"
-                                ref="pdfUploadRef"
-                                :auto-upload="false"
-                                :on-change="handlePdfChange"
-                                :before-upload="beforePdfUpload"
-                                accept=".pdf"
-                                :limit="1"
-                                class="pdf-upload"
-                                :show-file-list="false"
-                            >
-                                <el-button type="primary" plain>
-                                    <el-icon><DocumentAdd /></el-icon>
-                                    上传PDF文件
-                                </el-button>
-                            </el-upload>
-                            <span class="upload-tip">支持PDF格式，文件大小不超过50MB（可选）</span>
-                        </div>
-                        
-                        <div v-if="formData.fullTextFile" class="uploaded-file-info">
-                            <div class="file-info">
-                                <el-icon class="file-icon"><Document /></el-icon>
-                                <span class="file-name">{{ formData.fullTextFile.name }}</span>
-                                <span class="file-size">{{ formatFileSize(formData.fullTextFile.size) }}</span>
-                                <el-button 
-                                    type="danger" 
-                                    link 
-                                    size="small" 
-                                    @click="handlePdfRemove"
-                                    class="remove-btn"
-                                >
-                                    <el-icon><Delete /></el-icon>
-                                    删除
-                                </el-button>
-                            </div>
-                        </div>
-                    </div>
-                </el-form-item> -->
             </el-form>
             
             <template #footer>
