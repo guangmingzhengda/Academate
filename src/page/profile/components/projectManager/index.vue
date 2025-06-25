@@ -3,7 +3,7 @@
         <div class="manager-card">
             <div class="card-header">
                 <h3>参与项目</h3>
-                <el-button type="primary" @click="openAddDialog">
+                <el-button v-if="isOwnProfile" type="primary" @click="openAddDialog">
                     <el-icon><Plus /></el-icon>
                     创建项目
                 </el-button>
@@ -19,6 +19,8 @@
                         v-for="project in currentPageProjects" 
                         :key="project.id" 
                         class="project-item"
+                        @click="goToProjectDetail(project)"
+                        style="cursor: pointer;"
                     >
                         <div class="project-info">
                             <div class="project-title">{{ project.name }}</div>
@@ -95,6 +97,7 @@ import { callSuccess, callWarning, callInfo } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import { create_project, get_user_projects } from '@/api/project'
 import store from '@/store'
+import { useRouter } from 'vue-router'
 
 export default {
     name: 'projectManager',
@@ -102,9 +105,15 @@ export default {
         userId: {
             type: Number,
             required: true
+        },
+        isOwnProfile: {
+            type: Boolean,
+            default: false
         }
     },
     setup(props) {
+        const router = useRouter()
+        
         // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(2)
@@ -258,6 +267,11 @@ export default {
             currentPage.value = page
         }
 
+        // 跳转到项目详情
+        const goToProjectDetail = (project) => {
+            router.push(`/project-detail/${project.id}`)
+        }
+
         // 角色映射
         const roleMap = {
             'creator': '创建者',
@@ -280,6 +294,7 @@ export default {
             saveProject,
             closeDialog,
             handlePageChange,
+            goToProjectDetail,
             roleMap
         }
     }

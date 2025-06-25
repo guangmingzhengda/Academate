@@ -39,6 +39,8 @@
                                     v-for="project in currentPageProjects" 
                                     :key="project.id" 
                                     class="project-item"
+                                    @click="goToProjectDetail(project)"
+                                    style="cursor: pointer;"
                                 >
                                     <div class="project-info">
                                         <div class="project-title-row">
@@ -93,6 +95,8 @@
                                     v-for="achievement in currentPageAchievements" 
                                     :key="achievement.id" 
                                     class="achievement-item"
+                                    @click="goToAchievementDetail(achievement)"
+                                    style="cursor: pointer;"
                                 >
                                     <div class="achievement-info">
                                         <div class="achievement-header">
@@ -155,6 +159,7 @@
 <script>
 
 import {onMounted, ref, computed} from "vue";
+import { useRouter } from 'vue-router';
 import fadeBox from "@/page/home/component/fadeBox/index.vue";
 import logo from "@/page/home/component/logo/index.vue"
 import homeBottom from "@/page/home/component/homeBottom/index.vue"
@@ -167,6 +172,7 @@ export default {
     name: "home",
     components: {fadeBox, logo, homeBottom, leftPin},
     setup(){
+        const router = useRouter();
 
         // 项目相关数据
         const projectCurrentPage = ref(1);
@@ -298,6 +304,16 @@ export default {
             return require(`@/asset/home/${icons[randomIndex]}`);
         };
 
+        // 跳转到项目详情
+        const goToProjectDetail = (project) => {
+            router.push(`/project-detail/${project.id}`)
+        }
+
+        // 跳转到学术成果详情
+        const goToAchievementDetail = (achievement) => {
+            router.push(`/outcome-detail/${achievement.id}`)
+        }
+
         onMounted(async () => {
             // 设置导航状态
             //setNav(false);
@@ -332,7 +348,9 @@ export default {
             loadAchievements,
             
             // 工具函数
-            getRandomIcon
+            getRandomIcon,
+            goToProjectDetail,
+            goToAchievementDetail
         };
 
     }

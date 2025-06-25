@@ -4,15 +4,15 @@
             <div class="card-header">
                 <h3>学术成果</h3>
                 <div class="header-actions">
-                    <el-button type="warning" plain @click="openSelectDialog">
+                    <el-button v-if="isOwnProfile" type="warning" plain @click="openSelectDialog">
                         <el-icon><Search /></el-icon>
                         从库中选择
                     </el-button>
-                    <el-button type="success" plain @click="openExcelUploadDialog">
+                    <el-button v-if="isOwnProfile" type="success" plain @click="openExcelUploadDialog">
                         <el-icon><Upload /></el-icon>
                         Excel导入
                     </el-button>
-                    <el-button type="primary" @click="openAddDialog">
+                    <el-button v-if="isOwnProfile" type="primary" @click="openAddDialog">
                         <el-icon><Plus /></el-icon>
                         添加成果
                     </el-button>
@@ -29,6 +29,8 @@
                         v-for="achievement in currentPageAchievements" 
                         :key="achievement.id" 
                         class="achievement-item"
+                        @click="goToAchievementDetail(achievement)"
+                        style="cursor: pointer;"
                     >
                         <div class="achievement-info">
                             <div class="achievement-header">
@@ -396,6 +398,7 @@ import * as XLSX from 'xlsx'
 import { uploadAchievementMeta, autoAddResearchOutcomes } from '@/api/achievement'
 import { researchOutcomeLibrarySearch } from '@/api/search'
 import dayjs from 'dayjs'
+import { useRouter } from 'vue-router'
 
 export default {
     name: 'achievementManager',
@@ -403,10 +406,16 @@ export default {
         researchOutcomes: {
             type: Array,
             default: () => []
+        },
+        isOwnProfile: {
+            type: Boolean,
+            default: false
         }
     },
     emits: ['refresh'],
     setup(props, { emit }) {
+        const router = useRouter()
+        
         // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(3)
@@ -937,6 +946,11 @@ export default {
             }
         }
 
+        // 跳转到成果详情
+        const goToAchievementDetail = (achievement) => {
+            router.push(`/outcome-detail/${achievement.id}`)
+        }
+
         // PDF上传相关函数
         const handlePdfChange = (file) => {
             formData.value.fullTextFile = file.raw
@@ -1020,7 +1034,8 @@ export default {
             handlePdfChange,
             handlePdfRemove,
             beforePdfUpload,
-            formatFileSize
+            formatFileSize,
+            goToAchievementDetail
         }
     }
 }

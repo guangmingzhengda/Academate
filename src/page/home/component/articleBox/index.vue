@@ -1,5 +1,5 @@
 <template>
-    <div class="box-container" @mouseenter="hover=true" @mouseleave="hover=false" @click="goto()">
+    <div class="box-container" @mouseenter="hover=true" @mouseleave="hover=false" @click="goToDetail()">
 
         <div class="msg">
 
@@ -49,15 +49,14 @@ export default {
             props.title.replace(/[</>]/g, "").slice(0, 200)
         );
 
-        const goto = () => {
-            // 路由跳转 router.push(`/${props.id}`)
-            router.push(`/achievement-detail/${props.id}`)
+        const goToDetail = () => {
+            router.push(`/outcome-detail/${props.id}`)
         }
 
         return {
             tagList,
             hover,
-            goto,
+            goToDetail,
             title_compute
         }
 

@@ -67,7 +67,7 @@
                 <div class="stats-section">
                     <div class="stat-item">
                         <span class="stat-number">{{ userInfo.followersCount }}</span>
-                        <span class="stat-label">关注者</span>
+                        <span class="stat-label">粉丝</span>
                     </div>
                     <div class="stat-item">
                         <span class="stat-number">{{ userInfo.likesCount }}</span>
@@ -177,8 +177,8 @@
                         <div class="tab-content">
                             <!-- 项目/学术成果 -->
                             <div v-if="activeTab === 'projects'" class="tab-panel">
-                                <project-manager :user-id="userId" />
-                                <achievement-manager :research-outcomes="userInfo.research.researchOutcomes" @refresh="fetchUserDetail" />
+                                <project-manager :user-id="userId" :is-own-profile="isOwnProfile" />
+                                <achievement-manager :research-outcomes="userInfo.research.researchOutcomes" @refresh="fetchUserDetail" :is-own-profile="isOwnProfile" />
                             </div>
                             
                             <!-- 关注列表 -->

@@ -120,7 +120,7 @@ export default {
             window.open(`/search/null/2/${fieldName}`,'_self');
         },
         goToAchievement(id) {
-            window.open("/achievement-detail/"+id,'_self');
+            window.open("/outcome-detail/"+id,'_self');
         },
         viewProfile() {
             window.open(`/profile/${this.owner.user_id}`, '_blank');
