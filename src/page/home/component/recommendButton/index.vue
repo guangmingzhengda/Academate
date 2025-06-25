@@ -17,7 +17,7 @@
             </div>
 
             <div style="font-size: 10px; color: #515151; margin-left: 3px">
-                {{abstract.replaceAll('#', '')+"......"}}
+                {{ (abstract.replaceAll('#', '').length > 100 ? abstract.replaceAll('#', '').slice(0, 100) + '...' : abstract.replaceAll('#', '')) }}
             </div>
 
             <div v-if="boldSet" style="font-size: 8px; color: #8e8e8e">
@@ -95,6 +95,7 @@ export default {
     flex-direction: column;
     text-align: left;
     min-height: 40px;
+    justify-content: center;
 }
 .titleFontEX {
     font-family: 'meriyo', sans-serif;
@@ -127,11 +128,12 @@ export default {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
-    /*padding: 8px;*/
     cursor: pointer;
     background-color: rgba(0, 0, 0, 0);
     transition: background-color 0.5s ease;
-    min-height: 50px;
+    min-height: 48px;
+    padding-top: 10px;
+    padding-bottom: 10px;
 }
 .title-container:hover{
     background-color: rgba(0, 158, 255, 0.3);
