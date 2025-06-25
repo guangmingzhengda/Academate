@@ -117,7 +117,7 @@ export default {
             // // 左部信息设置
             // author_set.value = !mark.value.includes(params.name);
             if (mark.value.includes(params.name)){
-                router.push(`/achievement-detail/${mark_map.value[params.name]}`)
+                router.push(`/outcome-detail/${mark_map.value[params.name]}`)
             }else{
                 router.push(`/profile/${mark_map.value[params.name]}`)
             }

@@ -45,16 +45,6 @@ const router = createRouter({
             component: defineAsyncComponent(() => import(`../page/blank/index.vue`)),
         },
 
-        // 学术成果详情
-        {
-            path: '/achievement-detail/:id?',
-            name: 'achievement-detail',
-            component: defineAsyncComponent(() => import(`../page/achievement-detail/index.vue`)),
-            meta: {
-                title: '学术成果详情',
-            },
-        },
-
         {
             path: '/project-detail/:id?',
             name: 'project-detail',
@@ -73,6 +63,7 @@ const router = createRouter({
             },
         },
 
+        // 学术成果详情
         {
             path: '/outcome-detail/:id?',
             name: 'outcome-detail',
