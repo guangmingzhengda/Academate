@@ -4,14 +4,17 @@
     <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 70px">
         <div style="width: 1400px">
     <el-container class="el-main" style="display: flex;">
-        <el-row style="width: 100%">
-            <el-col :span="18">
+        <el-row style="width: 100%; display: flex;" :gutter="24">
+            <el-col :span="17">
                 <div class="main-container" style="width: 100%;">
-                    <div v-if="project.projectDetail !== null">
+                    <div v-if="loading" class="loading-container">
+                        <el-skeleton :rows="10" animated />
+                    </div>
+                    <div v-else-if="project.projectDetail !== null">
                         <div class="header-container">
                             <div class="header-title">{{modifyTitle(project.projectDetail.title)}}</div>
                             <div class="info-container">
-                                <div class="detail-info">
+                                <div class="detail-info" v-if="project.researcherList && project.researcherList.length > 0">
                                     <span class="info-label">项目负责人：</span>
                                     <span v-if="project.researcherList.length === 0">未指定</span>
                                     <span v-for="(researcher, index) in project.researcherList" :key="index"
@@ -90,9 +93,12 @@
                             <el-button type="primary" @click="applyToJoin">申请加入项目</el-button>
                         </div>
                     </div>
+                    <div v-else class="error-container">
+                        <el-empty description="未找到该项目或加载失败"></el-empty>
+                    </div>
                 </div>
             </el-col>
-            <el-col :span="6">
+            <el-col :span="7">
                 <div class="side-container">
                     <side-component :work="project"/>
                 </div>
@@ -113,7 +119,7 @@ import {ref} from "vue";
 import FunctionBar from "@/page/project-detail/function-bar/index.vue";
 import Comments from "@/page/project-detail/comments/index.vue";
 import {setNav} from "@/nav/set";
-import {getWorkAPI} from "@/page/project-detail/api/api";
+import {getProjectDetail} from "@/page/project-detail/api/api";
 import {callInfo, callSuccess} from "@/call";
 import store from "@/store";
 import NavButton from "@/nav/navButton/index.vue";
@@ -126,22 +132,14 @@ export default {
     data() {
         return {
             userId: ref(0),
+            loading: ref(true),
             project: ref({
-                "id": 1,
-                "type": "project",
                 "projectDetail": {
-                    "id": 1,
+                    "projectId": 1,
                     "title": "人工智能在医疗诊断中的应用研究",
                     "description": "本项目旨在研究人工智能技术在医疗诊断领域的应用，通过深度学习算法提高疾病诊断的准确性和效率。项目将收集大量医疗影像数据，训练AI模型，并验证其在临床实践中的有效性。",
                     "startDate": "2024-01-01",
-                    "endDate": "2026-12-31",
-                    "status": "进行中",
-                    "budget": "500万元",
-                    "institution": {
-                        "id": 1,
-                        "name": "清华大学医学院",
-                        "identification": "THU-MED"
-                    }
+                    "status": "进行中"
                 },
                 "researcherList": [
                     {
@@ -164,54 +162,65 @@ export default {
                     }
                 ],
                 "subfield": "人工智能与医疗健康",
-                "achievements": [
-                    {
-                        "id": 1,
-                        "title": "基于深度学习的肺部CT影像诊断系统",
-                        "type": "软件系统",
-                        "date": "2024-06-15"
-                    },
-                    {
-                        "id": 2,
-                        "title": "医疗AI诊断准确率提升研究报告",
-                        "type": "研究报告",
-                        "date": "2024-08-20"
-                    }
-                ],
-                "visitCount": 156,
-                "comments": 10,
-                "favorites": 5,
-                "memberCount": 15
+                "stats": {
+                    "visitCount": 156,
+                    "comments": 10,
+                    "favorites": 5,
+                    "memberCount": 15
+                }
             }),
             role: ref(""),
         };
     },
     async mounted() {
-        if(this.$route.params.id) {
-            const res = await this.pullProjectData();
-            if (res != null && res.projectDetail)
-                this.project = res;
-            else {
-                callInfo("当前项目不存在，将返回首页");
-                setTimeout(() => {
-                    window.location.href = "/home";
-                }, 2000);
-            }
-        }
         this.userId = store.getters.getId;
-        this.role = "creator";
+        this.role = "creator"; // 默认为创建者
+        
+        if (this.$route.params.id) {
+            try {
+                this.loading = true;
+                const res = await this.pullProjectData();
+                if (res && res.code === 0 && res.data) {
+                    // 将API返回的数据转换为组件所需的格式
+                    this.project = {
+                        projectDetail: {
+                            projectId: res.data.projectId,
+                            title: res.data.title,
+                            description: res.data.description,
+                            startDate: res.data.startDate,
+                            status: res.data.status
+                        },
+                        // 保留其他必要数据，如研究人员列表等
+                        researcherList: this.project.researcherList,
+                        subfield: this.project.subfield,
+                        stats: {
+                            visitCount: this.project.stats?.visitCount || 0,
+                            comments: this.project.stats?.comments || 0,
+                            favorites: this.project.stats?.favorites || 0,
+                            memberCount: this.project.stats?.memberCount || 0
+                        }
+                    };
+                } else {
+                    callInfo("获取项目信息失败，将显示默认数据");
+                }
+            } catch (error) {
+                console.error("获取项目详情出错:", error);
+                callInfo("获取项目信息出错，将显示默认数据");
+            } finally {
+                this.loading = false;
+            }
+        } else {
+            // 如果没有传入ID，使用静态数据
+            this.loading = false;
+        }
     },
     methods: {
         applyToJoin() {
-            // In a real scenario, this would trigger an API call.
-            // For now, we'll just show an info message.
+            // 在实际场景中，这里会触发API调用
             callSuccess('您的加入申请已发送，请等待项目创建者批准。');
         },
         pullProjectData() {
-            // 这里应该调用项目详情的API
-            // return getProjectAPI(decode_function(this.$route.params.id), store.getters.getId);
-            // 暂时返回null，使用默认数据
-            return null;
+            return getProjectDetail(this.$route.params.id);
         },
     },
     setup() {
@@ -239,6 +248,7 @@ export default {
             }
         }
         function modifyTitle(s) {
+            if (!s) return '';
             return s.replace(/[</>]/g, "").slice(0, 200);
         }
         return {
@@ -280,13 +290,24 @@ export default {
     width: 90%;
     margin: 10px;
     box-sizing: border-box;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 8px;
+    padding: 20px;
 }
 .side-container {
-    width: 90%;
+    width: 100%;
     background-color: rgba(255, 255, 255, 0.9);
     margin: 10px;
     box-sizing: border-box;
     padding: 15px;
+    border-radius: 8px;
+}
+.loading-container {
+    padding: 20px;
+}
+.error-container {
+    padding: 40px 0;
+    text-align: center;
 }
 .header-container {
     display: flex;
@@ -300,16 +321,6 @@ export default {
     margin: 10px auto 10px auto;
     text-align: left;
     align-self: flex-start;
-}
-.down-container {
-    border: 1px solid #dee2e6;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-    max-width: 90%;
-    margin: 10px auto 10px auto;
-    word-wrap: break-word;
-    text-align: left;
 }
 .down-container {
     border: 1px solid #dee2e6;

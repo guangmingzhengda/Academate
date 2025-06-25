@@ -69,4 +69,28 @@ export async function getFollowedUsers(userId: number, current: number, size: nu
         callError('网络错误或服务器异常');
         return null;
     }
+}
+
+/**
+ * 查看关注自己的人员
+ * @param userId 用户ID
+ * @param current 当前页码
+ * @param size 每页数量
+ * @returns Promise<any>
+ */
+export async function getFollowers(userId: number, current: number, size: number): Promise<any> {
+    try {
+        const response = await axios.get('/user/followers', {
+            params: { userId, current, size }
+        });
+        if (response.status === 200 && response.data.code === 0) {
+            return response.data.data;
+        } else {
+            callError(response.data.message || '获取粉丝列表失败');
+            return null;
+        }
+    } catch (error) {
+        callError('网络错误或服务器异常');
+        return null;
+    }
 } 

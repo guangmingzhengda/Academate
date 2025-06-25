@@ -213,7 +213,7 @@ export default {
         async function handleInvite(user) {
             try {
                 const inviter = store.getters.getId;
-                const projectId = props.work.projectDetail.id;
+                const projectId = props.work.projectDetail.projectId || props.work.projectDetail.id;
                 const title = props.work.projectDetail.title || '';
                 const res = await invite({ 
                     inviter, 

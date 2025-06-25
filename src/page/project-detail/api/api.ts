@@ -141,5 +141,145 @@ export interface InviteRes {
  * @returns
  */
 export function invite(params: InviteParams): Promise<InviteRes> {
-  return axios.post(`/api/project/invite`, params).then(res => res.data);
+  return axios.post(`/project/invite`, params).then(res => res.data);
+}
+
+/**
+ * 根据id获取项目详情
+ * @param id 项目ID
+ * @returns 项目详情
+ */
+export async function getProjectDetail(id) {
+    try {
+        const response = await axios.get(`/project/detail/${id}`);
+        if (response.status === 200) {
+            return response.data;
+        } else {
+            callError("获取项目详情时出错：" + response.data.message);
+            return null;
+        }
+    } catch (error) {
+        callError(error as string);
+        return null;
+    }
+}
+
+/**
+ * 获取项目评论列表
+ * @param projectId 项目ID
+ * @returns 项目评论列表
+ */
+export async function getProjectComments(projectId: number) {
+    try {
+        const response = await axios.get(`/project/comment/list`, {
+            params: { projectId }
+        });
+        
+        if (response.status === 200) {
+            return response.data;
+        } else {
+            callError("获取项目评论失败：" + response.data.message);
+            return null;
+        }
+    } catch (error) {
+        callError(error as string);
+        return null;
+    }
+}
+
+/**
+ * 获取评论点赞数量
+ * @param commentId 评论ID
+ * @returns 点赞数量
+ */
+export async function getCommentLikeCount(commentId: number) {
+    try {
+        const response = await axios.post(`/comment_like/like_count`, null, {
+            params: { commentId }
+        });
+        
+        if (response.status === 200 && response.data.code === 0) {
+            return response.data.data; // 返回点赞数量
+        } else {
+            console.error("获取评论点赞数量失败：", response.data.message);
+            return 0;
+        }
+    } catch (error) {
+        console.error("获取评论点赞数量出错：", error);
+        return 0;
+    }
+}
+
+/**
+ * 点赞评论
+ * @param uid 用户ID
+ * @param commentId 评论ID
+ * @returns 是否点赞成功
+ */
+export async function likeComment(uid: number, commentId: number) {
+    try {
+        const response = await axios.post(`/comment_like/like`, null, {
+            params: { uid, commentId }
+        });
+        
+        if (response.status === 200 && response.data.code === 0) {
+            return true;
+        } else {
+            callError("点赞失败：" + response.data.message);
+            return false;
+        }
+    } catch (error) {
+        callError("点赞失败");
+        console.error("点赞评论出错：", error);
+        return false;
+    }
+}
+
+/**
+ * 检查用户是否已点赞评论
+ * @param uid 用户ID
+ * @param commentId 评论ID
+ * @returns 是否已点赞
+ */
+export async function isLikedComment(uid: number, commentId: number) {
+    try {
+        const response = await axios.post(`/comment_like/is_like`, null, {
+            params: { uid, commentId }
+        });
+        
+        if (response.status === 200 && response.data.code === 0) {
+            return response.data.data; // 返回布尔值，表示是否已点赞
+        } else {
+            console.error("检查点赞状态失败：", response.data.message);
+            return false;
+        }
+    } catch (error) {
+        console.error("检查点赞状态出错：", error);
+        return false;
+    }
+}
+
+/**
+ * 取消点赞评论
+ * @param uid 用户ID
+ * @param commentId 评论ID
+ * @returns 是否取消点赞成功
+ */
+export async function cancelLikeComment(uid: number, commentId: number) {
+    try {
+        const response = await axios.post(`/comment_like/cancel_like`, null, {
+            params: { uid, commentId }
+        });
+        
+        if (response.status === 200 && response.data.code === 0) {
+            return true;
+        } else {
+            callError("取消点赞失败：" + response.data.message);
+            return false;
+        }
+    } catch (error) {
+        callError("取消点赞失败");
+        console.error("取消点赞评论出错：", error);
+        return false;
+    }
 }
