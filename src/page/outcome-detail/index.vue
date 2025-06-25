@@ -15,6 +15,16 @@
                 <div class="outcome-content">
                   <div class="outcome-title">{{ outcomeData ? outcomeData.title : '成果标题' }}</div>
                   
+                  <!-- 编辑按钮 (只有成果所有者才能看到) -->
+                  <div class="edit-actions" v-if="outcomeData && outcomeData.isMine">
+                    <el-button type="primary" size="small" @click="showEditDialog" style="margin-right: 10px;">
+                      <i class="el-icon-edit"></i> 编辑成果信息
+                    </el-button>
+                    <el-button type="success" size="small" @click="showUploadDialog">
+                      <i class="el-icon-upload"></i> 上传成果全文
+                    </el-button>
+                  </div>
+                  
                   <!-- 作者、日期、期刊等信息 -->
                   <div class="outcome-meta">
                     <div v-if="outcomeData">
@@ -53,40 +63,27 @@
                     </div>
                   </div>
                   
-                  <!-- 引用格式 -->
-                  <div class="outcome-section">
-                    <div class="section-header">引用格式</div>
-                    <div class="citation-formats">
-                      <div class="citation-format">
-                        <div class="format-label">MLA格式</div>
-                        <div class="format-content">
-                          {{ formatGBTCitation() }}
-                        </div>
-                      </div>
-                      <div class="citation-format">
-                        <div class="format-label">APA格式</div>
-                        <div class="format-content">
-                          {{ formatGBTCitation() }}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
                   <!-- 链接区 -->
                   <div class="outcome-section">
                     <div class="section-header">链接</div>
                     <div class="links-list">
                       <div v-if="outcomeData && outcomeData.url" class="link-item">
                         <span class="link-label">原文链接:</span>
-                        <a :href="outcomeData.url" target="_blank" class="link-url">{{ outcomeData.url }}</a>
+                        <el-button type="primary" size="small" @click="openUrl(outcomeData.url)" icon="el-icon-link" plain>
+                          访问原文
+                        </el-button>
                       </div>
                       <div v-if="outcomeData && outcomeData.pdfUrl" class="link-item">
-                        <span class="link-label">PDF下载:</span>
-                        <a :href="outcomeData.pdfUrl" target="_blank" class="link-url">下载</a>
+                        <span class="link-label">PDF全文:</span>
+                        <el-button type="danger" size="small" @click="openUrl(outcomeData.pdfUrl)" icon="el-icon-document" plain>
+                          下载原文
+                        </el-button>
                       </div>
                       <div v-if="outcomeData && outcomeData.arxivId" class="link-item">
                         <span class="link-label">arXiv:</span>
-                        <a :href="'https://arxiv.org/abs/' + outcomeData.arxivId" target="_blank" class="link-url">{{ outcomeData.arxivId }}</a>
+                        <el-button type="success" size="small" @click="openUrl('https://arxiv.org/abs/' + outcomeData.arxivId)" icon="el-icon-document" plain>
+                          访问arXiv
+                        </el-button>
                       </div>
                     </div>
                   </div>
@@ -307,12 +304,115 @@
       </el-container>
     </div>
   </div>
+  
+  <!-- 编辑成果对话框 -->
+  <el-dialog
+    v-model="editDialogVisible"
+    title="编辑成果信息"
+    width="650px"
+    :close-on-click-modal="false"
+  >
+    <div v-if="editFormData" class="edit-form">
+      <el-form :model="editFormData" label-width="100px">
+        <el-form-item label="标题">
+          <el-input v-model="editFormData.title" placeholder="请输入成果标题"></el-input>
+        </el-form-item>
+        <el-form-item label="作者">
+          <el-input v-model="editFormData.authors" placeholder="多位作者请用逗号分隔"></el-input>
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="editFormData.type" placeholder="请选择成果类型" style="width: 100%">
+            <el-option label="论文" value="article"></el-option>
+            <el-option label="期刊" value="journal"></el-option>
+            <el-option label="会议" value="conference"></el-option>
+            <el-option label="专利" value="patent"></el-option>
+            <el-option label="书籍" value="book"></el-option>
+            <el-option label="章节" value="chapter"></el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="期刊名称" v-if="editFormData.type !== 'patent'">
+          <el-input v-model="editFormData.journal" placeholder="请输入期刊名称"></el-input>
+        </el-form-item>
+        <el-form-item label="卷号" v-if="editFormData.type !== 'patent'">
+          <el-input-number v-model="editFormData.volume" :min="0" placeholder="请输入卷号"></el-input-number>
+        </el-form-item>
+        <el-form-item label="期号" v-if="editFormData.type !== 'patent'">
+          <el-input-number v-model="editFormData.issue" :min="0" placeholder="请输入期号"></el-input-number>
+        </el-form-item>
+        <el-form-item label="页码" v-if="editFormData.type !== 'patent'">
+          <el-input v-model="editFormData.pages" placeholder="请输入页码，例如：156-163"></el-input>
+        </el-form-item>
+        <el-form-item label="专利号" v-if="editFormData.type === 'patent'">
+          <el-input v-model="editFormData.patentNumber" placeholder="请输入专利号"></el-input>
+        </el-form-item>
+        <el-form-item label="发表日期">
+          <el-date-picker
+            v-model="editFormData.publishDate"
+            type="date"
+            placeholder="请选择发表日期"
+            style="width: 100%"
+            value-format="yyyy-MM-dd"
+          ></el-date-picker>
+        </el-form-item>
+        <el-form-item label="DOI" v-if="editFormData.type !== 'patent'">
+          <el-input v-model="editFormData.doi" placeholder="请输入DOI"></el-input>
+        </el-form-item>
+        <el-form-item label="摘要">
+          <el-input
+            v-model="editFormData.abstractContent"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入摘要内容"
+          ></el-input>
+        </el-form-item>
+        <el-form-item label="分类/关键词">
+          <el-input 
+            v-model="editFormData.category" 
+            placeholder="多个关键词请用、分隔"
+          ></el-input>
+        </el-form-item>
+      </el-form>
+    </div>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="editDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitEdit" :loading="submittingEdit">保存</el-button>
+      </span>
+    </template>
+  </el-dialog>
+  
+  <!-- 上传文件对话框 -->
+  <el-dialog title="上传成果全文" v-model="uploadDialogVisible" width="500px">
+    <div class="upload-dialog-content">
+      <el-upload
+        class="upload-demo"
+        drag
+        action="#"
+        :auto-upload="false"
+        :on-change="handleFileChange"
+        :file-list="fileList"
+        accept=".pdf"
+      >
+        <i class="el-icon-upload"></i>
+        <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+        <template #tip>
+          <div class="el-upload__tip">只能上传PDF文件</div>
+        </template>
+      </el-upload>
+    </div>
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="uploadDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="uploadFile" :loading="uploading">上传</el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO } from '@/api/outcome';
+import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta } from '@/api/outcome';
 import { ElMessage } from 'element-plus';
 import store from '@/store';
 
@@ -330,6 +430,11 @@ export default defineComponent({
     const selectedFile = ref<File | null>(null);
     const uploading = ref(false);
     
+    // 编辑成果相关
+    const editDialogVisible = ref(false);
+    const editFormData = ref<ResearchOutcomeMetaUploadRequest | null>(null);
+    const submittingEdit = ref(false);
+    
     // 评论相关
     const comments = ref<CommentVO[]>([]);
     const loadingComments = ref(false);
@@ -343,8 +448,8 @@ export default defineComponent({
     const totalComments = ref(0);
     
     // 获取当前用户信息
-    const currentUserId = computed(() => store.state.userId || null);
-    const currentUserAvatar = computed(() => store.state.userAvatar || '');
+    const currentUserId = computed(() => store.state.id || null);
+    const currentUserAvatar = computed(() => store.state.avatar || '');
     
     // 从路由参数获取ID
     const outcomeId = computed(() => {
@@ -652,190 +757,53 @@ export default defineComponent({
       }
     };
     
-    // 生成APA引用格式
-    const generateAPACitation = () => {
-      if (!outcomeData.value) return '暂无信息';
+    // 显示编辑对话框
+    const showEditDialog = () => {
+      if (!outcomeData.value) return;
       
-      let citation = '';
-      const authors = outcomeData.value.authors ? outcomeData.value.authors.split(',') : [];
+      // 复制当前成果数据到表单
+      editFormData.value = {
+        outcomeId: outcomeData.value.outcomeId,
+        type: outcomeData.value.type,
+        title: outcomeData.value.title,
+        authors: outcomeData.value.authors,
+        journal: outcomeData.value.journal,
+        volume: outcomeData.value.volume,
+        issue: outcomeData.value.issue,
+        pages: outcomeData.value.pages,
+        publishDate: outcomeData.value.publishDate,
+        doi: outcomeData.value.doi,
+        patentNumber: outcomeData.value.patentNumber,
+        abstractContent: outcomeData.value.abstractContent,
+        category: outcomeData.value.category
+      };
       
-      // 作者部分
-      if (authors.length > 0) {
-        authors.forEach((author, index) => {
-          author = author.trim();
-          const nameParts = author.split(' ');
+      editDialogVisible.value = true;
+    };
+    
+    // 提交编辑
+    const submitEdit = async () => {
+      if (!editFormData.value || !editFormData.value.outcomeId) {
+        ElMessage.error('缺少必要的成果信息');
+        return;
+      }
+      
+      submittingEdit.value = true;
+      try {
+        const success = await updateResearchOutcomeMeta(editFormData.value);
+        if (success) {
+          ElMessage.success('成果信息更新成功');
+          editDialogVisible.value = false;
           
-          if (nameParts.length > 1) {
-            // 姓氏, 名字首字母.
-            citation += nameParts[nameParts.length - 1] + ', ';
-            
-            // 添加名字首字母
-            for (let i = 0; i < nameParts.length - 1; i++) {
-              citation += nameParts[i].charAt(0) + '. ';
-            }
-          } else {
-            citation += author + ' ';
-          }
-          
-          // 添加分隔符
-          if (index < authors.length - 2) {
-            citation += ', ';
-          } else if (index === authors.length - 2) {
-            citation += '& ';
-          }
-        });
-        citation += '(' + (outcomeData.value.publishDate ? new Date(outcomeData.value.publishDate).getFullYear() : '') + '). ';
-      }
-      
-      // 标题部分
-      if (outcomeData.value.title) {
-        citation += outcomeData.value.title + '. ';
-      }
-      
-      // 期刊名（斜体，这里用普通文本表示）
-      if (outcomeData.value.journal) {
-        citation += outcomeData.value.journal;
-        
-        // 卷号（斜体）
-        if (outcomeData.value.volume) {
-          citation += ', ' + outcomeData.value.volume;
+          // 重新加载成果数据
+          await loadOutcomeData();
         }
-        
-        // 期号（括号中）
-        if (outcomeData.value.issue) {
-          citation += '(' + outcomeData.value.issue + ')';
-        }
-        
-        // 页码
-        if (outcomeData.value.pages) {
-          citation += ', ' + outcomeData.value.pages;
-        }
-        
-        citation += '. ';
+      } catch (error) {
+        console.error('更新成果信息失败:', error);
+        ElMessage.error('更新成果信息失败');
+      } finally {
+        submittingEdit.value = false;
       }
-      
-      // DOI
-      if (outcomeData.value.doi) {
-        citation += 'https://doi.org/' + outcomeData.value.doi;
-      }
-      
-      return citation || '暂无信息';
-    };
-
-    // MLA引用格式
-    const generateMLACitation = () => {
-      if (!outcomeData.value) return '暂无信息';
-      
-      let citation = '';
-      const authors = outcomeData.value.authors ? outcomeData.value.authors.split(',') : [];
-      
-      // 作者部分
-      if (authors.length > 0) {
-        // MLA格式第一个作者姓氏在前
-        const firstAuthor = authors[0].trim();
-        const nameParts = firstAuthor.split(' ');
-        if (nameParts.length > 1) {
-          citation += nameParts[nameParts.length - 1] + ', ' + nameParts.slice(0, nameParts.length - 1).join(' ');
-        } else {
-          citation += firstAuthor;
-        }
-        
-        // 添加其他作者
-        if (authors.length > 1) {
-          citation += ', et al';
-        }
-        citation += '. ';
-      }
-      
-      // 标题部分（加引号）
-      if (outcomeData.value.title) {
-        citation += `"${outcomeData.value.title}." `;
-      }
-      
-      // 期刊名（斜体，这里用普通文本表示）
-      if (outcomeData.value.journal) {
-        citation += outcomeData.value.journal + ', ';
-      }
-      
-      // 卷期信息
-      if (outcomeData.value.volume) {
-        citation += 'vol. ' + outcomeData.value.volume + ', ';
-      }
-      
-      if (outcomeData.value.issue) {
-        citation += 'no. ' + outcomeData.value.issue + ', ';
-      }
-      
-      // 日期
-      if (outcomeData.value.publishDate) {
-        const date = new Date(outcomeData.value.publishDate);
-        citation += date.getFullYear() + ', ';
-      }
-      
-      // 页码
-      if (outcomeData.value.pages) {
-        citation += 'pp. ' + outcomeData.value.pages + '. ';
-      }
-      
-      // DOI
-      if (outcomeData.value.doi) {
-        citation += 'DOI: ' + outcomeData.value.doi + '.';
-      }
-      
-      return citation || '暂无信息';
-    };
-
-    // GB/T 7714引用格式
-    const formatGBTCitation = () => {
-      if (!outcomeData.value) return '';
-      
-      const data = outcomeData.value;
-      const authors = data.authors ? formatAuthorsGBT(data.authors) : '';
-      const title = data.title || '';
-      const journal = data.journal ? `${data.journal}` : '';
-      const year = data.publishDate ? new Date(data.publishDate).getFullYear() : '';
-      const volume = data.volume ? `${data.volume}` : '';
-      const issue = data.issue ? `(${data.issue})` : '';
-      const pages = data.pages ? `${data.pages}` : '';
-      
-      return `${authors}. ${title}[J]. ${journal}, ${year}${volume ? `, ${volume}` : ''}${issue}${pages ? `: ${pages}` : ''}.`;
-    };
-
-    // 格式化APA风格的作者列表
-    const formatAuthorsApa = (authorStr: string) => {
-      const authorList = authorStr.split(',').map(author => author.trim());
-      if (authorList.length === 0) return '';
-      if (authorList.length === 1) return authorList[0];
-      
-      const lastAuthor = authorList.pop();
-      return `${authorList.join(', ')}, & ${lastAuthor}`;
-    };
-
-    // 格式化MLA风格的作者列表
-    const formatAuthorsMla = (authorStr: string) => {
-      const authorList = authorStr.split(',').map(author => author.trim());
-      if (authorList.length === 0) return '';
-      if (authorList.length === 1) return authorList[0];
-      
-      // 第一个作者姓名反转
-      const firstAuthor = authorList[0].split(' ');
-      if (firstAuthor.length > 1) {
-        const lastName = firstAuthor.pop();
-        authorList[0] = `${lastName}, ${firstAuthor.join(' ')}`;
-      }
-      
-      if (authorList.length === 2) return `${authorList[0]} and ${authorList[1]}`;
-      
-      return `${authorList[0]}, et al`;
-    };
-
-    // 格式化GB/T 7714风格的作者列表
-    const formatAuthorsGBT = (authorStr: string) => {
-      const authorList = authorStr.split(',').map(author => author.trim());
-      if (authorList.length === 0) return '';
-      if (authorList.length <= 3) return authorList.join(', ');
-      
-      return `${authorList[0]}, ${authorList[1]}, ${authorList[2]}, et al`;
     };
     
     // 页面加载时获取数据
@@ -861,7 +829,6 @@ export default defineComponent({
       showUploadDialog,
       handleFileChange,
       uploadFile,
-      formatGBTCitation,
       // 评论相关
       comments,
       loadingComments,
@@ -879,7 +846,13 @@ export default defineComponent({
       replyToComment,
       cancelReply,
       submitReply,
-      handlePageChange
+      handlePageChange,
+      // 编辑相关
+      editDialogVisible,
+      editFormData,
+      submittingEdit,
+      showEditDialog,
+      submitEdit
     };
   }
 });
@@ -1050,6 +1023,19 @@ export default defineComponent({
   color: #666;
 }
 
+.edit-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+}
+
+.edit-form {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
 .doi-link {
   color: #1890ff;
   text-decoration: none;
@@ -1136,42 +1122,6 @@ export default defineComponent({
 
 .keyword-tag {
   margin-right: 8px;
-  margin-bottom: 8px;
-}
-
-/* 引用格式相关样式 */
-.citation-container {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.citation-content {
-  margin-top: 16px;
-  font-size: 15px;
-  line-height: 1.6;
-  color: #333;
-  text-align: justify;
-  background: #f9f9f9;
-  padding: 16px;
-  border-radius: 8px;
-  border-left: 4px solid #1890ff;
-}
-
-.citation-item {
-  margin-bottom: 12px;
-}
-
-.citation-type {
-  font-size: 14px;
-  font-weight: 500;
-  color: #888;
-  margin-bottom: 4px;
-}
-
-.citation-text {
-  font-size: 16px;
-  color: #333;
 }
 
 /* 评论区相关样式 */
@@ -1345,14 +1295,15 @@ export default defineComponent({
 
 .outcome-content {
   margin-bottom: 24px;
+  position: relative;
 }
 
 .outcome-title {
   font-size: 28px;
   font-weight: bold;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
   line-height: 1.3;
-  color: #333;
+  padding-right: 220px; /* 为右侧按钮留出空间 */
 }
 
 .outcome-meta {
@@ -1400,47 +1351,23 @@ export default defineComponent({
   margin-right: 8px;
 }
 
-.citation-formats {
+.links-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.citation-format {
-  padding: 16px;
-  background-color: #f9f9f9;
-  border-radius: 8px;
-  border-left: 3px solid #1890ff;
-}
-
-.format-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #666;
-  margin-bottom: 8px;
-}
-
-.format-content {
-  font-size: 14px;
-  line-height: 1.6;
-  color: #333;
-}
-
-.links-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
 .link-item {
   display: flex;
   align-items: center;
+  margin-bottom: 8px;
 }
 
 .link-label {
-  min-width: 100px;
+  min-width: 90px;
   font-weight: 500;
   color: #666;
+  margin-right: 10px;
 }
 
 .link-url {
@@ -1503,5 +1430,30 @@ export default defineComponent({
   background-color: #f9f9f9;
   border-radius: 4px;
   font-size: 14px;
+}
+
+/* 文件上传相关样式 */
+.upload-container {
+  padding: 10px 0;
+}
+
+.upload-dialog-content {
+  text-align: center;
+  padding: 10px 0;
+}
+
+.el-upload {
+  width: 100%;
+}
+
+.el-upload-dragger {
+  width: 100%;
+}
+
+.edit-actions {
+  display: flex;
+  position: absolute;
+  top: 10px;
+  right: 10px;
 }
 </style> 
