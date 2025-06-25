@@ -54,19 +54,3 @@
         questionId: 304
     }
 ```
-
-
-Websocket 返回示例：
-
-```
-// 项目邀请
-{
-    "message": "用户7777777向您发送加入项目：test websocket的邀请",
-    "messageId": 14,
-    "projectId": 6,
-    "receiverId": 7,
-    "senderId": 1,
-    "sentAt": 1750732968519,
-    "status": "processed"
-}
-```
