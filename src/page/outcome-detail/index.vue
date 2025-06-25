@@ -1,12 +1,12 @@
 <template>
   <div class="bg-container"/>
   <div class="bg-strong-container"/>
-  <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 70px">
-    <div style="width: 1400px">
-      <el-container class="el-main" style="display: flex;">
-        <el-row style="width: 100%">
-          <el-col :span="18">
-            <div class="main-container" style="width: 100%;">
+  <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 100px">
+    <div style="width: 1400px; margin-bottom: 40px">
+      <el-container class="el-main">
+        <el-row :gutter="20" style="width: 100%;">
+          <el-col :span="17">
+            <div class="main-container" style="width: 100%; box-sizing: border-box;">
               <div v-if="loading" class="loading-container">
                 <el-skeleton :rows="10" animated />
               </div>
@@ -215,7 +215,7 @@
               </div>
             </div>
           </el-col>
-          <el-col :span="6">
+          <el-col :span="7">
             <div class="side-container">
               <!-- 侧边栏信息 -->
               <div class="side-panel">
@@ -901,16 +901,30 @@ export default defineComponent({
   left: 0;
   top: 0;
   width: 100vw;
-  height: 300px;
+  height: 320px;
   background: linear-gradient(90deg, #e0eafc 0%, #cfdef3 100%);
   z-index: -1;
+}
+
+.el-main {
+  padding: 0;
+}
+
+.el-row {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.el-col {
+  padding-left: 12px !important;
+  padding-right: 12px !important;
 }
 
 .main-container {
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  padding: 32px 32px 24px 32px;
+  padding: 36px 40px 30px 40px;
   margin-bottom: 24px;
 }
 
@@ -967,7 +981,14 @@ export default defineComponent({
 }
 
 .side-container {
-  margin-left: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  margin-bottom: 24px;
+  margin-top: 8px;
 }
 
 .side-panel {
@@ -975,6 +996,8 @@ export default defineComponent({
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .panel-section {
