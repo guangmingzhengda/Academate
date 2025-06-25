@@ -355,6 +355,10 @@ export default {
                 if (ok) {
                     question.isFollowed = false
                     followedQuestionIds.value.delete(question.questionId)
+                    // 实时减少关注数
+                    if (typeof question.followCount === 'number' && question.followCount > 0) {
+                        question.followCount--
+                    }
                     callInfo(`已取消关注问题: ${question.questionTitle}`)
                 }
             } else {
@@ -363,6 +367,12 @@ export default {
                 if (ok) {
                     question.isFollowed = true
                     followedQuestionIds.value.add(question.questionId)
+                    // 实时增加关注数
+                    if (typeof question.followCount === 'number') {
+                        question.followCount++
+                    } else {
+                        question.followCount = 1
+                    }
                     callSuccess(`已关注问题: ${question.questionTitle}`)
                 }
             }

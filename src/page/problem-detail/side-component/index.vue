@@ -166,11 +166,15 @@ export default {
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     overflow: hidden;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .panel-section {
     padding: 20px;
     border-bottom: 1px solid #f0f0f0;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .panel-section:last-child {

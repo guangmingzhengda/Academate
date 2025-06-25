@@ -1,12 +1,12 @@
 <template>
     <div class="bg-container"/>
     <div class="bg-strong-container"/>
-    <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 70px">
-        <div style="width: 1400px">
-            <el-container class="el-main" style="display: flex;">
-                <el-row style="width: 100%; display: flex;" :gutter="24">
+    <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 100px">
+        <div style="width: 1400px; margin-bottom: 40px">
+            <el-container class="el-main">
+                <el-row :gutter="20">
                     <el-col :span="17">
-                        <div class="main-container" style="width: 100%;">
+                        <div class="main-container">
                             <div v-if="loading" class="loading-container">
                                 <el-skeleton :rows="10" animated />
                             </div>
@@ -421,15 +421,26 @@ export default {
     left: 0;
     top: 0;
     width: 100vw;
-    height: 300px;
+    height: 320px;
     background: linear-gradient(90deg, #e0eafc 0%, #cfdef3 100%);
     z-index: -1;
+}
+.el-main {
+    padding: 0;
+}
+.el-row {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+.el-col {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
 }
 .main-container {
     background: #fff;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    padding: 32px 32px 24px 32px;
+    padding: 36px 40px 30px 40px;
     margin-bottom: 24px;
 }
 .header-container {
@@ -472,6 +483,13 @@ export default {
 }
 .side-container {
     width: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    margin-bottom: 24px;
+    margin-top: 8px;
+    box-sizing: border-box;
+    padding: 20px 0;
 }
 
 /* 答案样式 */
