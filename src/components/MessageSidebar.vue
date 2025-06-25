@@ -199,8 +199,6 @@ const connectWebSocket = () => {
             }
         }
 
-        
-
         ws.value.onclose = (event) => {
             console.log('WebSocket连接关闭:', event.code, event.reason)
             wsConnected.value = false
