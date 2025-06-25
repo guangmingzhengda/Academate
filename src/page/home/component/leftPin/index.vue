@@ -14,7 +14,7 @@
                     <recommend-button v-if="rTitle === 'recommend'" style="margin-top: 0"
                     v-for="item in recommendList" :r-name="item.name"
                                       :abstract="item.abstract ? item.abstract : 'there is no abstract here...'"
-                    @click="callSearch(item.name)"/>
+                    />
                 </div>
             </div>
             </div>
@@ -51,10 +51,6 @@ export default {
                 {
                     name: '量子计算',
                     abstract: "探索利用量子叠加、纠缠等物理现象进行信息处理的新型计算模式，有望在密码学、材料科学等领域实现突破性进展。"
-                },
-                {
-                    name: '基因编辑',
-                    abstract: "聚焦于CRISPR等前沿技术，实现对生物体DNA的精准修改，推动医学、农业和生物技术的革新。"
                 },
                 {
                     name: '环境可持续发展',
