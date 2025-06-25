@@ -4,15 +4,15 @@
             <div class="card-header">
                 <h3>学术成果</h3>
                 <div class="header-actions">
-                    <el-button type="warning" plain @click="openSelectDialog">
+                    <el-button v-if="isOwnProfile" type="warning" plain @click="openSelectDialog">
                         <el-icon><Search /></el-icon>
                         从库中选择
                     </el-button>
-                    <el-button type="success" plain @click="openExcelUploadDialog">
+                    <el-button v-if="isOwnProfile" type="success" plain @click="openExcelUploadDialog">
                         <el-icon><Upload /></el-icon>
                         Excel导入
                     </el-button>
-                    <el-button type="primary" @click="openAddDialog">
+                    <el-button v-if="isOwnProfile" type="primary" @click="openAddDialog">
                         <el-icon><Plus /></el-icon>
                         添加成果
                     </el-button>
@@ -20,7 +20,7 @@
             </div>
             
             <div class="card-content">
-                <div v-if="achievements.length === 0" class="empty-state">
+                <div v-if="achievements.length === 0" class="empty-state achievement-empty-center">
                     暂无学术成果数据
                 </div>
                 
@@ -29,6 +29,8 @@
                         v-for="achievement in currentPageAchievements" 
                         :key="achievement.id" 
                         class="achievement-item"
+                        @click="goToAchievementDetail(achievement)"
+                        style="cursor: pointer;"
                     >
                         <div class="achievement-info">
                             <div class="achievement-header">
@@ -167,10 +169,9 @@
                 </div>
 
                 <div class="achievement-library">
-                    <div v-if="filteredLibraryAchievements.length === 0" class="empty-library">
+                    <div v-if="libraryTotal === 0" class="empty-library">
                         <el-empty description="没有找到匹配的学术成果" />
                     </div>
-                    
                     <div v-else class="library-list">
                         <div 
                             v-for="achievement in currentPageLibraryAchievements" 
@@ -210,13 +211,12 @@
                             </div>
                         </div>
                     </div>
-                    
                     <!-- 分页 -->
                     <el-pagination
-                        v-if="filteredLibraryAchievements.length > libraryPageSize"
+                        v-if="libraryTotal > libraryPageSize"
                         v-model:current-page="libraryCurrentPage"
                         :page-size="libraryPageSize"
-                        :total="filteredLibraryAchievements.length"
+                        :total="libraryTotal"
                         layout="prev, pager, next, jumper, total"
                         class="library-pagination"
                         small
@@ -336,7 +336,7 @@
                     />
                 </el-form-item>
 
-                <el-form-item label="科研全文" prop="fullTextFile">
+                <!-- <el-form-item label="科研全文" prop="fullTextFile">
                     <div class="file-upload-section">
                         <div class="upload-row">
                             <el-upload
@@ -376,7 +376,7 @@
                             </div>
                         </div>
                     </div>
-                </el-form-item>
+                </el-form-item> -->
             </el-form>
             
             <template #footer>
@@ -395,8 +395,10 @@ import { Plus, Edit, Delete, Upload, UploadFilled, Search, DocumentAdd, Document
 import { callSuccess, callWarning, callInfo, callError } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import * as XLSX from 'xlsx'
-import { uploadAchievementMeta } from '@/api/achievement'
+import { uploadAchievementMeta, autoAddResearchOutcomes } from '@/api/achievement'
+import { researchOutcomeLibrarySearch } from '@/api/search'
 import dayjs from 'dayjs'
+import { useRouter } from 'vue-router'
 
 export default {
     name: 'achievementManager',
@@ -404,9 +406,16 @@ export default {
         researchOutcomes: {
             type: Array,
             default: () => []
+        },
+        isOwnProfile: {
+            type: Boolean,
+            default: false
         }
     },
-    setup(props) {
+    emits: ['refresh'],
+    setup(props, { emit }) {
+        const router = useRouter()
+        
         // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(3)
@@ -433,162 +442,35 @@ export default {
             : []
         }, { immediate: true })
 
-        // 学术成果库数据（模拟全系统的学术成果）
-        const libraryAchievements = ref([
-            {
-                id: 1001,
-                type: '期刊论文',
-                title: 'Deep Learning for Computer Vision: A Comprehensive Survey',
-                authors: '张伟, 李明, 王强',
-                journal: 'IEEE Transactions on Pattern Analysis and Machine Intelligence',
-                volume: '44',
-                issue: '8',
-                pages: '4123-4145',
-                publishDate: '2022-08-15',
-                doi: '10.1109/TPAMI.2022.3187456'
-            },
-            {
-                id: 1002,
-                type: '会议论文',
-                title: 'Attention Mechanisms in Natural Language Processing',
-                authors: '陈红, 刘涛',
-                conference: 'Annual Conference of the Association for Computational Linguistics',
-                location: 'Dublin, Ireland',
-                publishDate: '2022-05-22',
-                pages: '2345-2356'
-            },
-            {
-                id: 1003,
-                type: '期刊论文',
-                title: 'Federated Learning: Challenges, Methods, and Future Directions',
-                authors: '杨磊, 赵敏, 孙华',
-                journal: 'IEEE Communications Surveys & Tutorials',
-                volume: '25',
-                issue: '2',
-                pages: '1567-1598',
-                publishDate: '2023-02-10',
-                doi: '10.1109/COMST.2023.3245678'
-            },
-            {
-                id: 1004,
-                type: '专利',
-                title: '基于区块链的数据安全存储方法',
-                authors: '马超, 吴静',
-                patentNumber: 'CN202310123456.7',
-                patentType: '发明专利',
-                publishDate: '2023-03-20'
-            },
-            {
-                id: 1005,
-                type: '会议论文',
-                title: 'Graph Neural Networks for Social Network Analysis',
-                authors: '周杰, 林芳',
-                conference: 'International Conference on Machine Learning',
-                location: 'Honolulu, Hawaii',
-                publishDate: '2023-07-25',
-                pages: '7890-7902'
-            },
-            {
-                id: 1006,
-                type: '期刊论文',
-                title: 'Quantum Computing: Algorithms and Applications',
-                authors: '胡斌, 郭丽, 何东',
-                journal: 'Nature Reviews Physics',
-                volume: '5',
-                issue: '4',
-                pages: '245-267',
-                publishDate: '2023-04-12',
-                doi: '10.1038/s42254-023-00567-8'
-            },
-            {
-                id: 1007,
-                type: '书',
-                title: '人工智能伦理学导论',
-                authors: '田野',
-                publishDate: '2023-06-15',
-                pages: '1-456'
-            },
-            {
-                id: 1008,
-                type: '技术报告',
-                title: 'AI数据分析平台V2.0',
-                authors: '开发团队, 项目负责人：钱进',
-                publishDate: '2023-09-10'
-            },
-            {
-                id: 1009,
-                type: '期刊论文',
-                title: 'Edge Computing for IoT: A Survey',
-                authors: '蒋涛, 沈丽娟',
-                journal: 'IEEE Internet of Things Journal',
-                volume: '10',
-                issue: '12',
-                pages: '10234-10256',
-                publishDate: '2023-06-30',
-                doi: '10.1109/JIOT.2023.3278901'
-            },
-            {
-                id: 1010,
-                type: '会议论文',
-                title: 'Reinforcement Learning in Autonomous Driving',
-                authors: '韩梅, 宋阳',
-                conference: 'IEEE International Conference on Robotics and Automation',
-                location: 'London, UK',
-                publishDate: '2023-05-29',
-                pages: '4567-4578'
-            },
-            {
-                id: 1011,
-                type: '专利',
-                title: '智能推荐系统及其实现方法',
-                authors: '冯雪, 邓伟',
-                patentNumber: 'CN202310234567.8',
-                patentType: '发明专利',
-                publishDate: '2023-08-15'
-            },
-            {
-                id: 1012,
-                type: '期刊论文',
-                title: 'Blockchain Technology in Healthcare: Opportunities and Challenges',
-                authors: '袁浩, 姚娜',
-                journal: 'IEEE Transactions on Biomedical Engineering',
-                volume: '70',
-                issue: '9',
-                pages: '2567-2578',
-                publishDate: '2023-09-05',
-                doi: '10.1109/TBME.2023.3289456'
-            },
-            {
-                id: 1013,
-                type: '会议论文',
-                title: 'Multimodal Learning for Human-Computer Interaction',
-                authors: '曹军, 秦雨',
-                conference: 'ACM International Conference on Multimodal Interaction',
-                location: 'Paris, France',
-                publishDate: '2023-10-09',
-                pages: '123-134'
-            },
-            {
-                id: 1014,
-                type: '期刊论文',
-                title: 'Privacy-Preserving Machine Learning: A Survey',
-                authors: '梁勇, 范晓红',
-                journal: 'ACM Computing Surveys',
-                volume: '56',
-                issue: '3',
-                pages: '1-42',
-                publishDate: '2023-11-20',
-                doi: '10.1145/3578234.3578456'
-            },
-            {
-                id: 1015,
-                type: '书',
-                title: '深度学习实战指南',
-                authors: '程亮, 许文静',
-                publishDate: '2023-12-01',
-                pages: '1-678'
+        // 学术成果库数据（接口获取）
+        const libraryAchievements = ref([])
+        const libraryTotal = ref(0)
+        const libraryLoading = ref(false)
+        // 分页参数
+        const libraryCurrentPage = ref(1)
+        const libraryPageSize = ref(4)
+
+        // 获取成果库数据
+        const fetchLibraryAchievements = async (key = '', pageNum = 1) => {
+            libraryLoading.value = true
+            const res = await researchOutcomeLibrarySearch({
+                key,
+                notMine: true,
+                pageSize: libraryPageSize.value,
+                pageNum
+            })
+            if (res && res.data) {
+                libraryAchievements.value = (res.data.list || []).map(item => ({
+                    ...item,
+                    id: item.outcomeId || item.id
+                }))
+                libraryTotal.value = res.data.total || 0
+            } else {
+                libraryAchievements.value = []
+                libraryTotal.value = 0
             }
-        ])
+            libraryLoading.value = false
+        }
 
         // 对话框相关
         const dialogVisible = ref(false)
@@ -605,8 +487,6 @@ export default {
         const selectDialogVisible = ref(false)
         const selectedAchievements = ref([])
         const searchKeyword = ref('')
-        const libraryCurrentPage = ref(1)
-        const libraryPageSize = ref(5)
         
         // 表单数据（与后端参数完全一致）
         const formData = ref({
@@ -657,30 +537,8 @@ export default {
             return achievements.value.slice(start, end)
         })
 
-        // 过滤后的学术成果库数据
-        const filteredLibraryAchievements = computed(() => {
-            let filtered = libraryAchievements.value
-
-            // 关键词搜索
-            if (searchKeyword.value) {
-                const keyword = searchKeyword.value.toLowerCase()
-                filtered = filtered.filter(item => 
-                    item.title.toLowerCase().includes(keyword) ||
-                    item.authors.toLowerCase().includes(keyword) ||
-                    (item.journal && item.journal.toLowerCase().includes(keyword)) ||
-                    (item.conference && item.conference.toLowerCase().includes(keyword))
-                )
-            }
-
-            return filtered
-        })
-
-        // 当前页库中成果数据
-        const currentPageLibraryAchievements = computed(() => {
-            const start = (libraryCurrentPage.value - 1) * libraryPageSize.value
-            const end = start + libraryPageSize.value
-            return filteredLibraryAchievements.value.slice(start, end)
-        })
+        // 当前页库中成果数据直接用 libraryAchievements
+        const currentPageLibraryAchievements = computed(() => libraryAchievements.value)
 
         // 类型改变时重置相关字段
         const onTypeChange = () => {
@@ -1019,6 +877,7 @@ export default {
             selectedAchievements.value = []
             searchKeyword.value = ''
             libraryCurrentPage.value = 1
+            fetchLibraryAchievements('', 1)
         }
 
         // 关闭从库中选择对话框
@@ -1031,6 +890,7 @@ export default {
         // 搜索处理
         const handleSearch = () => {
             libraryCurrentPage.value = 1
+            fetchLibraryAchievements(searchKeyword.value.trim(), 1)
         }
 
         // 切换选择状态
@@ -1046,43 +906,49 @@ export default {
         // 库分页处理
         const handleLibraryPageChange = (page) => {
             libraryCurrentPage.value = page
+            fetchLibraryAchievements(searchKeyword.value.trim(), page)
         }
 
         // 添加选中的学术成果
-        const addSelectedAchievements = () => {
+        const addSelectedAchievements = async () => {
             if (selectedAchievements.value.length === 0) {
                 callWarning('请选择要添加的学术成果')
                 return
             }
 
-            let addedCount = 0
-            selectedAchievements.value.forEach(id => {
-                const libraryItem = libraryAchievements.value.find(item => item.id === id)
-                if (libraryItem) {
-                    // 检查是否已存在（基于标题和作者）
-                    const exists = achievements.value.some(item => 
-                        item.title === libraryItem.title && item.authors === libraryItem.authors
-                    )
+            try {
+                // 调用新的接口，传入选中的成果ID数组
+                const response = await autoAddResearchOutcomes(selectedAchievements.value)
+                
+                if (response && response.code === 0) {
+                    const selectedCount = selectedAchievements.value.length
+                    const successCount = response.data || 0
                     
-                    if (!exists) {
-                        // 生成新的ID并添加到个人成果列表
-                        const newAchievement = {
-                            ...libraryItem,
-                            id: Date.now() + Math.random() // 生成新的唯一ID
-                        }
-                        achievements.value.unshift(newAchievement)
-                        addedCount++
+                    // 显示成功添加的反馈
+                    callSuccess(`选择${selectedCount}项，成功添加${successCount}项`)
+                    
+                    // 如果成功数量小于选择数量，显示警告
+                    if (successCount < selectedCount) {
+                        callWarning('未添加成功的成果作者不包含当前用户')
                     }
+                    
+                    // 关闭对话框
+                    closeSelectDialog()
+                    // 清空选中项
+                    selectedAchievements.value = []
+                    // 触发父组件刷新数据
+                    emit('refresh')
+                } else {
+                    callError(response?.message || '添加失败')
                 }
-            })
-
-            if (addedCount > 0) {
-                callSuccess(`成功添加 ${addedCount} 项学术成果`)
-            } else {
-                callInfo('所选成果已存在，未添加重复项')
+            } catch (error) {
+                callError('添加学术成果时发生错误')
             }
-            
-            closeSelectDialog()
+        }
+
+        // 跳转到成果详情
+        const goToAchievementDetail = (achievement) => {
+            router.push(`/outcome-detail/${achievement.id}`)
         }
 
         // PDF上传相关函数
@@ -1142,7 +1008,8 @@ export default {
             searchKeyword,
             libraryCurrentPage,
             libraryPageSize,
-            filteredLibraryAchievements,
+            libraryTotal,
+            libraryLoading,
             currentPageLibraryAchievements,
             onTypeChange,
             openAddDialog,
@@ -1167,7 +1034,8 @@ export default {
             handlePdfChange,
             handlePdfRemove,
             beforePdfUpload,
-            formatFileSize
+            formatFileSize,
+            goToAchievementDetail
         }
     }
 }
@@ -1422,7 +1290,7 @@ export default {
 .achievement-library {
     min-height: 400px;
     max-height: 500px;
-    overflow-y: auto;
+    overflow-y: hidden;
 }
 
 .empty-library {
@@ -1642,5 +1510,13 @@ export default {
     .footer-actions {
         justify-content: center;
     }
+}
+
+.achievement-empty-center {
+    text-align: center;
+    color: #a1a1a1;
+    font-size: 18px;
+    font-weight: 500;
+    padding: 40px 0;
 }
 </style> 

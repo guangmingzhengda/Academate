@@ -29,7 +29,7 @@ export default {
     },
     methods: {
         navigateTo(id) {
-            window.open("/achievement-detail/"+id,'_self');
+            window.open("/outcome-detail/"+id,'_self');
         }
     },
     setup() {

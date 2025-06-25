@@ -87,7 +87,7 @@ export default {
             window.open(`/search/null/${mp[this.work.type]}/${fieldName}`,'_self');
         },
         goToAchievement(id) {
-            window.open("/achievement-detail/"+id,'_self');
+            window.open("/outcome-detail/"+id,'_self');
         }
     },
     setup() {

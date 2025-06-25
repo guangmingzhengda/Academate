@@ -1,8 +1,20 @@
 <template>
     <div class="image-container">
-        <img src="../assets/comment.png" @click="beforeComment" class="image" alt="Icon"/>
-        <img v-if="canShare" src="../assets/share.png" @click="shareVisible = true" class="image" alt="Icon"/>
-        <img src="../assets/applyJoin.png" @click="applyJoin" class="image" alt="Icon"/>
+        <!-- 评论按钮：creator和participant可见 -->
+        <img v-if="role === 'creator' || role === 'participant'" 
+             src="../assets/comment.png" @click="handleComment" class="image" alt="评论" 
+             title="发表评论"/>
+        
+        <!-- 邀请按钮：只有creator可见 -->
+        <img v-if="role === 'creator'" 
+             src="../assets/share.png" @click="shareVisible = true" class="image" alt="邀请" 
+             title="邀请用户加入项目"/>
+        
+        <!-- 申请加入按钮：对非项目成员可见 -->
+        <img v-if="role !== 'creator' && role !== 'participant'" 
+             src="../assets/applyJoin.png" @click="applyJoin" class="image" alt="申请加入" 
+             title="申请加入项目"/>
+             
         <el-dialog
             v-model="shareVisible"
             title="邀请他人加入项目"
@@ -58,16 +70,16 @@
             <textarea v-model="userInput" placeholder="请输入信息" class="custom-textarea"></textarea>
             <template #footer>
                 <div class="dialog-footer">
-                    <el-button @click="commentVisible = false">Cancel</el-button>
+                    <el-button @click="commentVisible = false">取消</el-button>
                     <el-button type="primary" @click="commitComment">
-                        Confirm
+                        提交
                     </el-button>
                 </div>
             </template>
         </el-dialog>
         <el-dialog
             v-model="loginVisible"
-            title="Tips"
+            title="提示"
             width="500"
         >
             <span>需要成为项目成员后才可评论</span>
@@ -86,23 +98,31 @@
 <script lang="js">
 import {ref} from "vue";
 import {callInfo, callSuccess} from "@/call";
-import {
-    commitCommentAPI,
-} from "@/page/achievement-detail/api/api";
 import store from "@/store";
 import {ElMessage} from "element-plus";
 import { searchUsers } from "@/api/search";
 import { invite } from "@/api/project";
+import { addProjectComment } from "@/page/project-detail/api/api";
 
 export default {
     name: "function-bar",
     props: {
         work: {
-
+            type: Object,
+            required: true
         },
-        authorNameList: [],
-        achievementName: "文章名字",
-        role: "",
+        authorNameList: {
+            type: Array,
+            default: () => []
+        },
+        achievementName: {
+            type: String,
+            default: "文章名字"
+        },
+        role: {
+            type: String,
+            default: ""
+        },
         publicationDate: Object,
     },
     data() {
@@ -114,19 +134,6 @@ export default {
         }
     },
     async mounted() {
-    },
-    methods: {
-        isLogin() {
-            return store.getters.getToken !== null;
-        },
-        applyJoin() {
-            // TODO: 向后端申请加入项目
-            callSuccess("成功发送申请，请等待项目负责人审核");
-            this.loginVisible = false;
-        },
-        canShare() {
-            return props.role === "creator";
-        }
     },
     setup(props) {
         let userInput = ref('');
@@ -155,22 +162,48 @@ export default {
             userList.value = [];
         }
         
-        function beforeComment() {
-            if(props.role != "creator" && props.role != "participant") {
-                this.commentVisible = true;
+        function handleComment() {
+            // 只有creator和participant可以评论
+            if (props.role === "creator" || props.role === "participant") {
+                commentVisible.value = true;
+            } else {
+                loginVisible.value = true;
             }
-            else this.loginVisible = true;
         }
         
         async function commitComment() {
-            let res = await commitCommentAPI(userInput.value, props.work.articleDetail.id, null);
-            if(res) {
-                userInput.value = "";
-                commentVisible.value = false;
-                callSuccess("评论成功");
-                setTimeout(() => {
-                    location.reload();
-                }, 2000);
+            if (!userInput.value.trim()) {
+                ElMessage.warning('评论内容不能为空');
+                return;
+            }
+            
+            const userId = store.getters.getId;
+            if (!userId) {
+                ElMessage.warning('请先登录后再评论');
+                return;
+            }
+            
+            try {
+                const projectId = props.work?.projectDetail?.projectId || props.work?.projectDetail?.id;
+                if (!projectId) {
+                    ElMessage.error('项目ID不存在，无法提交评论');
+                    return;
+                }
+                
+                // 使用新的评论API
+                const commentId = await addProjectComment(projectId, userInput.value);
+                
+                if (commentId) {
+                    userInput.value = "";
+                    commentVisible.value = false;
+                    callSuccess("评论成功");
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error("提交评论失败:", error);
+                ElMessage.error("评论提交失败，请稍后再试");
             }
         }
         
@@ -184,8 +217,14 @@ export default {
                     return;
                 }
                 
+                // 只有项目创建者才能邀请他人
+                if (props.role !== "creator") {
+                    ElMessage.error("您没有权限邀请他人加入项目");
+                    return;
+                }
+                
                 const res = await searchUsers(searchParams.value);
-                if (res.data.code === 0 && res.data.data) {
+                if (res.data && res.data.code === 0 && res.data.data) {
                     userList.value = res.data.data.list.map(u => ({
                         id: u.id,
                         name: u.account,
@@ -212,9 +251,25 @@ export default {
         
         async function handleInvite(user) {
             try {
+                // 验证权限
+                if (props.role !== "creator") {
+                    ElMessage.error("只有项目创建者才能邀请他人");
+                    return;
+                }
+                
                 const inviter = store.getters.getId;
-                const projectId = props.work.projectDetail.projectId || props.work.projectDetail.id;
-                const title = props.work.projectDetail.title || '';
+                if (!inviter) {
+                    ElMessage.error("请先登录");
+                    return;
+                }
+                
+                const projectId = props.work?.projectDetail?.projectId || props.work?.projectDetail?.id;
+                if (!projectId) {
+                    ElMessage.error("项目ID不存在");
+                    return;
+                }
+                
+                const title = props.work?.projectDetail?.title || '';
                 const res = await invite({ 
                     inviter, 
                     invitee: [user.id],
@@ -234,25 +289,24 @@ export default {
             }
         }
         
-        function modifyAbstract(s) {
-            let las = Math.max(s.lastIndexOf('.'), s.lastIndexOf('。'));
-            if(las === -1) return s;
-            return s.substring(0, las + 1);
+        function applyJoin() {
+            callSuccess("成功发送申请，请等待项目负责人审核");
+            loginVisible.value = false;
         }
         
         return {
             commitComment,
-            beforeComment,
+            handleComment,
             shareVisible,
             commentVisible,
             userInput,
             loginVisible,
-            modifyAbstract,
-            searchParams,
-            userList,
             searchUserByName,
+            resetSearch,
+            userList,
+            searchParams,
             handleInvite,
-            resetSearch
+            applyJoin
         };
     }
 }
@@ -260,23 +314,38 @@ export default {
 
 <style scoped>
 .image-container {
-    display: inline-block;
+    display: flex;
+    gap: 16px;
+    margin-top: 16px;
 }
 
 .image {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     cursor: pointer;
     transition: transform 0.3s ease;
-    margin: 5px;
 }
 
 .image:hover {
     transform: scale(1.2);
 }
 
+.custom-textarea {
+    width: 95%;
+    height: 150px;
+    padding: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    resize: vertical;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.02);
+    overflow-y: auto;
+}
+
 .invite-content {
-    padding: 20px 0;
+    max-height: 500px;
+    overflow-y: auto;
 }
 
 .search-form {
@@ -285,37 +354,5 @@ export default {
 
 .search-result {
     margin-top: 20px;
-}
-
-.info {
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-width: 400px;
-}
-
-.quote-text {
-    font-size: 14px;
-    text-align: left;
-}
-
-.info-title {
-    font-size: 16px;
-    font-weight: bold;
-    text-align: left;
-}
-
-.custom-textarea {
-    width: 95%;
-    height: 150px;
-    padding: 10px;
-    font-size: 16px;
-    line-height: 1.5;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    resize: vertical;
-    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
-    overflow-y: auto;
 }
 </style>

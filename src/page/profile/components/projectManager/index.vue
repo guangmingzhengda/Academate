@@ -3,14 +3,14 @@
         <div class="manager-card">
             <div class="card-header">
                 <h3>参与项目</h3>
-                <el-button type="primary" @click="openAddDialog">
+                <el-button v-if="isOwnProfile" type="primary" @click="openAddDialog">
                     <el-icon><Plus /></el-icon>
                     创建项目
                 </el-button>
             </div>
             
             <div class="card-content">
-                <div v-if="projects.length === 0" class="empty-state">
+                <div v-if="projects.length === 0" class="empty-state project-empty-center">
                     暂无项目数据
                 </div>
                 
@@ -19,6 +19,8 @@
                         v-for="project in currentPageProjects" 
                         :key="project.id" 
                         class="project-item"
+                        @click="goToProjectDetail(project)"
+                        style="cursor: pointer;"
                     >
                         <div class="project-info">
                             <div class="project-title">{{ project.name }}</div>
@@ -95,6 +97,7 @@ import { callSuccess, callWarning, callInfo } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import { create_project, get_user_projects } from '@/api/project'
 import store from '@/store'
+import { useRouter } from 'vue-router'
 
 export default {
     name: 'projectManager',
@@ -102,9 +105,15 @@ export default {
         userId: {
             type: Number,
             required: true
+        },
+        isOwnProfile: {
+            type: Boolean,
+            default: false
         }
     },
     setup(props) {
+        const router = useRouter()
+        
         // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(2)
@@ -258,6 +267,11 @@ export default {
             currentPage.value = page
         }
 
+        // 跳转到项目详情
+        const goToProjectDetail = (project) => {
+            router.push(`/project-detail/${project.id}`)
+        }
+
         // 角色映射
         const roleMap = {
             'creator': '创建者',
@@ -280,6 +294,7 @@ export default {
             saveProject,
             closeDialog,
             handlePageChange,
+            goToProjectDetail,
             roleMap
         }
     }
@@ -317,7 +332,7 @@ export default {
 
 .empty-state {
     text-align: left;
-    color: #999;
+    color: #5c5c5c;
     padding: 40px;
     font-size: 14px;
 }
@@ -415,5 +430,13 @@ export default {
         width: 100%;
         justify-content: flex-end;
     }
+}
+
+.project-empty-center {
+    text-align: center;
+    color: #a1a1a1;
+    font-size: 18px;
+    font-weight: 500;
+    padding: 40px 0;
 }
 </style> 
