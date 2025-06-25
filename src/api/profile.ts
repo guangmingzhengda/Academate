@@ -213,8 +213,13 @@ export async function upload_user_avatar(file: File): Promise<string | null> {
           callError('网络错误');
           return null;
       }
-  } catch (error) {
-      callError('网络错误或服务器异常');
+  } catch (error: any) {
+      // 检查是否是413错误（请求实体过大）
+      if (error.response && error.response.status === 413) {
+          callError('上传文件过大！');
+      } else {
+          callError('网络错误或服务器异常');
+      }
       return null;
   }
 }
