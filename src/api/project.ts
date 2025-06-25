@@ -212,3 +212,95 @@ export async function reject_project_invite(data: {
         return false;
     }
 }
+
+// 分页响应数据接口
+export interface IPageResearchProject {
+    size: number;
+    current: number;
+    total: number;
+    records: ResearchProject[];
+    pages: number;
+}
+
+// 项目数据接口
+export interface ResearchProject {
+    projectId: number;
+    title: string;
+    description: string;
+    startDate: string;
+    status: string;
+}
+
+// 基础响应接口
+export interface BaseResponseIPageResearchProject {
+    code: number;
+    data: IPageResearchProject;
+    message: string;
+}
+
+/*
+按照分页获取数据库所有项目：对接前端
+GET
+url: /api/project/all
+请求数据类型：application/x-www-form-urlencoded
+
+参数名称 请求类型 是否必须 数据类型
+page query true integer(int32)
+size query true integer(int32)
+
+返回示例：
+{
+	"code": 0,
+	"data": {
+		"size": 0,
+		"current": 0,
+		"total": 0,
+		"records": [
+			{
+				"projectId": 0,
+				"title": "",
+				"description": "",
+				"startDate": "",
+				"status": ""
+			}
+		],
+		"pages": 0
+	},
+	"message": ""
+}
+*/
+export async function get_all_projects(data: {
+    page: number,
+    size: number
+}): Promise<IPageResearchProject | null> {
+    try {
+        const response = await axios.get('/project/all', {
+            params: {
+                page: data.page,
+                size: data.size
+            }
+        });
+        
+        if (response.status === 200) {
+            if (response.data.code == 0) {
+                return response.data.data;
+            } else {
+                callError(response.data.message || '获取项目列表失败');
+                return null;
+            }
+        } else {
+            callError('网络错误');
+            return null;
+        }
+    } catch (error: any) {
+        console.error('获取所有项目错误:', error);
+        if (error.response) {
+            callError(error.response.data?.message || '获取项目列表失败');
+        } else if (error.request) {
+            callError('网络连接错误');
+        } else {
+            callError('获取项目列表失败，请重试');
+        }
+        return null;
+    }
+}
