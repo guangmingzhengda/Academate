@@ -227,7 +227,7 @@ export default {
                 if (res.data && res.data.code === 0 && res.data.data) {
                     userList.value = res.data.data.list.map(u => ({
                         id: u.id,
-                        name: u.account,
+                        name: u.name,
                         email: u.email,
                         institution: u.institution,
                         field: u.field,
