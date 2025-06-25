@@ -85,6 +85,7 @@ import {register, resetPassword, sendEmail} from "@/api/login";
 import store from "@/store";
 import fadeBox from "@/page/home/component/fadeBox/index.vue";
 import {callInfo} from "@/call";
+import { setNav } from "@/nav/set";
 export default {
   name: "login",
     components:{fadeBox},
@@ -103,7 +104,11 @@ export default {
       coolCount:0,
     };
   },
-
+  mounted() {
+    // 确保登录页面隐藏导航栏
+    console.log('登录页面mounted，强制隐藏导航栏');
+    setNav(false);
+  },
   methods: {
 
     // 普通登录
