@@ -194,12 +194,12 @@ export default {
                 const commentId = await addProjectComment(projectId, userInput.value);
                 
                 if (commentId) {
-                    userInput.value = "";
-                    commentVisible.value = false;
-                    callSuccess("评论成功");
-                    setTimeout(() => {
-                        location.reload();
-                    }, 2000);
+                userInput.value = "";
+                commentVisible.value = false;
+                callSuccess("评论成功");
+                setTimeout(() => {
+                    location.reload();
+                }, 2000);
                 }
             } catch (error) {
                 console.error("提交评论失败:", error);
