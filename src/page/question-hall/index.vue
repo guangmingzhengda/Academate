@@ -77,20 +77,20 @@
                                             </span>
                                             <span class="stat-item">
                                                 <el-icon><View /></el-icon>
-                                                {{ question.likeCount || 0 }} 关注
+                                                {{ question.followCount || 0 }} 关注
                                             </span>
 
                                         </div>
                                         <div class="follow-section">
                                             <el-button
-                                                :type="question.isLiked ? 'primary' : 'default'"
+                                                :type="question.isFollowed ? 'primary' : 'default'"
                                                 size="small"
                                                 @click.stop="toggleFollow(question)"
                                                 class="follow-btn"
                                             >
-                                                <el-icon v-if="question.isLiked"><StarFilled /></el-icon>
+                                                <el-icon v-if="question.isFollowed"><StarFilled /></el-icon>
                                                 <el-icon v-else><Star /></el-icon>
-                                                {{ question.isLiked ? '已关注' : '关注' }}
+                                                {{ question.isFollowed ? '已关注' : '关注' }}
                                             </el-button>
                                         </div>
                                     </div>
@@ -162,13 +162,15 @@
 import { ref, computed, onMounted } from 'vue'
 import { Search, Plus, ChatDotRound, View, Star, StarFilled } from '@element-plus/icons-vue'
 import { callSuccess, callInfo } from '@/call'
-import { getQuestionList, createQuestion } from '@/api/question'
+import { getQuestionList, createQuestion, getMyFollowedQuestions, followQuestion, cancelFollowQuestion } from '@/api/question'
 import { useRouter } from 'vue-router'
+import { useStore } from 'vuex'
 
 export default {
     name: 'questionHall',
     setup() {
         const router = useRouter()
+        const store = useStore()
         // 分页相关
         const currentPage = ref(1)
         const pageSize = ref(10)
@@ -201,7 +203,23 @@ export default {
         
         // 问题数据
         const questions = ref([])
+        // 关注问题id集合
+        const followedQuestionIds = ref(new Set())
         
+        // 当前用户id
+        const userId = computed(() => store.getters.getId)
+        
+        // 加载我关注的问题id集合
+        const loadFollowedQuestions = async () => {
+            if (!userId.value) return;
+            try {
+                const followed = await getMyFollowedQuestions({ current: 1, size: 1000 })
+                followedQuestionIds.value = new Set(followed.map(q => q.questionId))
+            } catch (e) {
+                followedQuestionIds.value = new Set()
+            }
+        }
+
         // 加载问题列表数据
         const loadQuestions = async () => {
             try {
@@ -210,18 +228,22 @@ export default {
                     size: pageSize.value,
                     keyword: searchKeyword.value
                 })
-                console.log('data', data)
-                questions.value = data.list
+                // 同步关注状态
+                questions.value = data.list.map(q => ({
+                    ...q,
+                    isFollowed: followedQuestionIds.value.has(q.questionId)
+                }))
+                console.log(questions.value)
                 total.value = data.total
-                console.log('total', total.value);
             } catch (error) {
                 console.error('加载问题列表失败:', error)
             }
         }
 
         // 在组件挂载时加载数据
-        onMounted(() => {
-            loadQuestions()
+        onMounted(async () => {
+            await loadFollowedQuestions()
+            await loadQuestions()
         })
         
         // 头像颜色数组
@@ -318,16 +340,31 @@ export default {
         
         // 查看问题详情
         const viewQuestion = (question) => {
-            router.push(`/question/${question.questionId}`)
+            router.push(`/problem-detail/${question.questionId}`)
         }
         
         // 关注和取消关注逻辑
-        const toggleFollow = (question) => {
-            question.isLiked = !question.isLiked
-            if (question.isLiked) {
-                callSuccess(`已关注问题: ${question.questionTitle}`)
+        const toggleFollow = async (question) => {
+            if (!userId.value) {
+                callInfo('请先登录')
+                return
+            }
+            if (question.isFollowed) {
+                // 已关注，执行取关
+                const ok = await cancelFollowQuestion(userId.value, question.questionId)
+                if (ok) {
+                    question.isFollowed = false
+                    followedQuestionIds.value.delete(question.questionId)
+                    callInfo(`已取消关注问题: ${question.questionTitle}`)
+                }
             } else {
-                callInfo(`已取消关注问题: ${question.questionTitle}`)
+                // 未关注，执行关注
+                const ok = await followQuestion(userId.value, question.questionId)
+                if (ok) {
+                    question.isFollowed = true
+                    followedQuestionIds.value.add(question.questionId)
+                    callSuccess(`已关注问题: ${question.questionTitle}`)
+                }
             }
         }
         
