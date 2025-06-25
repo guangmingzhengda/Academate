@@ -131,7 +131,7 @@ export default {
     cursor: pointer;
     background-color: rgba(0, 0, 0, 0);
     transition: background-color 0.5s ease;
-    min-height: 48px;
+    min-height: 45px;
     padding-top: 10px;
     padding-bottom: 10px;
 }

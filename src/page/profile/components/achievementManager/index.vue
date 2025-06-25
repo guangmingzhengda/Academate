@@ -1340,7 +1340,27 @@ export default {
 .achievement-library {
     min-height: 400px;
     max-height: 500px;
-    overflow-y: hidden;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* 自定义滚动条样式 */
+.achievement-library::-webkit-scrollbar {
+    width: 6px;
+}
+
+.achievement-library::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.achievement-library::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.achievement-library::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 .empty-library {

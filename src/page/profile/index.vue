@@ -1145,6 +1145,7 @@ export default {
     display: flex;
     gap: 10px;
     width: 100%;
+    min-height: 100vh;
 }
 
 /* 左侧学术信息栏 */
@@ -1154,6 +1155,30 @@ export default {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    position: sticky;
+    top: 85px; /* 导航栏高度 70px + 20px 间距 */
+    height: fit-content;
+    max-height: calc(100vh - 110px); /* 视窗高度 - (导航栏高度 70px + 上下间距 40px) */
+    overflow-y: auto;
+}
+
+/* 自定义滚动条样式 */
+.left-sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.left-sidebar::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.left-sidebar::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.left-sidebar::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
 }
 
 /* 右侧内容区域 */

@@ -12,7 +12,7 @@ export default {
 
 <style scoped>
 .bottom-style{
-    margin-top: 20px;
+    margin-top: 60px;
     width: 100%;
     height: 150px;
     display: flex;
