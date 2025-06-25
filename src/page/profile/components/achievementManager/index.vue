@@ -46,7 +46,7 @@
                                     <span class="meta-label">作者：</span>
                                     <span class="meta-value">{{ achievement.authors || '暂无' }}</span>
                                     <span v-if="achievement.publishDate" class="meta-label">发表时间：</span>
-                                    <span v-if="achievement.publishDate" class="meta-value">{{ achievement.publishDate }}</span>
+                                    <span v-if="achievement.publishDate" class="meta-value">{{ (achievement.publishDate + '').slice(0, 10) }}</span>
                                 </div>
                                 <div v-if="achievement.journal || achievement.conference || achievement.patentNumber" class="meta-row">
                                     <span v-if="achievement.journal" class="meta-label">期刊：</span>
@@ -87,16 +87,35 @@
             title=""
             width="800px"
             @close="closeExcelDialog"
+            :close-on-click-modal="!importLoading"
+            :close-on-press-escape="!importLoading"
+            :show-close="!importLoading"
         >
             <div class="excel-upload-section">
                 <div class="upload-tips">
                     <h4>导入说明：</h4>
-                    <ul>
+                    <ol>
                         <li>请上传Excel文件（.xlsx或.xls格式）</li>
-                        <li>表格应包含两列：第一列为字段名称，第二列为对应内容</li>
-                        <li>支持的字段名称包括：成果类型、标题、作者、期刊名称、会议名称、专利号、卷号、期号、页码、发表时间、DOI、摘要等</li>
-                        <li>导入后可在表单中进一步编辑和完善信息</li>
-                    </ul>
+                        <li>表格应包含两列：第一行为字段名称，第二行开始为对应内容</li>
+                        <li>支持的成果类型包括：期刊论文，会议论文，技术报告，海报，书，数据，专利。</li>
+                        <li>各类型成果字段如下：
+                            <ul>
+                                <li>期刊论文：标题、作者、期刊名称、卷号、期号、页码、发表时间、DOI、摘要</li>
+                                <li>会议论文：标题、作者、会议名称、发表时间、DOI、摘要</li>
+                                <li>技术报告：标题、作者、发表时间、DOI、摘要</li>
+                                <li>专利：标题、作者、专利号、发表时间、DOI、摘要</li>
+                                <li>海报：标题、作者、发表时间、DOI、摘要</li>
+                                <li>书：标题、作者、发表时间、DOI、摘要</li>
+                                <li>数据：标题、作者、发表时间、DOI、摘要</li>
+                            </ul>
+                        </li>
+                    </ol>
+                    <div style="margin-top: 10px;">
+                        <el-link type="primary" :underline="false" href="/学术成果元数据模板.xlsx" target="_blank" download>
+                            下载Excel模板
+                            <el-icon style="vertical-align: middle;"><Download /></el-icon>
+                        </el-link>
+                    </div>
                 </div>
 
                 <el-upload
@@ -123,22 +142,17 @@
                 <div v-if="excelPreviewData.length > 0" class="preview-section">
                     <h4 style="text-align: left; margin-left: 10px;">预览数据：</h4>
                     <el-table :data="excelPreviewData" border style="width: 100%" max-height="300">
-                        <el-table-column prop="field" label="字段名称" width="200" />
-                        <el-table-column prop="value" label="内容" />
+                        <el-table-column v-for="(field, idx) in excelPreviewFields" :key="field" :prop="excelPreviewFieldKeys[idx]" :label="field" />
                     </el-table>
                 </div>
             </div>
             
             <template #footer>
-                <div class="dialog-footer-right">
-                    <el-button @click="closeExcelDialog">取消</el-button>
-                    <el-button 
-                        type="primary" 
-                        @click="importExcelData"
-                        :disabled="excelPreviewData.length === 0"
-                    >
-                        导入到表单
-                    </el-button>
+                <div class="dialog-footer">
+                    <div class="footer-actions">
+                        <el-button @click="closeExcelDialog" :disabled="importLoading">取消</el-button>
+                        <el-button type="primary" @click="importExcelData" :loading="importLoading">批量导入</el-button>
+                    </div>
                 </div>
             </template>
         </el-dialog>
@@ -149,6 +163,9 @@
             title=""
             width="1000px"
             @close="closeSelectDialog"
+            :close-on-click-modal="addSelectedLoading === false ? true : false"
+            :close-on-press-escape="addSelectedLoading === false ? true : false"
+            :show-close="addSelectedLoading === false ? true : false"
         >
             <div class="select-achievement-section">
                 <div class="search-header">
@@ -199,7 +216,7 @@
                                         <span class="meta-label">作者：</span>
                                         <span class="meta-value">{{ achievement.authors || '暂无' }}</span>
                                         <span v-if="achievement.publishDate" class="meta-label">发表时间：</span>
-                                        <span v-if="achievement.publishDate" class="meta-value">{{ achievement.publishDate }}</span>
+                                        <span v-if="achievement.publishDate" class="meta-value">{{ (achievement.publishDate + '').slice(0, 10) }}</span>
                                     </div>
                                     <div v-if="achievement.journal || achievement.conference" class="meta-row">
                                         <span v-if="achievement.journal" class="meta-label">期刊：</span>
@@ -231,11 +248,12 @@
                         已选择 {{ selectedAchievements.length }} 项
                     </div>
                     <div class="footer-actions">
-                        <el-button @click="closeSelectDialog">取消</el-button>
+                        <el-button @click="closeSelectDialog" :disabled="addSelectedLoading">取消</el-button>
                         <el-button 
                             type="primary" 
                             @click="addSelectedAchievements"
                             :disabled="selectedAchievements.length === 0"
+                            :loading="addSelectedLoading"
                         >
                             添加选中项 ({{ selectedAchievements.length }})
                         </el-button>
@@ -249,6 +267,9 @@
             v-model="dialogVisible" 
             title=""
             width="700px"
+            :close-on-click-modal="!saveLoading"
+            :close-on-press-escape="!saveLoading"
+            :show-close="!saveLoading"
         >
             <el-form :model="formData" :rules="rules" ref="formRef" label-width="120px">
                 <el-form-item label="成果类型" prop="type">
@@ -292,22 +313,12 @@
                     <el-form-item label="会议名称" prop="conference">
                         <el-input v-model="formData.conference" placeholder="请输入会议名称" />
                     </el-form-item>
-                    <el-form-item label="会议地点" prop="location">
-                        <el-input v-model="formData.location" placeholder="请输入会议地点" />
-                    </el-form-item>
                 </template>
 
                 <!-- 专利字段 -->
                 <template v-if="formData.type === '专利'">
                     <el-form-item label="专利号" prop="patentNumber">
                         <el-input v-model="formData.patentNumber" placeholder="请输入专利号" />
-                    </el-form-item>
-                    <el-form-item label="专利类型" prop="patentType">
-                        <el-select v-model="formData.patentType" placeholder="请选择专利类型" style="width: 100%;">
-                            <el-option label="发明专利" value="发明专利" />
-                            <el-option label="实用新型" value="实用新型" />
-                            <el-option label="外观设计" value="外观设计" />
-                        </el-select>
                     </el-form-item>
                 </template>
 
@@ -327,13 +338,17 @@
                     <el-input v-model="formData.doi" placeholder="请输入DOI（可选）" />
                 </el-form-item>
 
-                <el-form-item label="摘要" prop="abstract">
+                <el-form-item label="摘要" prop="abstractContent">
                     <el-input 
-                        v-model="formData.abstract" 
+                        v-model="formData.abstractContent" 
                         type="textarea" 
                         :rows="4"
                         placeholder="请输入摘要（可选）"
+                        @input="onAbstractInput"
                     />
+                    <div style="text-align:right;color:#999;font-size:12px;">
+                        {{ abstractWordCount }} / 200 字/单词
+                    </div>
                 </el-form-item>
 
                 <!-- <el-form-item label="科研全文" prop="fullTextFile">
@@ -381,8 +396,8 @@
             
             <template #footer>
                 <div class="dialog-footer-right">
-                    <el-button @click="closeDialog">取消</el-button>
-                    <el-button type="primary" @click="saveAchievement">保存</el-button>
+                    <el-button @click="closeDialog" :disabled="saveLoading">取消</el-button>
+                    <el-button type="primary" @click="saveAchievement" :loading="saveLoading">保存</el-button>
                 </div>
             </template>
         </el-dialog>
@@ -391,7 +406,7 @@
 
 <script>
 import { ref, computed, watch } from 'vue'
-import { Plus, Edit, Delete, Upload, UploadFilled, Search, DocumentAdd, Document } from '@element-plus/icons-vue'
+import { Plus, Edit, Delete, Upload, UploadFilled, Search, DocumentAdd, Document, Download } from '@element-plus/icons-vue'
 import { callSuccess, callWarning, callInfo, callError } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import * as XLSX from 'xlsx'
@@ -477,11 +492,18 @@ export default {
         const isEdit = ref(false)
         const formRef = ref()
         const editingId = ref(null)
+        
+        // 保存按钮加载状态
+        const saveLoading = ref(false)
+        
+        // 添加选中项按钮加载状态
+        const addSelectedLoading = ref(false)
 
         // Excel导入相关
         const excelDialogVisible = ref(false)
         const excelUploadRef = ref()
         const excelPreviewData = ref([])
+        const importLoading = ref(false)
 
         // 从库中选择相关
         const selectDialogVisible = ref(false)
@@ -499,12 +521,26 @@ export default {
             pages: '',
             publishDate: 0,
             doi: '',
-            patentNumber: ''
+            patentNumber: '',
+            abstractContent: ''
         })
 
         // PDF上传相关
         const pdfUploadRef = ref()
         const pdfFileList = ref([])
+
+        // 摘要字/单词数统计
+        const abstractWordCount = computed(() => {
+            const val = formData.value.abstractContent || ''
+            // 汉字按字，英文按单词
+            const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+            const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+            return cn + en
+        })
+        // 摘要输入时触发校验
+        const onAbstractInput = () => {
+            formRef.value && formRef.value.validateField && formRef.value.validateField('abstractContent')
+        }
 
         // 动态验证规则
         const rules = computed(() => {
@@ -512,7 +548,19 @@ export default {
                 type: [{ required: true, message: '请选择成果类型', trigger: 'change' }],
                 title: [{ required: true, message: '请输入成果标题', trigger: 'blur' }],
                 authors: [{ required: true, message: '请输入作者信息', trigger: 'blur' }],
-                publishDate: [{ required: true, message: '请选择发表/授权时间', trigger: 'change' }]
+                publishDate: [{ required: true, message: '请选择发表/授权时间', trigger: 'change' }],
+                abstractContent: [
+                    { validator: (rule, value, callback) => {
+                        const val = value || ''
+                        const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+                        const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+                        if (cn + en > 200) {
+                            callback(new Error('摘要不能超过200字/单词'))
+                        } else {
+                            callback()
+                        }
+                    }, trigger: 'blur' }
+                ]
             }
 
             // 根据类型添加特定验证规则
@@ -524,7 +572,6 @@ export default {
                 baseRules.conference = [{ required: true, message: '请输入会议名称', trigger: 'blur' }]
             } else if (formData.value.type === '专利') {
                 baseRules.patentNumber = [{ required: true, message: '请输入专利号', trigger: 'blur' }]
-                baseRules.patentType = [{ required: true, message: '请选择专利类型', trigger: 'change' }]
             }
 
             return baseRules
@@ -542,7 +589,7 @@ export default {
 
         // 类型改变时重置相关字段
         const onTypeChange = () => {
-            const keepFields = ['type', 'title', 'authors', 'publishDate', 'doi', 'abstract']
+            const keepFields = ['type', 'title', 'authors', 'publishDate', 'doi', 'abstractContent']
             const newFormData = {}
             keepFields.forEach(field => {
                 newFormData[field] = formData.value[field]
@@ -563,7 +610,8 @@ export default {
                 pages: '',
                 publishDate: 0,
                 doi: '',
-                patentNumber: ''
+                patentNumber: '',
+                abstractContent: ''
             }
             pdfFileList.value = []
             dialogVisible.value = true
@@ -608,7 +656,6 @@ export default {
                 if (!data.conference) errors.push('会议名称')
             } else if (data.type === '专利') {
                 if (!data.patentNumber) errors.push('专利号')
-                if (!data.patentType) errors.push('专利类型')
             }
 
             // 页码必须为数字
@@ -625,7 +672,10 @@ export default {
 
         // 保存成果
         const saveAchievement = async () => {
+            if (saveLoading.value) return // 防止重复提交
+            
             try {
+                saveLoading.value = true // 开始加载
                 await formRef.value.validate()
                 // 检查数据完整性
                 if (!checkDataIntegrity(formData.value)) {
@@ -657,7 +707,8 @@ export default {
                     pages: payload.pages,
                     publishDate: payload.publishDate,
                     doi: payload.doi,
-                    patentNumber: payload.patentNumber
+                    patentNumber: payload.patentNumber,
+                    abstractContent: payload.abstractContent
                 }
                 const res = await uploadAchievementMeta(requestData)
                 if (res && res.code === 0) {
@@ -674,6 +725,8 @@ export default {
                 closeDialog()
             } catch {
                 callWarning('请填写完整信息')
+            } finally {
+                saveLoading.value = false // 结束加载
             }
         }
 
@@ -700,15 +753,12 @@ export default {
             '会议名称': 'conference',
             '会议': 'conference',
             '专利号': 'patentNumber',
-            '专利类型': 'patentType',
             '卷号': 'volume',
             '卷': 'volume',
             '期号': 'issue',
             '期': 'issue',
             '页码': 'pages',
             '页': 'pages',
-            '会议地点': 'location',
-            '地点': 'location',
             '发表时间': 'publishDate',
             '发表日期': 'publishDate',
             '授权时间': 'publishDate',
@@ -716,8 +766,8 @@ export default {
             '日期': 'publishDate',
             'DOI': 'doi',
             'doi': 'doi',
-            '摘要': 'abstract',
-            '简介': 'abstract'
+            '摘要': 'abstractContent',
+            '简介': 'abstractContent'
         }
 
         // 成果类型映射（仅保留七种类型）
@@ -764,39 +814,56 @@ export default {
         // 处理Excel文件变化
         const handleExcelChange = (file) => {
             if (!file.raw) return
-            
             const reader = new FileReader()
             reader.onload = (e) => {
                 try {
                     const data = new Uint8Array(e.target.result)
                     const workbook = XLSX.read(data, { type: 'array' })
-                    
-                    // 读取第一个工作表
                     const firstSheetName = workbook.SheetNames[0]
                     const worksheet = workbook.Sheets[firstSheetName]
-                    
-                    // 转换为JSON格式
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
-                    
-                    // 处理数据，假设第一列是字段名，第二列是值
-                    const processedData = []
-                    jsonData.forEach((row, index) => {
-                        if (row.length >= 2 && row[0] && row[1]) {
-                            processedData.push({
-                                field: row[0].toString().trim(),
-                                value: row[1].toString().trim()
-                            })
-                        }
-                    })
-                    
-                    if (processedData.length === 0) {
-                        callWarning('Excel文件中没有找到有效数据，请检查格式')
+                    if (jsonData.length < 2) {
+                        callWarning('Excel文件中没有有效数据')
                         return
                     }
-                    
-                    excelPreviewData.value = processedData
-                    callSuccess(`成功解析${processedData.length}条数据`)
-                    
+                    const headers = jsonData[0].map(h => h && h.toString().trim())
+                    const dataRows = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== null && cell !== ''))
+                    if (dataRows.length === 0) {
+                        callWarning('Excel文件中没有有效数据行')
+                        return
+                    }
+                    // 预览数据：每行为一条成果，每列为一个字段
+                    const preview = dataRows.slice(0, 5).map(row => {
+                        const obj = {}
+                        headers.forEach((h, i) => {
+                            const mappedKey = fieldMapping[h]
+                            if (mappedKey) {
+                                if (mappedKey === 'publishDate' && row[i]) {
+                                    try {
+                                        const date = new Date(row[i])
+                                        if (!isNaN(date.getTime())) {
+                                            obj[mappedKey] = date.toISOString().split('T')[0]
+                                        } else {
+                                            obj[mappedKey] = row[i]
+                                        }
+                                    } catch {
+                                        obj[mappedKey] = row[i]
+                                    }
+                                } else {
+                                    obj[mappedKey] = row[i]
+                                }
+                            }
+                        })
+                        return obj
+                    })
+                    excelPreviewData.value = preview
+                    // 存储全部数据用于导入（原始key，后续导入时再映射）
+                    excelPreviewData.value._allRows = dataRows.map(row => {
+                        const obj = {}
+                        headers.forEach((h, i) => { obj[h] = row[i] })
+                        return obj
+                    })
+                    callSuccess(`成功解析${dataRows.length}条数据`)
                 } catch (error) {
                     console.error('Excel解析错误:', error)
                     callError('Excel文件解析失败，请检查文件格式')
@@ -805,70 +872,83 @@ export default {
             reader.readAsArrayBuffer(file.raw)
         }
 
-        // 导入Excel数据到表单
-        const importExcelData = () => {
-            if (excelPreviewData.value.length === 0) {
-                callWarning('没有可导入的数据')
-                return
-            }
+        // Excel预览区表头（用原始Excel字段名，内容用映射key）
+        const excelPreviewFields = computed(() => {
+            if (!excelPreviewData.value.length) return []
+            // 反向映射：找到fieldMapping的key（中文）
+            const reverseMap = {}
+            Object.entries(fieldMapping).forEach(([cn, en]) => { reverseMap[en] = cn })
+            return Object.keys(excelPreviewData.value[0]).map(en => reverseMap[en] || en)
+        })
+        // 预览区内容字段顺序与表头一致
+        const excelPreviewFieldKeys = computed(() => {
+            if (!excelPreviewData.value.length) return []
+            return Object.keys(excelPreviewData.value[0])
+        })
 
-            // 重置表单数据
-            const newFormData = {
-                type: '',
-                title: '',
-                authors: '',
-                journal: '',
-                volume: 0,
-                issue: 0,
-                pages: '',
-                conference: '',
-                location: '',
-                patentNumber: '',
-                patentType: '',
-                publishDate: 0,
-                doi: '',
-                abstract: ''
-            }
-
-            // 根据Excel数据填充表单
-            excelPreviewData.value.forEach(item => {
-                const fieldKey = fieldMapping[item.field]
-                if (fieldKey) {
-                    if (fieldKey === 'type') {
-                        // 处理成果类型映射
-                        const mappedType = typeMapping[item.value]
-                        if (mappedType) {
-                            newFormData[fieldKey] = mappedType
-                        } else {
-                            newFormData[fieldKey] = item.value
-                        }
-                    } else if (fieldKey === 'publishDate') {
-                        // 处理日期格式
-                        try {
-                            const date = new Date(item.value)
-                            if (!isNaN(date.getTime())) {
-                                newFormData[fieldKey] = date.toISOString().split('T')[0]
+        // 导入Excel数据到表单（批量添加）
+        const importExcelData = async () => {
+            if (importLoading.value) return // 防止重复提交
+            
+            try {
+                importLoading.value = true // 开始加载
+                const allRows = excelPreviewData.value._allRows || []
+                if (allRows.length === 0) {
+                    callWarning('没有可导入的数据')
+                    return
+                }
+                let successCount = 0
+                let failCount = 0
+                for (let i = 0; i < allRows.length; i++) {
+                    const row = allRows[i]
+                    // 字段映射
+                    const mapped = {}
+                    Object.keys(row).forEach(key => {
+                        const fieldKey = fieldMapping[key]
+                        if (fieldKey) {
+                            if (fieldKey === 'type') {
+                                const mappedType = typeMapping[row[key]]
+                                mapped[fieldKey] = mappedType || row[key]
+                            } else if (fieldKey === 'publishDate') {
+                                try {
+                                    const date = new Date(row[key])
+                                    if (!isNaN(date.getTime())) {
+                                        mapped[fieldKey] = date.toISOString().slice(0,10) + ' 00:00:00'
+                                    }
+                                } catch {
+                                    mapped[fieldKey] = row[key]
+                                }
                             } else {
-                                newFormData[fieldKey] = item.value
+                                mapped[fieldKey] = row[key]
                             }
-                        } catch {
-                            newFormData[fieldKey] = item.value
                         }
-                    } else {
-                        newFormData[fieldKey] = item.value
+                    })
+                    // 必填校验（最少有类型、标题、作者）
+                    if (!mapped.type || !mapped.title || !mapped.authors) {
+                        failCount++
+                        continue
+                    }
+                    try {
+                        console.log('上传参数', mapped)
+                        const res = await uploadAchievementMeta(mapped)
+                        if (res && res.code === 0) {
+                            successCount++
+                            achievements.value.unshift({ ...mapped, id: res.data || Date.now() })
+                        } else {
+                            failCount++
+                        }
+                    } catch {
+                        failCount++
                     }
                 }
-            })
-
-            // 更新表单数据
-            formData.value = newFormData
-            
-            // 关闭Excel对话框，打开添加表单对话框
-            closeExcelDialog()
-            isEdit.value = false
-            dialogVisible.value = true
-            
-            callSuccess('数据已导入到表单，请检查并完善信息')
+                callSuccess(`批量导入完成，成功${successCount}条，失败${failCount}条`)
+                emit('refresh')
+            } catch {
+                callWarning('批量导入失败，请检查网络连接')
+            } finally {
+                importLoading.value = false // 结束加载
+                closeExcelDialog()
+            }
         }
 
         // 打开从库中选择对话框
@@ -916,7 +996,10 @@ export default {
                 return
             }
 
+            if (addSelectedLoading.value) return // 防止重复提交
+
             try {
+                addSelectedLoading.value = true // 开始加载
                 // 调用新的接口，传入选中的成果ID数组
                 const response = await autoAddResearchOutcomes(selectedAchievements.value)
                 
@@ -943,6 +1026,8 @@ export default {
                 }
             } catch (error) {
                 callError('添加学术成果时发生错误')
+            } finally {
+                addSelectedLoading.value = false // 结束加载
             }
         }
 
@@ -1035,7 +1120,14 @@ export default {
             handlePdfRemove,
             beforePdfUpload,
             formatFileSize,
-            goToAchievementDetail
+            goToAchievementDetail,
+            saveLoading,
+            addSelectedLoading,
+            excelPreviewFields,
+            excelPreviewFieldKeys,
+            abstractWordCount,
+            onAbstractInput,
+            importLoading
         }
     }
 }
@@ -1131,7 +1223,7 @@ export default {
 }
 
 .achievement-type-tag.专利 {
-    background-color: #e6a23c;
+    background-color: #e93333;
 }
 
 .achievement-type-tag.书 {
@@ -1139,15 +1231,15 @@ export default {
 }
 
 .achievement-type-tag.技术报告 {
-    background-color: #f56c6c;
+    background-color: #ffb300;
 }
 
 .achievement-type-tag.数据 {
-    background-color: #f56c6c;
+    background-color: #009688;
 }
 
 .achievement-type-tag.海报 {
-    background-color: #f56c6c;
+    background-color: #3949ab;
 }
 
 .achievement-actions {
@@ -1234,7 +1326,7 @@ export default {
     font-weight: 600;
 }
 
-.upload-tips ul {
+.upload-tips ol {
     margin: 0;
     padding-left: 20px;
     color: #666;

@@ -27,8 +27,8 @@
                             <div class="project-desc">{{ project.description }}</div>
                             <div class="project-meta">
                                 <div class="meta-row">
-                                    <span class="meta-item">开始时间：{{ project.startDate }}</span>
-                                    <span class="meta-item">状态：{{ project.status }}</span>
+                                    <span class="meta-item">创建时间：{{ (project.startDate + '').slice(0, 10) }}</span>
+                                    <span class="meta-item">状态：{{ statusMap[project.status] || project.status }}</span>
                                 </div>
                                 <div class="meta-row">
                                     <span class="meta-item">身份：{{ roleMap[project.leader] || project.leader }}</span>
@@ -64,9 +64,11 @@
                     <el-input 
                         v-model="formData.name" 
                         placeholder="请输入项目名称" 
-                        maxlength="20"
-                        show-word-limit
+                        @input="onNameInput"
                     />
+                    <div style="text-align:right;color:#999;font-size:12px;">
+                        {{ nameWordCount }} / 50 字/单词
+                    </div>
                 </el-form-item>
                 <el-form-item label="项目描述" prop="description">
                     <el-input 
@@ -74,9 +76,11 @@
                         type="textarea" 
                         :rows="3"
                         placeholder="请输入项目描述"
-                        maxlength="100"
-                        show-word-limit
+                        @input="onDescInput"
                     />
+                    <div style="text-align:right;color:#999;font-size:12px;">
+                        {{ descWordCount }} / 200 字/单词
+                    </div>
                 </el-form-item>
             </el-form>
             
@@ -158,9 +162,51 @@ export default {
         })
 
         // 表单验证规则
+        const nameWordCount = computed(() => {
+            const val = formData.value.name || ''
+            const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+            const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+            return cn + en
+        })
+        const descWordCount = computed(() => {
+            const val = formData.value.description || ''
+            const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+            const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+            return cn + en
+        })
+        const onNameInput = () => {
+            formRef.value && formRef.value.validateField && formRef.value.validateField('name')
+        }
+        const onDescInput = () => {
+            formRef.value && formRef.value.validateField && formRef.value.validateField('description')
+        }
         const rules = {
-            name: [{ required: true, message: '请输入项目名称', trigger: 'blur' }],
-            description: [{ required: true, message: '请输入项目描述', trigger: 'blur' }]
+            name: [
+                { required: true, message: '请输入项目名称', trigger: 'blur' },
+                { validator: (rule, value, callback) => {
+                    const val = value || ''
+                    const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+                    const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+                    if (cn + en > 50) {
+                        callback(new Error('项目名称不能超过50字/单词'))
+                    } else {
+                        callback()
+                    }
+                }, trigger: 'blur' }
+            ],
+            description: [
+                { required: true, message: '请输入项目描述', trigger: 'blur' },
+                { validator: (rule, value, callback) => {
+                    const val = value || ''
+                    const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+                    const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+                    if (cn + en > 200) {
+                        callback(new Error('项目描述不能超过200字/单词'))
+                    } else {
+                        callback()
+                    }
+                }, trigger: 'blur' }
+            ]
         }
 
         // 当前页项目数据
@@ -278,6 +324,11 @@ export default {
             'participant': '参与者'
         }
 
+        const statusMap = {
+            'In Progress': '进行中',
+            'Completed': '已完成'
+        }
+
         return {
             currentPage,
             pageSize,
@@ -295,7 +346,12 @@ export default {
             closeDialog,
             handlePageChange,
             goToProjectDetail,
-            roleMap
+            roleMap,
+            nameWordCount,
+            descWordCount,
+            onNameInput,
+            onDescInput,
+            statusMap
         }
     }
 }

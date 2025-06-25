@@ -94,7 +94,7 @@
                     />
                 </div>
                 <div class="form-row">
-                    <label class="form-label">发表论文数：</label>
+                    <label class="form-label">学术成果数：</label>
                     <div class="readonly-field">
                         <span class="readonly-value">{{ formData.paperCount || 0 }}</span>
                         <span class="readonly-note">（此数据由系统根据学术成果自动计算）</span>
