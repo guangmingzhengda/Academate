@@ -212,3 +212,32 @@ export interface SearchUsersRes {
 export function searchUsers(params: SearchUsersParams): Promise<SearchUsersRes> {
   return axios.post(`/user/search`, params);
 }
+
+/**
+ * 学术成果库搜索
+ * @param params { key: string, notMine: boolean, pageSize: number, pageNum: number }
+ * @returns Promise<{code:number, data:{pageNum:number, pageSize:number, total:number, list:any[]}, message:string} | null>
+ */
+export async function researchOutcomeLibrarySearch(params: { key: string, notMine: boolean, pageSize: number, pageNum: number }): Promise<any> {
+    try {
+        // 所有参数转为字符串，key 为空字符串
+        const queryParams = {
+            key: params.key || '',
+            notMine: params.notMine ? 'true' : 'false',
+            pageSize: String(params.pageSize),
+            pageNum: String(params.pageNum)
+        }
+        const response = await axios.get('/research_outcome/search/', {
+            params: queryParams
+        });
+        if (response.status === 200 && response.data.code === 0) {
+            return response.data;
+        } else {
+            callError(response.data.message || '成果库搜索失败');
+            return null;
+        }
+    } catch (error) {
+        callError('网络错误或服务器异常');
+        return null;
+    }
+}

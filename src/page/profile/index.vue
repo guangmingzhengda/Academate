@@ -178,7 +178,7 @@
                             <!-- 项目/学术成果 -->
                             <div v-if="activeTab === 'projects'" class="tab-panel">
                                 <project-manager :user-id="userId" />
-                                <achievement-manager :research-outcomes="userInfo.research.researchOutcomes" />
+                                <achievement-manager :research-outcomes="userInfo.research.researchOutcomes" @refresh="fetchUserDetail" />
                             </div>
                             
                             <!-- 关注列表 -->
@@ -310,6 +310,7 @@ import libraryManager from './components/libraryManager/index.vue'
 import { callSuccess, callInfo, callError } from '@/call'
 import { ElMessage } from 'element-plus'
 import { get_user_detail, upload_user_avatar, update_user_info, get_user_projects } from '@/api/profile'
+import { followUser, unfollowUser, getFollowedUsers } from '@/api/follow'
 import store from '@/store'
 
 export default {
@@ -398,15 +399,6 @@ export default {
                 endDate: '2024-02-29',
                 status: '进行中',
                 leader: 'HHH'
-            },
-            {
-                id: 5,
-                name: '区块链技术应用研究',
-                description: '探索区块链技术在学术诚信和版权保护方面的应用。',
-                startDate: '2022-09-01',
-                endDate: '2023-08-31',
-                status: '已完成',
-                leader: 'HHH'
             }
         ]);
 
@@ -492,6 +484,24 @@ export default {
 
         // 关注相关
         const isFollowing = ref(false)
+        // 当前登录用户id
+        const currentUserId = computed(() => store.getters.getData?.id)
+
+        // 检查是否已关注
+        const checkIsFollowing = async () => {
+            if (!currentUserId.value || !userId.value) {
+                isFollowing.value = false;
+                return;
+            }
+            const res = await getFollowedUsers(currentUserId.value, 1, 1000)
+            if (res && Array.isArray(res.records)) {
+                isFollowing.value = res.records.some(u => u.userId === userId.value)
+            } else {
+                isFollowing.value = false
+            }
+        }
+
+        watch(userId, checkIsFollowing, { immediate: true })
 
         // 私信相关
         const messageDialogVisible = ref(false)
@@ -667,14 +677,21 @@ export default {
         }
 
         // 切换关注状态
-        const toggleFollow = () => {
-            isFollowing.value = !isFollowing.value
-            if (isFollowing.value) {
-                userInfo.value.followersCount++
-                callSuccess('关注成功！')
+        const toggleFollow = async () => {
+            if (!isFollowing.value) {
+                // 关注
+                const ok = await followUser(userId.value)
+                if (ok) {
+                    isFollowing.value = true
+                    userInfo.value.followersCount++
+                }
             } else {
-                userInfo.value.followersCount--
-                callInfo('已取消关注')
+                // 取消关注
+                const ok = await unfollowUser(userId.value)
+                if (ok) {
+                    isFollowing.value = false
+                    userInfo.value.followersCount--
+                }
             }
         }
 
@@ -694,16 +711,16 @@ export default {
             messageContent.value = ''
         }
 
-        // 发送私信
+        // 发送私信内容（模拟，实际可调用API）
         const sendPrivateMessage = () => {
             if (!messageContent.value.trim()) {
                 callInfo('请输入消息内容')
                 return
             }
-            
-            // 这里应该调用API发送私信
+            // TODO: 调用实际私信API
             callSuccess(`私信已发送给 ${userInfo.value.name}`)
-            closeMessageDialog()
+            messageDialogVisible.value = false
+            messageContent.value = ''
         }
 
         // 编辑资料对话框相关
