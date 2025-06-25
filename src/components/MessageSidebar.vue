@@ -8,9 +8,21 @@
                         <span class="status-dot" :class="{'dot-connected': wsConnected, 'dot-disconnected': !wsConnected}"></span>
                     </div>
                 </div>
-                <button class="close-btn" @click="closeSidebar">
-                    <el-icon><Close /></el-icon>
-                </button>
+                <div class="header-right">
+                    <el-button 
+                        v-if="unreadNonProjectMessages.length > 0"
+                        type="text" 
+                        size="small" 
+                        @click="handleMarkAllAsRead"
+                        :loading="markingAllAsRead"
+                        class="mark-all-read-btn"
+                    >
+                        全部已读
+                    </el-button>
+                    <button class="close-btn" @click="closeSidebar">
+                        <el-icon><Close /></el-icon>
+                    </button>
+                </div>
             </div>
             
             <div class="sidebar-content">
@@ -128,6 +140,9 @@ const messages = ref([])
 // 用户名缓存，避免重复请求
 const userNameCache = ref(new Map())
 
+// 标记全部已读的加载状态
+const markingAllAsRead = ref(false)
+
 // 过滤消息，只显示别人发给我的消息
 const filteredMessages = computed(() => {
     const currentUserId = store.getters.getId
@@ -136,6 +151,16 @@ const filteredMessages = computed(() => {
     return messages.value.filter(message => {
         // 只显示别人发给我的消息（发送者不是当前用户）
         return message.senderId && message.senderId !== currentUserId
+    })
+})
+
+// 计算非项目类型的未读消息（用于全部已读功能）
+const unreadNonProjectMessages = computed(() => {
+    return filteredMessages.value.filter(message => {
+        // 只包括非项目类型的未读消息
+        return ['data_request', 'researcher_update', 'question_reply'].includes(message.type) &&
+               message.status === 'pending' &&
+               !message.read
     })
 })
 
@@ -541,6 +566,48 @@ const handleMarkAsRead = async (messageId) => {
     }
 }
 
+// 处理全部已读
+const handleMarkAllAsRead = async () => {
+    const unreadMessages = unreadNonProjectMessages.value
+    if (unreadMessages.length === 0) {
+        console.log('没有未读的非项目类型消息')
+        return
+    }
+    
+    markingAllAsRead.value = true
+    
+    try {
+        console.log(`开始标记 ${unreadMessages.length} 条消息为已读`)
+        
+        // 提取所有未读消息的ID
+        const messageIds = unreadMessages.map(message => message.id)
+        
+        // 调用后端接口批量标记消息为已读
+        const success = await markAsRead({
+            messageIds: messageIds
+        })
+        
+        if (success) {
+            // 更新前端状态
+            unreadMessages.forEach(message => {
+                message.status = 'processed'
+                message.read = true
+            })
+            
+            console.log(`成功标记 ${unreadMessages.length} 条消息为已读，未读数量将更新`)
+            callSuccess(`已标记 ${unreadMessages.length} 条消息为已读`)
+        } else {
+            // 接口调用失败的错误信息已在API中处理
+            console.error('批量标记已读失败')
+        }
+    } catch (error) {
+        console.error('批量标记已读时发生错误:', error)
+        callError('批量标记已读时发生错误')
+    } finally {
+        markingAllAsRead.value = false
+    }
+}
+
 // 获取用户真实姓名（带缓存）
 const getUserRealName = async (senderId) => {
     if (!senderId || senderId === null) {
@@ -741,6 +808,12 @@ onUnmounted(() => {
     gap: 12px;
 }
 
+.header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 .sidebar-header h3 {
     margin: 0;
     color: #333;
@@ -782,6 +855,18 @@ onUnmounted(() => {
 .close-btn:hover {
     color: #333;
     background-color: #e9ecef;
+}
+
+.mark-all-read-btn {
+    color: #409eff !important;
+    font-size: 12px;
+    padding: 4px 8px !important;
+    height: auto !important;
+    min-height: auto !important;
+}
+
+.mark-all-read-btn:hover {
+    color: #337ecc !important;
 }
 
 .sidebar-content {
