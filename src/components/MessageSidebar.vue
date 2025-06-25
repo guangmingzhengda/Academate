@@ -66,6 +66,10 @@
                                 
                                 <!-- 数据请求、研究人员更新、问题回复的标记已读按钮/状态 -->
                                 <div v-if="['data_request', 'researcher_update', 'question_reply'].includes(message.type)">
+                                    <!-- 调试信息（临时） -->
+                                    <!-- <div style="font-size: 10px; color: #999;">
+                                        [调试] 类型: {{ message.type }}, 状态: {{ message.status }}
+                                    </div> -->
                                     <div v-if="message.status === 'pending'" class="message-actions">
                                         <el-button type="default" size="small" @click="handleMarkAsRead(message.id)">
                                             标记已读
@@ -93,7 +97,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Close } from '@element-plus/icons-vue'
 import { agree_project_invite, reject_project_invite } from '@/api/project'
-import { pullAllMessages, MessageVO } from '@/api/msg'
+import { pullAllMessages, MessageVO, markAsRead } from '@/api/msg'
 import { get_user_detail } from '@/api/profile'
 import { callSuccess, callError } from '@/call'
 import store from '@/store'
@@ -195,6 +199,8 @@ const connectWebSocket = () => {
             }
         }
 
+        
+
         ws.value.onclose = (event) => {
             console.log('WebSocket连接关闭:', event.code, event.reason)
             wsConnected.value = false
@@ -232,30 +238,21 @@ const handleIncomingMessage = async (messageData) => {
     
     // 根据WebSocket消息格式适配到显示格式
     if (messageData.message && messageData.messageId) {
-        // 判断消息类型 - 根据关键词识别消息类型
-        let messageType = 'unknown'
-        
-        if (messageData.message.includes('邀请')) {
-            messageType = 'project_invite'
-        } else if (messageData.message.includes('申请')) {
-            messageType = 'project_apply'
-        } else if (messageData.message.includes('更新了个人研究状态') || messageData.message.includes('研究状态更新')) {
-            messageType = 'researcher_update'
-        } else if (messageData.message.includes('希望获取') || messageData.message.includes('数据集') || messageData.message.includes('全文')) {
-            messageType = 'data_request'
-        } else if (messageData.message.includes('回复了您关注的问题') || messageData.message.includes('问题回复')) {
-            messageType = 'question_reply'
-        }
+        // 直接使用消息对象中的type字段
+        const messageType = messageData.type || 'unknown'
         
         // 获取发送者真实姓名
         const senderName = await getUserRealName(messageData.senderId)
         
-        // 根据消息类型设置默认状态
-        let defaultStatus = null
+        // 根据消息类型设置状态
+        let messageStatus = null
         if (messageType === 'project_invite' || messageType === 'project_apply') {
-            defaultStatus = null // 项目相关消息默认为 null（未处理）
+            // 项目相关消息使用isAccepted字段，新消息默认为null
+            messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
+                           messageData.isAccepted === 'reject' ? 'rejected' : null
         } else if (['data_request', 'researcher_update', 'question_reply'].includes(messageType)) {
-            defaultStatus = 'pending' // 其他类型消息默认为 pending（未读）
+            // 其他类型消息使用status字段，如果WebSocket消息有status字段则使用，否则默认pending
+            messageStatus = messageData.status || 'pending'
         }
         
         // 创建适配的消息对象
@@ -266,15 +263,15 @@ const handleIncomingMessage = async (messageData) => {
             content: messageData.message,
             time: new Date(messageData.sentAt || Date.now()),
             avatar: getValidAvatarUrl(messageData.avatar),
-            read: false,
+            read: messageData.status === 'processed' || messageData.isAccepted === 'agree' || messageData.isAccepted === 'reject',
             projectId: messageData.projectId || null,
             senderId: messageData.senderId || null, // 添加发送者ID，用于拒绝接口
-            status: defaultStatus
+            status: messageStatus
         }
         
         console.log('创建的新消息对象:', newMessage)
         console.log(`WebSocket消息头像: 原始="${messageData.avatar}", 处理后="${newMessage.avatar}"`)
-        console.log(`WebSocket消息类型识别: 消息内容="${messageData.message}", 识别类型="${messageType}", 发送者="${senderName}"`)
+        console.log(`WebSocket消息类型识别: 直接使用type字段="${messageType}", 消息内容="${messageData.message}", 发送者="${senderName}"`)
         
         // 检查消息是否已存在（避免重复添加）
         const existingMessage = messages.value.find(m => m.id === newMessage.id)
@@ -313,19 +310,34 @@ const disconnectWebSocket = () => {
 
 // 将API返回的MessageVO转换为前端消息格式
 const convertMessageVOToMessage = async (messageVO) => {
-    // 判断消息类型
+    console.log('=== 历史消息VO调试信息 ===')
+    console.log('MessageVO结构:', messageVO)
+    console.log('MessageVO的所有属性:')
+    for (let key in messageVO) {
+        console.log(`  ${key}:`, messageVO[key], `(类型: ${typeof messageVO[key]})`)
+    }
+    console.log('=== 历史消息VO调试信息结束 ===')
+    // 判断消息类型 - 优先使用type字段，否则通过消息内容推断
     let messageType = 'unknown'
     
-    if (messageVO.message.includes('邀请')) {
-        messageType = 'project_invite'
-    } else if (messageVO.message.includes('申请')) {
-        messageType = 'project_apply'
-    } else if (messageVO.message.includes('更新了个人研究状态') || messageVO.message.includes('研究状态更新')) {
-        messageType = 'researcher_update'
-    } else if (messageVO.message.includes('希望获取') || messageVO.message.includes('数据集') || messageVO.message.includes('全文')) {
-        messageType = 'data_request'
-    } else if (messageVO.message.includes('回复了您关注的问题') || messageVO.message.includes('问题回复')) {
-        messageType = 'question_reply'
+    if (messageVO.type) {
+        // 如果MessageVO有type字段，直接使用
+        messageType = messageVO.type
+        console.log(`历史消息直接使用type字段: ${messageType}`)
+    } else {
+        // 否则通过消息内容推断
+        if (messageVO.message.includes('邀请')) {
+            messageType = 'project_invite'
+        } else if (messageVO.message.includes('申请')) {
+            messageType = 'project_apply'
+        } else if (messageVO.message.includes('发布了新的成果') || messageVO.message.includes('更新了个人研究状态') || messageVO.message.includes('研究状态更新') || messageVO.message.includes('更新了研究状态')) {
+            messageType = 'researcher_update'
+        } else if (messageVO.message.includes('希望获取') || messageVO.message.includes('数据集') || messageVO.message.includes('全文') || messageVO.message.includes('请求数据')) {
+            messageType = 'data_request'
+        } else if (messageVO.message.includes('回复了您关注的问题') || messageVO.message.includes('问题回复') || messageVO.message.includes('回复了问题')) {
+            messageType = 'question_reply'
+        }
+        console.log(`历史消息通过内容推断类型: ${messageType}, 消息内容: "${messageVO.message}"`)
     }
     
     // 获取发送者真实姓名
@@ -361,7 +373,7 @@ const convertMessageVOToMessage = async (messageVO) => {
         status: messageStatus
     }
         
-        console.log(`消息转换: ID=${messageVO.messageId}, 消息内容="${messageVO.message}", 识别类型="${messageType}", 发送者="${senderName}", 原始头像="${messageVO.avatar}", 处理后头像="${convertedMessage.avatar}", status="${messageVO.status}", isAccepted="${messageVO.isAccepted}" → read=${isRead}, status="${convertedMessage.status}"`)
+        console.log(`历史消息转换: ID=${messageVO.messageId}, 消息内容="${messageVO.message}", 推断类型="${messageType}", 发送者="${senderName}", 原始头像="${messageVO.avatar}", 处理后头像="${convertedMessage.avatar}", status="${messageVO.status}", isAccepted="${messageVO.isAccepted}" → read=${isRead}, status="${convertedMessage.status}"`)
         
         return convertedMessage
 }
@@ -500,14 +512,34 @@ const handleProjectApply = async (messageId, accepted) => {
 }
 
 // 处理标记已读
-const handleMarkAsRead = (messageId) => {
+const handleMarkAsRead = async (messageId) => {
     const message = messages.value.find(m => m.id === messageId)
-    if (message) {
-        console.log(`消息已标记为已读:`, messageId)
-        message.status = 'processed'
-        message.read = true
-        callSuccess('消息已标记为已读')
-        // TODO: 调用后端接口标记消息为已读
+    if (!message) {
+        console.error('未找到消息:', messageId)
+        return
+    }
+    
+    try {
+        console.log(`开始标记消息为已读:`, messageId)
+        
+        // 调用后端接口标记消息为已读
+        const success = await markAsRead({
+            messageIds: [messageId]
+        })
+        
+        if (success) {
+            // 更新前端状态
+            message.status = 'processed'
+            message.read = true
+            console.log(`消息ID ${messageId} 已标记为已读，未读数量将更新`)
+            callSuccess('消息已标记为已读')
+        } else {
+            // 接口调用失败的错误信息已在API中处理
+            console.error('标记已读失败')
+        }
+    } catch (error) {
+        console.error('标记已读时发生错误:', error)
+        callError('标记已读时发生错误')
     }
 }
 
