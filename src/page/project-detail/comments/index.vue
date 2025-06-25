@@ -41,7 +41,7 @@
                         :loading="comment.likeLoading"
                     >
                         {{ comment.likeCount }}
-                    </el-button>
+                                </el-button>
                 </div>
             </div>
             <div class="comment-body">
@@ -448,7 +448,7 @@ export default {
                 deleteVisible.value = false;
                 return;
             }
-            
+
             try {
                 deleteVisible.value = false;
                 
