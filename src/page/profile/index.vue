@@ -19,9 +19,16 @@
                 
                 <div class="avatar-section">
                     <img :src="userInfo.avatar" alt="用户头像" class="user-avatar" @error="altImg"/>
-                    <div v-if="isOwnProfile" class="avatar-overlay" @click="changeAvatar">
-                        <el-icon><Camera /></el-icon>
-                    </div>
+                    <el-tooltip 
+                        v-if="isOwnProfile" 
+                        content="头像大小限制3MB" 
+                        placement="top" 
+                        effect="light"
+                    >
+                        <div class="avatar-overlay" @click="changeAvatar">
+                            <el-icon><Camera /></el-icon>
+                        </div>
+                    </el-tooltip>
                 </div>
                 
                 <div class="basic-info">
@@ -257,7 +264,7 @@
         @close="closeEditProfileDialog"
     >
         <div class="edit-profile-dialog">
-            <el-form :model="editProfileForm" label-width="100px">
+            <el-form :model="editProfileForm" label-width="100px" ref="editProfileFormRef" :rules="editProfileRules">
                 <el-form-item label="真实姓名" required>
                     <el-input
                         v-model="editProfileForm.name"
@@ -281,9 +288,11 @@
                         type="textarea"
                         :rows="4"
                         placeholder="请输入您的个人简介..."
-                        maxlength="200"
-                        show-word-limit
+                        @input="onProfileInput"
                     />
+                    <div style="text-align:right;color:#999;font-size:12px;">
+                        {{ profileWordCount }} / 200 字/单词
+                    </div>
                 </el-form-item>
             </el-form>
         </div>
@@ -540,9 +549,9 @@ export default {
                     return;
                 }
                 
-                // 验证文件大小（限制为5MB）
-                if (file.size > 5 * 1024 * 1024) {
-                    callError('图片大小不能超过5MB');
+                // 验证文件大小（限制为3MB）
+                if (file.size > 3 * 1024 * 1024) {
+                    callError('图片大小不能超过3MB');
                     return;
                 }
                 
@@ -731,6 +740,16 @@ export default {
             profile: ''
         })
 
+        const profileWordCount = computed(() => {
+            const val = editProfileForm.value.profile || ''
+            const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+            const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+            return cn + en
+        })
+        const onProfileInput = () => {
+            editProfileFormRef.value && editProfileFormRef.value.validateField && editProfileFormRef.value.validateField('profile')
+        }
+
         // 打开编辑资料对话框
         const openEditProfileDialog = () => {
             editProfileForm.value = {
@@ -809,6 +828,22 @@ export default {
             return null;
         };
 
+        const editProfileFormRef = ref()
+        const editProfileRules = {
+            profile: [
+                { validator: (rule, value, callback) => {
+                    const val = value || ''
+                    const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+                    const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+                    if (cn + en > 200) {
+                        callback(new Error('个人简介不能超过200字/单词'))
+                    } else {
+                        callback()
+                    }
+                }, trigger: 'blur' }
+            ]
+        }
+
         return {
             userInfo,
             loading,
@@ -840,7 +875,11 @@ export default {
             formatGraduationDateForEdit,
             isOwnProfile,
             userProjects,
-            userId
+            userId,
+            profileWordCount,
+            onProfileInput,
+            editProfileFormRef,
+            editProfileRules
         }
     }
 }

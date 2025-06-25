@@ -1,54 +1,67 @@
 <template>
-    <div class="stats">
-        <div class="stat">
-            <div style="font-size: 20px">成员数</div>
-            <div :style="{ color: getColor(memberCount), fontSize: '18px' }">{{ formatNumber(memberCount) }}</div>
-        </div>
-        <div class="stat">
-            <div style="font-size: 20px">评论数</div>
-            <div :style="{ color: getColor(comments), fontSize: '18px' }">{{ formatNumber(comments) }}</div>
-        </div>
-        <div class="stat">
-            <div style="font-size: 20px">收藏数</div>
-            <div :style="{ color: getColor(favorites), fontSize: '18px' }">{{ formatNumber(favorites) }}</div>
-        </div>
-    </div>
-    <hr>
-
     <div class="owner-info-card">
         <div class="card-header">
             <h3>关于项目负责人</h3>
         </div>
         <div class="card-body">
             <div class="owner-profile">
-                <!-- <img :src="owner.avatar" alt="owner avatar" class="avatar"> -->
-                <img src="../assets/default_avatar.png" alt="owner avatar" class="avatar">
+                <img :src="owner.avatar || '../assets/default_avatar.png'" alt="owner avatar" class="avatar">
                 <div class="owner-details">
                     <div class="owner-name">{{ owner.name }}</div>
-                    <div class="owner-title">{{ owner.title }}</div>
                     <div class="owner-institution">{{ owner.institution }}</div>
+                    <div class="owner-title">{{ owner.jobTitle }}</div>
                 </div>
             </div>
             <hr>
             <div class="info-section">
                 <h4>研究领域</h4>
-                <p>{{ owner.research_area }}</p>
+                <p>{{ owner.field || '暂无信息' }}</p>
             </div>
             <div class="info-section">
                 <h4>教育背景</h4>
-                <p>{{ owner.education }}</p>
+                <p>{{ formatEducation() }}</p>
             </div>
             <div class="info-section">
                 <h4>个人简介</h4>
-                <p class="bio">{{ owner.bio }}</p>
+                <p class="bio">{{ owner.profile || '暂无信息' }}</p>
             </div>
              <div class="info-section">
                 <h4>联系方式</h4>
-                <p>{{ owner.email }}</p>
+                <p>{{ owner.email || '暂无信息' }}</p>
+            </div>
+            <div class="info-section">
+                <h4>统计数据</h4>
+                <p>研究成果获赞: {{ owner.totalOutcomeLikes || 0 }}</p>
+                <p>关注人数: {{ owner.followersCount || 0 }}</p>
             </div>
         </div>
         <div class="card-footer">
             <el-button type="primary" plain @click="viewProfile">查看完整资料</el-button>
+        </div>
+    </div>
+    
+    <!-- 项目研究成果列表 -->
+    <div class="research-outcomes" v-if="researchOutcomes && researchOutcomes.length > 0">
+        <div class="card-header">
+            <h3>项目研究成果</h3>
+        </div>
+        <div class="card-body">
+            <div v-for="(outcome, index) in researchOutcomes" :key="index" class="outcome-item">
+                <div class="outcome-title" @click="goToOutcome(outcome.outcomeId)">
+                    {{ outcome.title }}
+                </div>
+                <div class="outcome-meta">
+                    <span v-if="outcome.authors">作者: {{ outcome.authors }}</span>
+                    <span v-if="outcome.publishDate">发表日期: {{ formatDate(outcome.publishDate) }}</span>
+                    <span v-if="outcome.journal">期刊: {{ outcome.journal }}</span>
+                    <span v-if="outcome.type" class="outcome-type">{{ outcome.type }}</span>
+                </div>
+                <div class="outcome-stats">
+                    <span class="likes">
+                        <i class="el-icon-star-on"></i> {{ outcome.likeCount || 0 }}
+                    </span>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -67,97 +80,83 @@ export default {
     },
     data() {
         return {
-            comments: ref(3),
-            favorites: ref(1),
-            memberCount: ref(5),
             owner: {
-                user_id: 1,
-                email: 'zhang.san@example.com',
-                name: '张三',
-                education: '博士 (计算机科学)',
-                bio: '人工智能领域的资深专家，专注于机器学习和自然语言处理。致力于将前沿技术应用于解决实际问题，拥有超过15年的研发经验。',
-                research_area: '机器学习, 自然语言处理, 计算机视觉',
-                institution: '清华大学医学院',
-                title: '教授 / 博士生导师',
-                avatar: 'https://i.pravatar.cc/150?img=1'
-            }
+                id: 0,
+                account: '',
+                email: '',
+                name: '项目负责人',
+                institution: '',
+                field: '',
+                profile: '',
+                avatar: '',
+                createTime: '',
+                jobTitle: '',
+                department: '',
+                highestDegree: '',
+                graduateSchool: '',
+                major: '',
+                graduationDate: '',
+                totalOutcomeLikes: 0,
+                followersCount: 0
+            },
+            researchOutcomes: []
         }
     },
     computed: {
-        // 计算属性获取统计数据
-        projectStats() {
-            if (!this.work || !this.work.stats) {
-                return { visitCount: 0, comments: 0, favorites: 0, memberCount: 0 };
-            }
-            return this.work.stats;
-        }
+        // 不需要统计数据的计算属性
     },
     mounted() {
-        // 更新统计数据
-        this.updateStats();
+        // 不再需要更新统计数据
     },
     methods: {
-        updateStats() {
-            if (this.work && this.work.stats) {
-                this.memberCount = this.projectStats.memberCount || 0;
-                this.comments = this.projectStats.comments || 0;
-                this.favorites = this.projectStats.favorites || 0;
-            }
-        },
-        getColor(value) {
-            if (value < 10) {
-                return '#4994c4';
-            }
-            if(value < 1000) {
-                return '#003d74';
-            }
-            else {
-                return '#2e59a7';
-            }
-        },
-        formatNumber(value) {
-            if (!value && value !== 0) return '0';
-            if (value >= 1000000) {
-                return (value / 1000000).toFixed(1) + ' M';
-            } else if (value >= 1000) {
-                return (value / 1000).toFixed(1) + ' K';
-            } else {
-                return value.toString();
-            }
-        },
-        goToField(fieldName) {
-            window.open(`/search/null/2/${fieldName}`,'_self');
-        },
-        goToAchievement(id) {
-            window.open("/outcome-detail/"+id,'_self');
-        },
         viewProfile() {
-            window.open(`/profile/${this.owner.user_id}`, '_blank');
-        }
-    },
-    setup() {
-        function modifyTitle(s) {
-            if (!s) return '';
-            return s.replace(/\(<i>.*?<\/i>\)/g, '').replace(/<scp>.*?<\/scp>/g, '');
-        }
-        return {
-            modifyTitle,
+            if (this.owner && this.owner.id) {
+                window.open(`/profile/${this.owner.id}`, '_blank');
+            }
+        },
+        formatEducation() {
+            const { highestDegree, graduateSchool, major, graduationDate } = this.owner;
+            let education = [];
+            
+            if (highestDegree) education.push(highestDegree);
+            if (major) education.push(major);
+            if (graduateSchool) education.push(graduateSchool);
+            if (graduationDate) education.push(`毕业于 ${graduationDate}`);
+            
+            return education.length > 0 ? education.join(', ') : '暂无信息';
+        },
+        formatDate(date) {
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return new Date(date).toLocaleDateString(undefined, options);
+        },
+        goToOutcome(outcomeId) {
+            if (!outcomeId) return;
+            window.open(`/outcome-detail/${outcomeId}`, '_blank');
         }
     },
     watch: {
         work: {
             handler(newWork) {
-                if (newWork && newWork.researcherList && newWork.researcherList.length > 0) {
+                // 当接收到新的work数据时，更新项目负责人信息
+                if (newWork && newWork.userDetail) {
+                    this.owner = {
+                        ...this.owner,
+                        ...newWork.userDetail
+                    };
+                } else if (newWork && newWork.researcherList && newWork.researcherList.length > 0) {
+                    // 兼容旧的数据结构
                     const projectLead = newWork.researcherList.find(r => r.role === '项目负责人') || newWork.researcherList[0];
                     if (projectLead) {
                         this.owner.name = projectLead.name || this.owner.name;
                         this.owner.institution = projectLead.institution || this.owner.institution;
-                        this.owner.user_id = projectLead.id || this.owner.user_id;
+                        this.owner.id = projectLead.id || this.owner.id;
                     }
                 }
                 
-                // 当work更新时，更新统计数据
-                this.updateStats();
+                // 更新研究成果列表
+                if (newWork && Array.isArray(newWork.researchOutcomes)) {
+                    this.researchOutcomes = newWork.researchOutcomes;
+                }
             },
             immediate: true,
             deep: true
@@ -167,22 +166,6 @@ export default {
 </script>
 
 <style scoped>
-.stats {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    height: 100px;
-    padding: 10px;
-    box-sizing: border-box;
-    margin-top: 10px;
-    align-items: center;
-}
-.stat {
-    text-align: center;
-    line-height: 1.5;
-    padding: 5px;
-    box-sizing: border-box;
-}
 .small-title {
     text-align: left;
     font-weight: bold;
@@ -214,17 +197,21 @@ hr {
     border: 1px solid #e0e0e0;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
     font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
 }
 
 .card-header {
     padding: 15px 20px;
     border-bottom: 1px solid #e0e0e0;
+    background-color: #f9f9f9;
+    border-radius: 8px 8px 0 0;
 }
 
 .card-header h3 {
     margin: 0;
-    font-size: 1.2rem;
+    color: #333;
+    font-size: 18px;
     font-weight: 600;
 }
 
@@ -232,35 +219,43 @@ hr {
     padding: 20px;
 }
 
+.card-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #e0e0e0;
+    text-align: center;
+    background-color: #f9f9f9;
+    border-radius: 0 0 8px 8px;
+}
+
 .owner-profile {
     display: flex;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
 }
 
 .avatar {
     width: 60px;
     height: 60px;
     border-radius: 50%;
-    margin-right: 15px;
-    border: 2px solid #f0f0f0;
+    object-fit: cover;
+    border: 2px solid #e0e0e0;
 }
 
 .owner-details {
-    display: flex;
-    flex-direction: column;
+    margin-left: 15px;
 }
 
 .owner-name {
-    font-size: 1.1rem;
-    font-weight: bold;
+    font-size: 18px;
+    font-weight: 600;
     color: #333;
+    margin-bottom: 5px;
 }
 
-.owner-title, .owner-institution {
-    font-size: 0.9rem;
+.owner-institution, .owner-title {
+    font-size: 14px;
     color: #666;
-    margin-top: 4px;
+    margin-bottom: 3px;
 }
 
 .info-section {
@@ -269,26 +264,89 @@ hr {
 
 .info-section h4 {
     margin: 0 0 8px 0;
-    font-size: 0.95rem;
-    font-weight: 600;
+    font-size: 16px;
     color: #333;
+    font-weight: 600;
 }
 
 .info-section p {
     margin: 0;
-    font-size: 0.9rem;
-    color: #555;
+    font-size: 14px;
+    color: #666;
     line-height: 1.5;
 }
 
 .bio {
-    text-align: justify;
+    max-height: 80px;
+    overflow-y: auto;
 }
 
-.card-footer {
-    padding: 15px 20px;
+.research-outcomes {
+    margin-top: 20px;
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.outcome-item {
+    padding: 15px;
+    border-bottom: 1px solid #e0e0e0;
+    transition: background-color 0.2s;
+}
+
+.outcome-item:last-child {
+    border-bottom: none;
+}
+
+.outcome-item:hover {
     background-color: #f9f9f9;
-    border-top: 1px solid #e0e0e0;
-    text-align: center;
+}
+
+.outcome-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+    margin-bottom: 8px;
+}
+
+.outcome-title:hover {
+    color: #1890ff;
+    text-decoration: underline;
+}
+
+.outcome-meta {
+    margin-top: 5px;
+    font-size: 13px;
+    color: #666;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.outcome-type {
+    background-color: #e6f7ff;
+    color: #1890ff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.outcome-stats {
+    margin-top: 8px;
+    text-align: right;
+}
+
+.likes {
+    font-size: 13px;
+    color: #ff4d4f;
+    display: inline-flex;
+    align-items: center;
+}
+
+.likes i {
+    margin-right: 3px;
 }
 </style>

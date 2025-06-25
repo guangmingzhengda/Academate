@@ -192,14 +192,16 @@ export default {
                                 budget: projectData.budget || "",
                                 institution: projectData.institution || { name: "" }
                             },
+                            userDetail: projectData.userDetail || null,
                             researcherList: Array.isArray(projectData.researcherList) ? projectData.researcherList : [],
-                            subfield: projectData.subfield || "",
+                            subfield: projectData.field || "",
                             stats: {
                                 visitCount: projectData.visitCount || 0,
                                 comments: projectData.commentCount || 0,
                                 favorites: projectData.favoriteCount || 0,
                                 memberCount: projectData.memberCount || 0
-                            }
+                            },
+                            researchOutcomes: Array.isArray(projectData.researchOutcomes) ? projectData.researchOutcomes : []
                         };
                         
                         console.log("处理后的项目数据:", JSON.stringify(this.project));
