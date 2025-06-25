@@ -99,6 +99,9 @@ export interface ResearchOutcomeVO {
   
   /** 作者列表 */
   authorList?: ResourceOutcomeAuthorVO[];
+  
+  /** 是否是当前用户的成果 */
+  isMine?: boolean;
 }
 
 /**
@@ -165,6 +168,25 @@ export interface OutcomeCommentRequest {
 }
 
 /**
+ * 研究成果元数据上传请求接口
+ */
+export interface ResearchOutcomeMetaUploadRequest {
+  outcomeId?: number; // 修改时需要提供
+  type?: string;
+  title?: string;
+  authors?: string;
+  journal?: string;
+  volume?: number;
+  issue?: number;
+  pages?: number;
+  publishDate?: string;
+  doi?: string;
+  patentNumber?: string;
+  abstractContent?: string;
+  category?: string;
+}
+
+/**
  * 根据成果ID获取研究成果信息
  * @param outcomeId 成果ID
  * @returns 研究成果信息
@@ -201,10 +223,10 @@ export async function uploadResearchFile(outcomeId: number, file: File): Promise
     
     // 创建FormData对象
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('multipartFile', file);
     
     // 发送请求
-    const response = await axios.post(`/research_outcome/upload_file?id=${outcomeId}`, formData, {
+    const response = await axios.post(`/research_outcome/upload_file?outcomeId=${outcomeId}`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -321,4 +343,31 @@ function organizeComments(comments: CommentVO[]): CommentVO[] {
   });
   
   return rootComments;
+}
+
+/**
+ * 修改研究成果元数据
+ * @param data 研究成果元数据
+ * @returns 修改结果
+ */
+export async function updateResearchOutcomeMeta(data: ResearchOutcomeMetaUploadRequest): Promise<boolean> {
+  try {
+    if (!data.outcomeId) {
+      callError("缺少成果ID");
+      return false;
+    }
+    
+    const response = await axios.post('/research_outcome/upload_meta', data);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess("成果信息更新成功");
+      return true;
+    } else {
+      callError("更新研究成果信息失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error) {
+    callError("更新研究成果信息失败: " + error);
+    return false;
+  }
 }

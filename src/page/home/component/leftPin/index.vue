@@ -10,16 +10,12 @@
                     </a>
                 </div>
                 <hr>
-
                 <div :style="listStyle">
-
                     <recommend-button v-if="rTitle === 'recommend'" style="margin-top: 0"
                     v-for="item in recommendList" :r-name="item.name"
-                                      :abstract="item.abstract ? item.abstract.slice(0, 100) + '...' : 'there is no abstract here...'"
+                                      :abstract="item.abstract ? item.abstract : 'there is no abstract here...'"
                     @click="callSearch(item.name)"/>
-
                 </div>
-
             </div>
             </div>
         </fade-box>
@@ -49,45 +45,37 @@ export default {
             offsetT : 0,
             recommendList: [
                 {
-                    name: 'AI and ML',
-                    abstract: "This field focuses on developing algorithms and systems that allow computers to simulate human intelligence, including learning, reasoning, and problem-solving. ML, a subset of AI, emphasizes data-driven algorithms that improve with experience."
+                    name: '人工智能与机器学习',
+                    abstract: "研究如何让计算机模拟人类智能，包括学习、推理和自适应，广泛应用于图像识别、自然语言处理等领域。"
                 },
                 {
-                    name: 'Quantum Computing',
-                    abstract: "Quantum computing explores the use of quantum-mechanical phenomena, such as superposition and entanglement, to perform computation. It promises to solve certain problems faster than classical computers, especially in cryptography and complex simulations."
+                    name: '量子计算',
+                    abstract: "探索利用量子叠加、纠缠等物理现象进行信息处理的新型计算模式，有望在密码学、材料科学等领域实现突破性进展。"
                 },
                 {
-                    name: 'Gene Editing',
-                    abstract: "This research focuses on techniques for modifying the DNA of living organisms. CRISPR, a revolutionary gene-editing tool, allows precise and targeted changes, leading to advancements in genetics, medicine, and agriculture."
+                    name: '基因编辑',
+                    abstract: "聚焦于CRISPR等前沿技术，实现对生物体DNA的精准修改，推动医学、农业和生物技术的革新。"
                 },
                 {
-                    name: 'Environmental Sustainability',
-                    abstract: "This field investigates the causes, impacts, and solutions to global climate change. It includes renewable energy development, carbon capture, and strategies for sustainable environmental management to mitigate human-induced environmental degradation."
+                    name: '环境可持续发展',
+                    abstract: "关注气候变化、可再生能源、碳中和等议题，致力于推动绿色技术和可持续管理，减缓人类活动对环境的影响。"
                 },
                 {
-                    name: 'Neuroscience',
-                    abstract: "Neuroscience studies the brain and nervous system, while brain-computer interfaces (BCIs) explore direct communication between the brain and external devices. This research has applications in treating neurological diseases and enhancing human-machine interactions."
+                    name: '脑科学与脑机接口',
+                    abstract: "研究大脑结构与功能，开发脑机接口技术，实现大脑与外部设备的直接交互，助力神经疾病治疗与人机融合。"
                 },
                 {
-                    name: 'Cryptography',
-                    abstract: "Cybersecurity involves protecting systems, networks, and data from cyber threats, while cryptography focuses on securing communication and data through mathematical algorithms. Both fields are critical to protecting sensitive information in an increasingly digital world."
+                    name: '网络安全与密码学',
+                    abstract: "保护信息系统免受网络攻击，研究加密算法与安全协议，保障数据隐私和数字经济安全。"
                 },
                 {
-                    name: 'Energy Technologies',
-                    abstract: "This research focuses on sustainable energy sources such as solar, wind, hydropower, and geothermal energy. It aims to reduce dependence on fossil fuels and minimize environmental impact through innovations in energy production, storage, and distribution."
+                    name: '新能源技术',
+                    abstract: "开发太阳能、风能等清洁能源，推动储能与智能电网创新，助力能源结构转型与碳减排。"
                 },
                 {
-                    name: 'Robotics and Automation',
-                    abstract: "Robotics involves the design and creation of robots that can perform tasks autonomously or with minimal human intervention. Automation focuses on replacing manual processes with automated systems, enhancing efficiency in manufacturing, healthcare, and other industries."
-                },
-                // {
-                //     name: 'Nanotechnology',
-                //     abstract: "Nanotechnology involves manipulating materials at the nanoscale (atomic or molecular level) to create new materials and devices with unique properties. Applications include medicine, electronics, and materials science."
-                // },
-                // {
-                //     name: 'Space Exploration',
-                //     abstract: "Space exploration investigates the possibility of life beyond Earth and the technologies necessary for exploring outer space. Astrobiology focuses on understanding the origins, evolution, and distribution of life in the universe, including on other planets."
-                // }
+                    name: '机器人与自动化',
+                    abstract: "设计和制造能够自主或半自主完成任务的机器人系统，推动制造、医疗、服务等行业的智能化升级。"
+                }
             ]
         }
     },

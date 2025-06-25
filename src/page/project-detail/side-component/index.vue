@@ -1,20 +1,4 @@
 <template>
-    <div class="stats">
-        <div class="stat">
-            <div style="font-size: 20px">成员数</div>
-            <div :style="{ color: getColor(memberCount), fontSize: '18px' }">{{ formatNumber(memberCount) }}</div>
-        </div>
-        <div class="stat">
-            <div style="font-size: 20px">评论数</div>
-            <div :style="{ color: getColor(comments), fontSize: '18px' }">{{ formatNumber(comments) }}</div>
-        </div>
-        <div class="stat">
-            <div style="font-size: 20px">收藏数</div>
-            <div :style="{ color: getColor(favorites), fontSize: '18px' }">{{ formatNumber(favorites) }}</div>
-        </div>
-    </div>
-    <hr>
-
     <div class="owner-info-card">
         <div class="card-header">
             <h3>关于项目负责人</h3>
@@ -96,9 +80,6 @@ export default {
     },
     data() {
         return {
-            comments: ref(3),
-            favorites: ref(1),
-            memberCount: ref(5),
             owner: {
                 id: 0,
                 account: '',
@@ -122,42 +103,15 @@ export default {
         }
     },
     computed: {
-        // 计算属性获取统计数据
-        projectStats() {
-            if (!this.work || !this.work.stats) {
-                return { visitCount: 0, comments: 0, favorites: 0, memberCount: 0 };
-            }
-            return this.work.stats;
-        }
+        // 不需要统计数据的计算属性
     },
     mounted() {
-        // 更新统计数据
-        this.updateStats();
+        // 不再需要更新统计数据
     },
     methods: {
-        formatNumber(num) {
-            if (num === undefined || num === null) return '0';
-            if (num < 1000) return num.toString();
-            if (num < 10000) return (num / 1000).toFixed(1) + 'k';
-            return (num / 10000).toFixed(1) + 'w';
-        },
-        getColor(num) {
-            if (num === undefined || num === null) num = 0;
-            if (num >= 1000) return '#f5222d';
-            if (num >= 100) return '#fa8c16';
-            if (num >= 10) return '#52c41a';
-            return '#1890ff';
-        },
         viewProfile() {
             if (this.owner && this.owner.id) {
                 window.open(`/profile/${this.owner.id}`, '_blank');
-            }
-        },
-        updateStats() {
-            if (this.work && this.work.stats) {
-                this.comments = this.work.stats.comments || 0;
-                this.favorites = this.work.stats.favorites || 0;
-                this.memberCount = this.work.stats.memberCount || 0;
             }
         },
         formatEducation() {
@@ -203,9 +157,6 @@ export default {
                 if (newWork && Array.isArray(newWork.researchOutcomes)) {
                     this.researchOutcomes = newWork.researchOutcomes;
                 }
-                
-                // 当work更新时，更新统计数据
-                this.updateStats();
             },
             immediate: true,
             deep: true
@@ -215,22 +166,6 @@ export default {
 </script>
 
 <style scoped>
-.stats {
-    display: flex;
-    justify-content: space-between;
-    width: 100%;
-    height: 100px;
-    padding: 10px;
-    box-sizing: border-box;
-    margin-top: 10px;
-    align-items: center;
-}
-.stat {
-    text-align: center;
-    line-height: 1.5;
-    padding: 5px;
-    box-sizing: border-box;
-}
 .small-title {
     text-align: left;
     font-weight: bold;
