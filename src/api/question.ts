@@ -259,4 +259,123 @@ export async function cancelLikeAnswer(uid: number, answerId: number): Promise<b
     callError("取消点赞失败: " + error);
     return false;
   }
+}
+
+// 获取我关注的问题列表接口响应
+export interface FollowedQuestionAnswerVO {
+    answerId: number;
+    questionId: number;
+    answerText: string;
+    answeredAt: string;
+    userId: number;
+    userName: string;
+    userAvatar: string;
+    layer: number;
+    parentAnswer: number;
+    likeCount: number;
+    isLiked: boolean;
+}
+
+export interface FollowedQuestionVO {
+    questionId: number;
+    questionTitle: string;
+    questionDescription: string;
+    askedAt: string;
+    userId: number;
+    userName: string;
+    userAvatar: string;
+    answers: FollowedQuestionAnswerVO[];
+    answerCount: number;
+    likeCount: number;
+    isLiked: boolean;
+    followCount: number;
+    isFollowed: boolean;
+}
+
+export interface BaseResponseListQuestionVO {
+    code: number;
+    data: FollowedQuestionVO[];
+    message: string;
+}
+
+/**
+ * 获取我关注的问题列表
+ * @param params 分页参数
+ * @returns 关注的问题列表
+ */
+export async function getMyFollowedQuestions(params?: { current?: number; size?: number }): Promise<FollowedQuestionVO[]> {
+    try {
+        const response = await axios.get<BaseResponseListQuestionVO>('/question/my/followed', {
+            params: params,
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        if (response.status === 200) {
+            if (response.data.code === 0) {
+                return response.data.data;
+            } else {
+                callError(response.data.message || '获取关注问题失败');
+                return [];
+            }
+        } else {
+            callError('网络错误');
+            return [];
+        }
+    } catch (error) {
+        callError('请求失败');
+        return [];
+    }
+}
+
+/**
+ * 关注问题
+ * @param uid 用户ID
+ * @param questionId 问题ID
+ * @returns 是否成功
+ */
+export async function followQuestion(uid: number, questionId: number): Promise<boolean> {
+    try {
+        const response = await axios.post('/question/follow/follow', null, {
+            params: { uid, questionId },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        if (response.status === 200 && response.data.code === 0) {
+            return true;
+        } else {
+            callError(response.data.message || '关注失败');
+            return false;
+        }
+    } catch (error) {
+        callError('关注失败');
+        return false;
+    }
+}
+
+/**
+ * 取消关注问题
+ * @param uid 用户ID
+ * @param questionId 问题ID
+ * @returns 是否成功
+ */
+export async function cancelFollowQuestion(uid: number, questionId: number): Promise<boolean> {
+    try {
+        const response = await axios.post('/question/follow/cancel_follow', null, {
+            params: { uid, questionId },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        if (response.status === 200 && response.data.code === 0) {
+            return true;
+        } else {
+            callError(response.data.message || '取消关注失败');
+            return false;
+        }
+    } catch (error) {
+        callError('取消关注失败');
+        return false;
+    }
 } 
