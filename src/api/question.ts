@@ -410,13 +410,15 @@ export async function acceptAnswer(questionId: number, answerId: number): Promis
  */
 export async function deleteAnswer(answerId: number): Promise<boolean> {
   try {
-    const response = await axios.post(`/question/answer/delete`, null, {
-      params: { answerId },
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
-    });
+    // const response = await axios.post(`/question/answer/delete`, null, {
+    //   params: { answerId },
+    //   headers: {
+    //     'Content-Type': 'application/x-www-form-urlencoded'
+    //   }
+    // });
     
+    const response = await axios.post(`/question/answer/delete/${answerId}`);
+
     if (response.status === 200 && response.data.code === 0) {
       return true;
     } else {
@@ -444,14 +446,7 @@ export interface AnswerUpdateRequest {
  */
 export async function updateAnswer(answerId: number, data: AnswerUpdateRequest): Promise<boolean> {
   try {
-    const response = await axios.post(`/question/answer/update`, {
-      answerId,
-      ...data
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+    const response = await axios.post(`/question/answer/update/${answerId}`, data);
     
     if (response.status === 200 && response.data.code === 0) {
       return true;
