@@ -103,6 +103,16 @@ const router = createRouter({
             },
         },
 
+        // PDF阅读器
+        {
+            path: '/pdf-reader',
+            name: 'pdf-reader',
+            component: defineAsyncComponent(() => import(`../page/pdf-reader/index.vue`)),
+            meta: {
+                title: 'PDF阅读器',
+            },
+        },
+
         {
             path: '/:catchAll(.*)',
             redirect: '/login',

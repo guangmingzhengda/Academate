@@ -39,9 +39,14 @@ module.exports = defineConfig({
     },
   },
   configureWebpack: {
-
     resolve: {
-      extensions: ['.ts', '.js', '.vue', '.json']
+      extensions: ['.ts', '.js', '.vue', '.json'],
+      fallback: {
+        "stream": false,
+        "crypto": false,
+        "path": false,
+        "fs": false
+      }
     },
     module: {
       rules: [
@@ -53,6 +58,11 @@ module.exports = defineConfig({
             transpileOnly: true
           },
           exclude: /node_modules/
+        },
+        {
+          test: /\.mjs$/,
+          include: /node_modules/,
+          type: "javascript/auto"
         }
       ]
     },
@@ -78,5 +88,17 @@ module.exports = defineConfig({
       maxEntrypointSize: 1024000,
       maxAssetSize: 1024000,
     },
+  },
+  chainWebpack: config => {
+    // 处理PDF.js相关文件
+    config.module
+      .rule('pdf')
+      .test(/\.pdf$/)
+      .use('file-loader')
+      .loader('file-loader')
+      .options({
+        name: '[name].[ext]',
+        outputPath: 'assets/'
+      })
   }
 })
