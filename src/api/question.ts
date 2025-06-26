@@ -29,6 +29,7 @@ export interface QuestionDetailVO {
     answerCount: number;
     likeCount: number;
     isLiked: boolean;
+    acceptAnswer?: number; // 被采纳的回答ID，如果为空则表示没有采纳的回答
 }
 
 interface QuestionVO {
@@ -378,4 +379,26 @@ export async function cancelFollowQuestion(uid: number, questionId: number): Pro
         callError('取消关注失败');
         return false;
     }
+}
+
+/**
+ * 采纳回答
+ * @param questionId 问题ID
+ * @param answerId 回答ID
+ * @returns 是否采纳成功
+ */
+export async function acceptAnswer(questionId: number, answerId: number): Promise<boolean> {
+  try {
+    const response = await axios.post(`/question/${questionId}/accept/${answerId}`);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return response.data.data;
+    } else {
+      callError(response.data.message || "采纳回答失败");
+      return false;
+    }
+  } catch (error) {
+    callError("采纳回答失败: " + error);
+    return false;
+  }
 } 
