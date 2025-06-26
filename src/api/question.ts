@@ -29,6 +29,7 @@ export interface QuestionDetailVO {
     answerCount: number;
     likeCount: number;
     isLiked: boolean;
+    acceptAnswer?: number; // 被采纳的回答ID，如果为空则表示没有采纳的回答
 }
 
 interface QuestionVO {
@@ -378,4 +379,76 @@ export async function cancelFollowQuestion(uid: number, questionId: number): Pro
         callError('取消关注失败');
         return false;
     }
+}
+
+/**
+ * 采纳回答
+ * @param questionId 问题ID
+ * @param answerId 回答ID
+ * @returns 是否采纳成功
+ */
+export async function acceptAnswer(questionId: number, answerId: number): Promise<boolean> {
+  try {
+    const response = await axios.post(`/question/${questionId}/accept/${answerId}`);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return response.data.data;
+    } else {
+      callError(response.data.message || "采纳回答失败");
+      return false;
+    }
+  } catch (error) {
+    callError("采纳回答失败: " + error);
+    return false;
+  }
+}
+
+/**
+ * 删除回答
+ * @param answerId 回答ID
+ * @returns 是否删除成功
+ */
+export async function deleteAnswer(answerId: number): Promise<boolean> {
+  try {
+    const response = await axios.delete(`/question/answer/${answerId}`);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return response.data.data;
+    } else {
+      callError(response.data.message || "删除回答失败");
+      return false;
+    }
+  } catch (error) {
+    callError("删除回答失败: " + error);
+    return false;
+  }
+}
+
+/**
+ * 回答更新请求
+ */
+export interface AnswerUpdateRequest {
+  answerText: string;
+}
+
+/**
+ * 编辑回答
+ * @param answerId 回答ID
+ * @param data 更新的回答内容
+ * @returns 是否更新成功
+ */
+export async function updateAnswer(answerId: number, data: AnswerUpdateRequest): Promise<boolean> {
+  try {
+    const response = await axios.put(`/question/answer/${answerId}`, data);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return response.data.data;
+    } else {
+      callError(response.data.message || "更新回答失败");
+      return false;
+    }
+  } catch (error) {
+    callError("更新回答失败: " + error);
+    return false;
+  }
 } 

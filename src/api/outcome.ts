@@ -187,6 +187,48 @@ export interface ResearchOutcomeMetaUploadRequest {
 }
 
 /**
+ * 点赞响应接口
+ */
+export interface LikeResponse {
+  /** 响应码 */
+  code: number;
+  
+  /** 响应数据 */
+  data: any;
+  
+  /** 响应消息 */
+  message: string;
+}
+
+/**
+ * 是否点赞响应接口
+ */
+export interface IsLikeResponse {
+  /** 响应码 */
+  code: number;
+  
+  /** 是否已点赞 */
+  data: boolean;
+  
+  /** 响应消息 */
+  message: string;
+}
+
+/**
+ * 点赞数量响应接口
+ */
+export interface LikeCountResponse {
+  /** 响应码 */
+  code: number;
+  
+  /** 点赞数量 */
+  data: number;
+  
+  /** 响应消息 */
+  message: string;
+}
+
+/**
  * 根据成果ID获取研究成果信息
  * @param outcomeId 成果ID
  * @returns 研究成果信息
@@ -357,7 +399,9 @@ export async function updateResearchOutcomeMeta(data: ResearchOutcomeMetaUploadR
       return false;
     }
     
-    const response = await axios.post('/research_outcome/upload_meta', data);
+    console.log('更新成果信息，发送数据:', data);
+    const response = await axios.post('/research_outcome/update_meta', data);
+    console.log('更新成果信息响应:', response);
     
     if (response.status === 200 && response.data.code === 0) {
       callSuccess("成果信息更新成功");
@@ -366,8 +410,113 @@ export async function updateResearchOutcomeMeta(data: ResearchOutcomeMetaUploadR
       callError("更新研究成果信息失败: " + (response.data.message || "未知错误"));
       return false;
     }
-  } catch (error) {
-    callError("更新研究成果信息失败: " + error);
+  } catch (error: any) {
+    console.error('更新成果信息异常:', error);
+    if (error.response) {
+      console.error('响应数据:', error.response.data);
+      console.error('响应状态:', error.response.status);
+    }
+    callError("更新研究成果信息失败: " + (error.message || error));
     return false;
+  }
+}
+
+/**
+ * 点赞成果
+ * @param uid 用户ID
+ * @param outcomeId 成果ID
+ * @returns 点赞结果
+ */
+export async function likeOutcome(uid: number, outcomeId: number): Promise<boolean> {
+  try {
+    const response = await axios.post<LikeResponse>('/outcome_like/like', null, {
+      params: { uid, outcomeId }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess("点赞成功");
+      return true;
+    } else {
+      callError("点赞失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error) {
+    callError("点赞失败: " + error);
+    return false;
+  }
+}
+
+/**
+ * 取消点赞成果
+ * @param uid 用户ID
+ * @param outcomeId 成果ID
+ * @returns 取消点赞结果
+ */
+export async function cancelLikeOutcome(uid: number, outcomeId: number): Promise<boolean> {
+  try {
+    const response = await axios.post<LikeResponse>('/outcome_like/cancel_like', null, {
+      params: { uid, outcomeId }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess("取消点赞成功");
+      return true;
+    } else {
+      callError("取消点赞失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error) {
+    callError("取消点赞失败: " + error);
+    return false;
+  }
+}
+
+/**
+ * 检查用户是否已点赞该成果
+ * @param uid 用户ID
+ * @param outcomeId 成果ID
+ * @returns 是否已点赞
+ */
+export async function isOutcomeLiked(uid: number, outcomeId: number): Promise<boolean> {
+  try {
+    const response = await axios.get<IsLikeResponse>('/outcome_like/is_like', {
+      params: { uid, outcomeId }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return response.data.data;
+    } else {
+      console.error("检查点赞状态失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error) {
+    console.error("检查点赞状态失败: " + error);
+    return false;
+  }
+}
+
+/**
+ * 获取成果点赞数量
+ * @param outcomeId 成果ID
+ * @returns 点赞数量
+ */
+export async function getOutcomeLikeCount(outcomeId: number): Promise<number> {
+  try {
+    const response = await axios.get<LikeCountResponse>('/outcome_like/like_num', {
+      params: {
+        outcomeId: outcomeId
+      }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      console.log(`成果${outcomeId}的点赞数量:`, response.data.data);
+      return response.data.data || 0;
+    } else {
+      console.error("获取点赞数量失败: " + (response.data.message || "未知错误"));
+      return 0;
+    }
+  } catch (error) {
+    console.error("获取点赞数量失败: " + error);
+    return 0;
   }
 }
