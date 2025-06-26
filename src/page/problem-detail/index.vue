@@ -12,7 +12,20 @@
                             </div>
                             <div v-else-if="questionData">
                                 <div class="header-container">
-                                    <div class="header-title">{{ questionData.questionTitle }}</div>
+                                    <div class="title-section">
+                                        <div class="header-title">{{ questionData.questionTitle }}</div>
+                                        <!-- 问题点赞按钮 -->
+                                        <div class="question-like-section">
+                                            <el-button 
+                                                size="small" 
+                                                :type="questionLiked ? 'danger' : 'default'"
+                                                @click="handleQuestionLike"
+                                                :loading="questionLikeLoading"
+                                            >
+                                                {{ questionLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ questionLikeCount }})
+                                            </el-button>
+                                        </div>
+                                    </div>
                                     <div class="info-container">
                                         <div class="detail-info">
                                             <span class="info-label">提问者：</span>
@@ -22,17 +35,6 @@
                                             <span class="info-label">提问时间：</span>
                                             <span>{{ formatDate(questionData.askedAt) }}</span>
                                         </div>
-                                    </div>
-                                    <!-- 问题点赞按钮 -->
-                                    <div class="question-like-section" v-if="false">
-                                        <el-button 
-                                            size="small" 
-                                            :type="questionLiked ? 'danger' : 'default'"
-                                            @click="handleQuestionLike"
-                                            :loading="questionLikeLoading"
-                                        >
-                                            {{ questionLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ questionLikeCount }})
-                                        </el-button>
                                     </div>
                                 </div>
                                 <div class="down-container">
@@ -827,24 +829,31 @@ export default defineComponent({
     margin-bottom: 24px;
 }
 
+.title-section {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    margin-bottom: 16px;
+    gap: 12px;
+}
+
 .header-title {
     font-size: 28px;
     font-weight: bold;
     line-height: 1.3;
     color: #2c3e50;
-    margin-bottom: 12px;
-    text-align: center;
+    text-align: left;
 }
 
 .info-container {
     margin-bottom: 20px;
+    text-align: left;
 }
 
 .question-like-section {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid #f0f0f0;
-    text-align: left;
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-start;
 }
 
 .detail-info {

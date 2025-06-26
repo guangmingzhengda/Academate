@@ -467,7 +467,7 @@ export async function updateAnswer(answerId: number, data: AnswerUpdateRequest):
  */
 export async function getQuestionLikeCount(questionId: number): Promise<number> {
   try {
-    const response = await axios.post<BaseResponseLong>('/api/question_like/like_count', null, {
+    const response = await axios.post<BaseResponseLong>('/question_like/like_count', null, {
       params: { questionId },
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -494,7 +494,7 @@ export async function getQuestionLikeCount(questionId: number): Promise<number> 
  */
 export async function likeQuestion(uid: number, questionId: number): Promise<boolean> {
   try {
-    const response = await axios.post('/api/question_like/like', null, {
+    const response = await axios.post('/question_like/like', null, {
       params: { uid, questionId },
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -521,7 +521,7 @@ export async function likeQuestion(uid: number, questionId: number): Promise<boo
  */
 export async function cancelLikeQuestion(uid: number, questionId: number): Promise<boolean> {
   try {
-    const response = await axios.post('/api/question_like/cancel_like', null, {
+    const response = await axios.post('/question_like/cancel_like', null, {
       params: { uid, questionId },
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -548,7 +548,7 @@ export async function cancelLikeQuestion(uid: number, questionId: number): Promi
  */
 export async function isQuestionLiked(uid: number, questionId: number): Promise<boolean> {
   try {
-    const response = await axios.post<{ code: number; data: boolean; message: string }>('/api/question_like/is_like', null, {
+    const response = await axios.post<{ code: number; data: boolean; message: string }>('/question_like/is_like', null, {
       params: { uid, questionId },
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
