@@ -380,3 +380,48 @@ export async function deleteProjectComment(commentId: number) {
         return false;
     }
 }
+
+/**
+ * 获取所有发出的邀请信息
+ * @param projectId 项目ID
+ * @returns Promise<any>
+ */
+export async function getProjectInvitations(projectId: number) {
+    try {
+        const response = await axios.get('/message/listInvitation', {
+            params: { projectId }
+        });
+        if (response.data.code === 0) {
+            return response.data.data;
+        } else {
+            callError('获取邀请信息时出错：' + response.data.message);
+            return null;
+        }
+    } catch (error) {
+        callError(error as string);
+        return null;
+    }
+}
+
+/**
+ * 取消邀请消息
+ * @param messageId 消息ID
+ * @returns Promise<boolean>
+ */
+export async function cancelProjectInvitation(messageId: number): Promise<boolean> {
+    try {
+        const response = await axios.post('/project/cancel', null, {
+            params: { messageId }
+        });
+        if (response.data.code === 0) {
+            callSuccess('取消邀请成功');
+            return true;
+        } else {
+            callError('取消邀请失败：' + response.data.message);
+            return false;
+        }
+    } catch (error) {
+        callError('取消邀请失败');
+        return false;
+    }
+}
