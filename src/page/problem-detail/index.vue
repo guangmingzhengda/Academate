@@ -2,7 +2,7 @@
     <div class="bg-container"/>
     <div class="bg-strong-container"/>
     <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 100px">
-        <div style="width: 1400px; margin-bottom: 40px">
+        <div style="width: 1200px; margin-bottom: 40px">
             <el-container class="el-main">
                 <el-row :gutter="20">
                     <el-col :span="17">
@@ -55,11 +55,11 @@
                                                 <div class="answer-actions">
                                                     <el-button 
                                                         size="small" 
-                                                        :type="answer.isLiked ? 'primary' : 'default'"
+                                                        :type="answer.isLiked ? 'danger' : 'default'"
                                                         @click="handleLike(answer)"
                                                         :loading="answer.likeLoading"
                                                     >
-                                                        👍 {{ answer.likeCount }}
+                                                        {{ answer.isLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ answer.likeCount }})
                                                     </el-button>
                                                     <el-button 
                                                         size="small" 
@@ -98,12 +98,19 @@
                                                     >
                                                         ✓ 采纳
                                                     </el-button>
+                                                    
+                                                    <!-- 已采纳状态按钮 -->
+                                                    <el-button 
+                                                        v-if="questionData.acceptAnswer === answer.answerId" 
+                                                        type="success" 
+                                                        size="small" 
+                                                        disabled
+                                                    >
+                                                        ✓ 已采纳
+                                                    </el-button>
                                                 </div>
                                             </div>
-                                            <!-- 采纳标识 -->
-                                            <div v-if="questionData.acceptAnswer === answer.answerId" class="accepted-answer-tag">
-                                                ✓ 已采纳
-                                            </div>
+
                                             <div class="answer-content">{{ answer.answerText }}</div>
                                             
                                             <!-- 嵌套回复 -->
@@ -127,11 +134,11 @@
                                                         <div class="answer-actions">
                                                             <el-button 
                                                                 size="small" 
-                                                                :type="childAnswer.isLiked ? 'primary' : 'default'"
+                                                                :type="childAnswer.isLiked ? 'danger' : 'default'"
                                                                 @click="handleLike(childAnswer)"
                                                                 :loading="childAnswer.likeLoading"
                                                             >
-                                                                👍 {{ childAnswer.likeCount }}
+                                                                {{ childAnswer.isLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ childAnswer.likeCount }})
                                                             </el-button>
                                                             
                                                             <!-- 编辑按钮（仅对自己的回答显示） -->
@@ -178,11 +185,11 @@
                                                                 <div class="answer-actions">
                                                                     <el-button 
                                                                         size="small" 
-                                                                        :type="grandChildAnswer.isLiked ? 'primary' : 'default'"
+                                                                        :type="grandChildAnswer.isLiked ? 'danger' : 'default'"
                                                                         @click="handleLike(grandChildAnswer)"
                                                                         :loading="grandChildAnswer.likeLoading"
                                                                     >
-                                                                        👍 {{ grandChildAnswer.likeCount }}
+                                                                        {{ grandChildAnswer.isLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ grandChildAnswer.likeCount }})
                                                                     </el-button>
                                                                     
                                                                     <!-- 编辑按钮（仅对自己的回答显示） -->
@@ -224,6 +231,10 @@
                                     v-model="answerDialogVisible"
                                     :title="currentParentId ? '回复回答' : '撰写回答'"
                                     width="600px"
+                                    :append-to-body="true"
+                                    :modal-append-to-body="true"
+                                    :close-on-click-modal="false"
+                                    center
                                 >
                                     <el-input
                                         type="textarea"
@@ -244,6 +255,10 @@
                                     v-model="editDialogVisible"
                                     title="编辑回答"
                                     width="600px"
+                                    :append-to-body="true"
+                                    :modal-append-to-body="true"
+                                    :close-on-click-modal="false"
+                                    center
                                 >
                                     <el-input
                                         type="textarea"
@@ -677,11 +692,21 @@ export default defineComponent({
 .el-row {
     margin-left: 0 !important;
     margin-right: 0 !important;
+    align-items: flex-start !important;
 }
 
 .el-col {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    vertical-align: top !important;
+}
+
+.el-col:first-child {
+    padding-right: 10px !important;
+}
+
+.el-col:last-child {
+    padding-left: 10px !important;
 }
 
 .main-container {
@@ -690,8 +715,10 @@ export default defineComponent({
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     padding: 36px 40px 30px 40px;
     margin-bottom: 24px;
+    margin-top: 0;
     transition: all 0.3s ease;
     position: relative;
+    min-height: 900px;
 }
 
 .main-container:hover {

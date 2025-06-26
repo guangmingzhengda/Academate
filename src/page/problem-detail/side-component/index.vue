@@ -337,6 +337,7 @@ export default {
 
 .user-details {
     flex: 1;
+    text-align: left;
 }
 
 .user-name {
