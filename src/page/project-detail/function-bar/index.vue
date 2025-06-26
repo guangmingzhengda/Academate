@@ -1,19 +1,31 @@
 <template>
     <div class="image-container">
         <!-- 评论按钮：creator和participant可见 -->
-        <img v-if="role === 'creator' || role === 'participant'" 
-             src="../assets/comment.png" @click="handleComment" class="image" alt="评论" 
-             title="发表评论"/>
+        <el-tooltip content="发表评论" placement="bottom">
+            <img v-if="role === 'creator' || role === 'participant'" 
+                 src="../assets/comment.png" @click="handleComment" class="image" alt="评论" 
+            />
+        </el-tooltip>
         
         <!-- 邀请按钮：只有creator可见 -->
-        <img v-if="role === 'creator'" 
-             src="../assets/share.png" @click="shareVisible = true" class="image" alt="邀请" 
-             title="邀请用户加入项目"/>
+        <el-tooltip content="邀请用户加入项目" placement="bottom">
+            <img v-if="role === 'creator'" 
+                 src="../assets/share.png" @click="shareVisible = true" class="image" alt="邀请" 
+            />
+        </el-tooltip>
+        
+        <!-- 查看邀请列表按钮：只有creator可见 -->
+        <el-tooltip content="查看邀请列表" placement="bottom">
+            <img v-if="role === 'creator'"
+                 src="../assets/inviteList.png" @click="openInviteList" class="image" alt="邀请列表" />
+        </el-tooltip>
         
         <!-- 申请加入按钮：对非项目成员可见 -->
-        <img v-if="role !== 'creator' && role !== 'participant'" 
-             src="../assets/applyJoin.png" @click="applyJoin" class="image" alt="申请加入" 
-             title="申请加入项目"/>
+        <el-tooltip content="申请加入项目" placement="bottom">
+            <img v-if="role !== 'creator' && role !== 'participant'" 
+                 src="../assets/applyJoin.png" @click="applyJoin" class="image" alt="申请加入" 
+            />
+        </el-tooltip>
              
         <el-dialog
             v-model="shareVisible"
@@ -92,6 +104,46 @@
                 </div>
             </template>
         </el-dialog>
+        <el-dialog
+            v-model="inviteListVisible"
+            title="已发出邀请列表"
+            width="900"
+        >
+            <div v-if="inviteListLoading">
+                <el-skeleton :rows="6" animated style="margin: 30px 0;" />
+            </div>
+            <div v-else-if="inviteList && inviteList.length > 0">
+                <el-table :data="inviteList" border stripe style="width:100%">
+                    <el-table-column label="被邀请人" width="150">
+                        <template #default="scope">
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <el-avatar :src="scope.row.receiverAvatar" size="32" style="background:#f2f6fc;">
+                                    <span v-if="!scope.row.receiverAvatar">{{ scope.row.receiverName?.charAt(0) || '?' }}</span>
+                                </el-avatar>
+                                <span style="font-weight:500;">{{ scope.row.receiverName }}</span>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    <el-table-column prop="message" label="邀请信息"/>
+                    <el-table-column prop="sentAt" label="发送时间" width="160"/>
+                    <el-table-column prop="status" label="状态" width="100"/>
+                    <el-table-column prop="isAccepted" label="是否接受" width="100"/>
+                    <el-table-column label="操作" width="120">
+                        <template #default="scope">
+                            <el-button v-if="scope.row.status === 'pending'" type="danger" size="small" @click="handleCancelInvite(scope.row)">
+                                取消邀请
+                            </el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </div>
+            <div v-else style="text-align:center;color:#999;padding:40px 0;">暂无邀请信息</div>
+            <template #footer>
+                <div class="dialog-footer">
+                    <el-button @click="inviteListVisible = false">关闭</el-button>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
@@ -102,7 +154,8 @@ import store from "@/store";
 import {ElMessage} from "element-plus";
 import { searchUsers } from "@/api/search";
 import { invite } from "@/api/project";
-import { addProjectComment } from "@/page/project-detail/api/api";
+import { addProjectComment, getProjectInvitations, cancelProjectInvitation } from "@/page/project-detail/api/api";
+import { get_user_detail } from "@/api/profile";
 
 export default {
     name: "function-bar",
@@ -149,6 +202,9 @@ export default {
             current: 1,
             pageSize: 10
         });
+        let inviteListVisible = ref(false);
+        let inviteList = ref([]);
+        let inviteListLoading = ref(false);
         
         function resetSearch() {
             searchParams.value = {
@@ -294,6 +350,43 @@ export default {
             loginVisible.value = false;
         }
         
+        async function openInviteList() {
+            inviteListVisible.value = true;
+            inviteListLoading.value = true;
+            const projectId = props.work?.projectDetail?.projectId || props.work?.projectDetail?.id;
+            if (!projectId) {
+                inviteList.value = [];
+                inviteListLoading.value = false;
+                ElMessage.error('项目ID不存在，无法获取邀请列表');
+                return;
+            }
+            const res = await getProjectInvitations(projectId);
+            let list = Array.isArray(res) ? res : [];
+            // 并发获取所有被邀请人信息
+            const userMap = {};
+            await Promise.all(list.map(async (item) => {
+                if (item.receiverId && !userMap[item.receiverId]) {
+                    const user = await get_user_detail({ userId: item.receiverId });
+                    userMap[item.receiverId] = user;
+                }
+            }));
+            // 合并用户信息
+            inviteList.value = list.map(item => ({
+                ...item,
+                receiverName: userMap[item.receiverId]?.name || ('ID:' + item.receiverId),
+                receiverAvatar: userMap[item.receiverId]?.avatar || '',
+            }));
+            inviteListLoading.value = false;
+        }
+        
+        async function handleCancelInvite(row) {
+            if (!row.messageId) return;
+            const ok = await cancelProjectInvitation(row.messageId);
+            if (ok) {
+                openInviteList(); // 刷新列表
+            }
+        }
+        
         return {
             commitComment,
             handleComment,
@@ -306,7 +399,12 @@ export default {
             userList,
             searchParams,
             handleInvite,
-            applyJoin
+            applyJoin,
+            inviteListVisible,
+            inviteList,
+            inviteListLoading,
+            openInviteList,
+            handleCancelInvite
         };
     }
 }

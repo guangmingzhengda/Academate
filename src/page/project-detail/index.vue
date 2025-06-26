@@ -34,6 +34,10 @@
                                         {{project.projectDetail.status}}
                                     </span>
                                 </div>
+                                <div class="detail-info">
+                                    <span class="info-label">合作条件：</span>
+                                    <span>{{project.projectDetail.collaborationRequirement || "暂无"}}</span>
+                                </div>
                                 <div class="detail-info" v-if="project.projectDetail.endDate">
                                     <span class="info-label">结束日期：</span>
                                     <span>{{formatDate(project.projectDetail.endDate)}}</span>
@@ -51,25 +55,22 @@
                                     <span>{{project.subfield}}</span>
                                 </div>
                             </div>
-                            <function-bar :work="project" :achievement-name="project.projectDetail.title" :role="role"/>
+                            <div class="function-bar-align">
+                                <function-bar :work="project" :achievement-name="project.projectDetail.title" :role="role"/>
+                            </div>
                         </div>
                         <div v-if="role === 'creator' || role === 'participant'">
-                            <div class="down-container">
-                                <div class="abstract-title">项目描述</div>
-                                <div class="abstract-content" id="description">
+                            <div class="info-card">
+                                <div class="info-card-title">项目描述</div>
+                                <div class="info-card-content" id="description">
                                     {{project.projectDetail.description === "" ? "该项目暂无详细描述" : project.projectDetail.description}}
                                 </div>
                             </div>
-                            <div class="down-container">
-                                <el-tabs
-                                    v-model="activeName"
-                                    type="card"
-                                    class="demo-tabs"
-                                    style="max-width: 100%">
-                                    <el-tab-pane label="评论" name="third">
-                                        <comments :work="project" :userId="userId" :role="role"/>
-                                    </el-tab-pane>
-                                </el-tabs>
+                            <div class="info-card">
+                                <div class="info-card-title">评论</div>
+                                <div class="info-card-content">
+                                    <comments :work="project" :userId="userId" :role="role"/>
+                                </div>
                             </div>
                         </div>
                         <div v-else class="non-member-container">
@@ -188,6 +189,7 @@ export default {
                                 description: projectData.description || "",
                                 startDate: projectData.startDate || "",
                                 endDate: projectData.endDate || "",
+                                collaborationRequirement: projectData.collaborationRequirement || "",
                                 status: projectData.status || "未知",
                                 budget: projectData.budget || "",
                                 institution: projectData.institution || { name: "" }
@@ -322,33 +324,30 @@ export default {
     text-align: center;
 }
 .header-container {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    border: 1px solid #dee2e6;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-    max-width: 90%;
-    margin: 10px auto 10px auto;
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    border: 1px solid #ebeef5;
+    padding: 0 0 20px 0;
+    margin: 24px 0;
+    overflow: hidden;
     text-align: left;
-    align-self: flex-start;
-}
-.down-container {
-    border: 1px solid #dee2e6;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border-radius: 5px;
-    max-width: 90%;
-    margin: 10px auto 10px auto;
-    text-align: left;
-    align-self: flex-start;
 }
 .header-title {
-    font-size: 28px;
-    font-weight: bold;
-    color: #343a40;
-    margin-bottom: 10px;
+    font-size: 24px;
+    font-weight: 600;
+    color: #303133;
+    background: linear-gradient(90deg, #f8f9fa 60%, #e9ecef 100%);
+    padding: 18px 28px 10px 28px;
+    border-bottom: 1px solid #ebeef5;
+    text-align: left;
+}
+.info-container {
+    padding: 20px 28px 0 28px;
+    font-size: 15px;
+    color: #606266;
+    line-height: 1.7;
+    text-align: left;
 }
 
 .abstract-title {
@@ -365,14 +364,8 @@ export default {
     line-height: 1.5;
 }
 
-.info-container {
-    display: flex;
-    margin-bottom: 20px;
-    flex-direction: column;
-}
-
 .detail-info {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: #6c757d;
 }
 
@@ -530,4 +523,46 @@ export default {
     line-height: 1.5;
 }
 
+.info-card {
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    margin: 24px 0;
+    padding: 0 0 20px 0;
+    border: 1px solid #ebeef5;
+    overflow: hidden;
+    text-align: left;
+}
+.info-card-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #303133;
+    background: linear-gradient(90deg, #f8f9fa 60%, #e9ecef 100%);
+    padding: 18px 28px 10px 28px;
+    border-bottom: 1px solid #ebeef5;
+    text-align: left;
+}
+.info-card-content {
+    padding: 20px 28px 0 28px;
+    font-size: 15px;
+    color: #606266;
+    line-height: 1.7;
+    text-align: left;
+}
+
+.function-bar-align {
+    padding-left: 28px;
+    padding-right: 28px;
+    margin-top: 10px;
+}
+@media (max-width: 900px) {
+    .header-title, .info-container {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+    .function-bar-align {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+}
 </style>

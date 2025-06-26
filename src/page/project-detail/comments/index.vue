@@ -25,8 +25,8 @@
              class="comment" :ref="el => { if(el) commentRefs[comment.commentId] = el }">
             <div class="comment-header">
                 <div class="comment-info">
-                    <img :src="comment.userAvatar || defaultAvatar" class="small-image" alt="用户头像"/>
-                    <span class="user">{{ comment.userAccount }}</span>
+                    <img :src="comment.userAvatar || defaultAvatar" class="small-image" alt="用户头像" @click="goToProfile(comment.userId)" style="cursor:pointer;"/>
+                    <span class="user" @click="goToProfile(comment.userId)" style="cursor:pointer;">{{ comment.userAccount }}</span>
                     <span class="time">{{ formatDate(comment.commentedAt) }}</span>
                 </div>
                 <div class="comment-actions">
@@ -36,25 +36,28 @@
                     <el-button 
                         size="small" 
                         :type="comment.isLiked ? 'primary' : 'default'"
-                        icon="el-icon-thumb"
                         @click="handleLike(comment)"
                         :loading="comment.likeLoading"
                     >
+                        <el-icon style="margin-right:4px;"><Star /></el-icon>
                         {{ comment.likeCount }}
-                                </el-button>
+                    </el-button>
                 </div>
             </div>
             <div class="comment-body">
                 <p>{{ comment.commentText }}</p>
             </div>
             <hr v-if="comment.parentComment">
-            <div class="comment-reply" style="max-width: 80%" v-if="comment.parentComment && getParentComment(comment.parentComment)">
-                <div class="reply-header">
+            <div v-if="comment.parentComment && getParentComment(comment.parentComment)" class="reply-section">
+                <div class="reply-label">
                     <strong>回复: {{ getParentComment(comment.parentComment)?.userAccount }}</strong>
                 </div>
+                <div class="reply-content">
+                    <p>{{ getParentComment(comment.parentComment)?.commentText }}</p>
+                </div>
             </div>
-            <div class="comment-reply" style="max-width: 100%" v-else-if="comment.parentComment">
-                <div class="reply-header">
+            <div v-else-if="comment.parentComment" class="reply-section">
+                <div class="reply-label">
                     <strong>回复内容不存在</strong>
                 </div>
             </div>
@@ -65,8 +68,8 @@
                      class="child-comment" :ref="el => { if(el) commentRefs[childComment.commentId] = el }">
                     <div class="child-comment-header">
                         <div class="comment-info">
-                            <img :src="childComment.userAvatar || defaultAvatar" class="small-image" alt="用户头像"/>
-                            <span class="user">{{ childComment.userAccount }}</span>
+                            <img :src="childComment.userAvatar || defaultAvatar" class="small-image" alt="用户头像" @click="goToProfile(childComment.userId)" style="cursor:pointer;"/>
+                            <span class="user" @click="goToProfile(childComment.userId)" style="cursor:pointer;">{{ childComment.userAccount }}</span>
                             <span class="time">{{ formatDate(childComment.commentedAt) }}</span>
                         </div>
                         <div class="comment-actions">
@@ -75,21 +78,16 @@
                             <el-button 
                                 size="small" 
                                 :type="childComment.isLiked ? 'primary' : 'default'"
-                                icon="el-icon-thumb"
                                 @click="handleLike(childComment)"
                                 :loading="childComment.likeLoading"
                             >
+                                <el-icon style="margin-right:4px;"><Star /></el-icon>
                                 {{ childComment.likeCount }}
                             </el-button>
                         </div>
                     </div>
                     <div class="child-comment-body">
                         <p>{{ childComment.commentText }}</p>
-                    </div>
-                    <div class="child-comment-reply">
-                        <div class="reply-header">
-                            <strong>回复: {{ comment.userAccount }}</strong>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -154,6 +152,7 @@ import {
 import {callSuccess, callInfo, callError} from "@/call";
 import store from "@/store";
 import { ElMessage } from "element-plus";
+import { Star } from '@element-plus/icons-vue';
 
 export default {
     name: "comments",
@@ -566,6 +565,11 @@ export default {
             }
         });
         
+        function goToProfile(userId) {
+            if (!userId) return;
+            window.open(`/profile/${userId}`, '_blank');
+        }
+        
         return {
             loading,
             commentList,
@@ -588,7 +592,9 @@ export default {
             beforeDelete,
             deleteComment,
             handleLike,
-            applyJoin
+            applyJoin,
+            Star,
+            goToProfile
         };
     }
 }
@@ -597,7 +603,7 @@ export default {
 <style scoped>
 .comment-container {
     margin-top: 20px;
-    margin-left: 20px;
+    /* margin-left: 20px; */
 }
 
 .loading-container {
@@ -615,7 +621,7 @@ export default {
 .comment {
     border: 1px solid #ebeef5;
     margin-bottom: 16px;
-    width: 90%;
+    /* width: 100%; */
     padding: 16px;
     border-radius: 8px;
     background-color: #fff;
@@ -642,7 +648,7 @@ export default {
 }
 
 .comment-body {
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.6;
     color: #606266;
     margin: 12px 0;
@@ -663,32 +669,30 @@ export default {
     transform: scale(1.2);
 }
 
-
-
 .small-image {
     width: 32px;
     height: 32px;
     border-radius: 50%;
     object-fit: cover;
+    transition: box-shadow 0.2s, border-color 0.2s;
 }
 
-.custom-textarea {
-    width: 95%;
-    height: 150px;
-    padding: 12px;
-    font-size: 14px;
-    line-height: 1.5;
-    border: 1px solid #dcdfe6;
-    border-radius: 4px;
-    resize: vertical;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.02);
-    overflow-y: auto;
+.small-image:hover {
+    box-shadow: 0 4px 2px rgba(64,158,255,0.18);
+    border-color: #409eff;
 }
 
 .user {
     font-weight: 600;
     font-size: 14px;
     color: #303133;
+    cursor: pointer;
+    transition: text-decoration 0.2s, color 0.2s;
+}
+
+.user:hover {
+    text-decoration: underline;
+    color: #409eff;
 }
 
 .time {
@@ -701,22 +705,6 @@ export default {
     justify-content: center;
     margin-top: 24px;
     margin-bottom: 16px;
-}
-
-.comment-reply {
-    background-color: #f8f9fa;
-    border: 1px solid #ebeef5;
-    padding: 12px;
-    margin-top: 12px;
-    border-radius: 4px;
-}
-
-.reply-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 13px;
-    color: #606266;
 }
 
 hr {
@@ -734,12 +722,13 @@ hr {
 }
 
 .child-comment {
-    background-color: #fafafa;
-    border: 1px solid #f0f0f0;
+    background-color: #fff;
+    border: 1px solid #ebeef5;
     margin-bottom: 12px;
-    padding: 12px;
-    border-radius: 6px;
+    padding: 16px;
+    border-radius: 8px;
     position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .child-comment::before {
@@ -770,12 +759,64 @@ hr {
     margin: 0;
 }
 
-.child-comment-reply {
-    background-color: #f5f7fa;
-    border: 1px solid #e4e7ed;
-    padding: 8px;
-    margin-top: 8px;
+.reply-section {
+    margin-top: 12px;
+}
+
+.reply-label {
+    font-weight: 600;
+    font-size: 13px;
+    color: #606266;
+    margin-bottom: 8px;
+}
+
+.reply-content {
+    background-color: #f8f9fa;
+    border: 1px solid #ebeef5;
+    padding: 12px;
     border-radius: 4px;
-    font-size: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #606266;
+}
+
+.reply-content p {
+    margin: 0;
+}
+
+.comment-actions .el-button {
+    border-radius: 16px;
+    padding: 0 14px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 48px;
+    transition: box-shadow 0.2s, background 0.2s;
+}
+.comment-actions .el-button .el-icon {
+    font-size: 18px;
+    margin-right: 4px;
+}
+.comment-actions .el-button--primary {
+    background: linear-gradient(90deg, #409eff 60%, #66b1ff 100%);
+    color: #fff;
+    border: none;
+}
+.comment-actions .el-button--default {
+    background: #f6f8fa;
+    color: #409eff;
+    border: 1px solid #dbeafe;
+}
+.comment-actions .el-button:hover {
+    box-shadow: 0 2px 8px rgba(64,158,255,0.15);
+    background: #ecf5ff;
+    color: #409eff;
+}
+.comment-actions .el-button--default:hover {
+    background: linear-gradient(90deg, #409eff 60%, #66b1ff 100%);
+    color: #fff;
+    border: none;
+    box-shadow: 0 2px 8px rgba(64,158,255,0.18);
 }
 </style>
