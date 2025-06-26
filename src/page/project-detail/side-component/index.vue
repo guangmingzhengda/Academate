@@ -5,11 +5,11 @@
         </div>
         <div class="card-body">
             <div class="owner-profile">
-                <img :src="owner.avatar || '../assets/default_avatar.png'" alt="owner avatar" class="avatar">
+                <img :src="owner.avatar || '../assets/default_avatar.png'" alt="owner avatar" class="avatar" @click="viewProfile" style="cursor:pointer;">
                 <div class="owner-details">
-                    <div class="owner-name">{{ owner.name }}</div>
-                    <div class="owner-institution">{{ owner.institution }}</div>
-                    <div class="owner-title">{{ owner.jobTitle }}</div>
+                    <div class="owner-name" @click="viewProfile" style="cursor:pointer;">{{ owner.name }}</div>
+                    <div class="owner-institution">工作单位：{{ owner.institution }}</div>
+                    <div class="owner-title">当前职称：{{ owner.jobTitle }}</div>
                 </div>
             </div>
             <hr>
@@ -117,12 +117,17 @@ export default {
         formatEducation() {
             const { highestDegree, graduateSchool, major, graduationDate } = this.owner;
             let education = [];
-            
             if (highestDegree) education.push(highestDegree);
             if (major) education.push(major);
             if (graduateSchool) education.push(graduateSchool);
-            if (graduationDate) education.push(`毕业于 ${graduationDate}`);
-            
+            if (graduationDate) {
+                // 只显示年月日
+                const date = new Date(graduationDate);
+                const y = date.getFullYear();
+                const m = (date.getMonth() + 1).toString().padStart(2, '0');
+                const d = date.getDate().toString().padStart(2, '0');
+                education.push(`毕业于 ${y}-${m}-${d}`);
+            }
             return education.length > 0 ? education.join(', ') : '暂无信息';
         },
         formatDate(date) {
@@ -199,6 +204,7 @@ hr {
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     margin-bottom: 20px;
     font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
+    text-align: left;
 }
 
 .card-header {
@@ -229,8 +235,10 @@ hr {
 
 .owner-profile {
     display: flex;
-    align-items: center;
-    margin-bottom: 15px;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    text-align: left;
+    flex-direction: row;
 }
 
 .avatar {
@@ -239,10 +247,20 @@ hr {
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid #e0e0e0;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+.avatar:hover {
+    box-shadow: 0 4px 16px rgba(64,158,255,0.18);
+    border-color: #409eff;
 }
 
 .owner-details {
-    margin-left: 15px;
+    margin-left: 16px;
+    text-align: left;
+}
+
+.owner-name, .owner-institution, .owner-title {
+    text-align: left;
 }
 
 .owner-name {
@@ -250,6 +268,12 @@ hr {
     font-weight: 600;
     color: #333;
     margin-bottom: 5px;
+    cursor: pointer;
+    transition: text-decoration 0.2s, color 0.2s;
+}
+.owner-name:hover {
+    text-decoration: underline;
+    color: #409eff;
 }
 
 .owner-institution, .owner-title {
@@ -259,26 +283,37 @@ hr {
 }
 
 .info-section {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: left;
 }
-
+.info-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
 .info-section h4 {
     margin: 0 0 8px 0;
     font-size: 16px;
-    color: #333;
-    font-weight: 600;
+    color: #222;
+    font-weight: 700;
+    letter-spacing: 0.5px;
 }
-
-.info-section p {
+.info-section p, .bio {
     margin: 0;
     font-size: 14px;
-    color: #666;
-    line-height: 1.5;
+    color: #444;
+    line-height: 1.8;
+    padding-left: 2px;
 }
-
 .bio {
     max-height: 80px;
     overflow-y: auto;
+    background: #fafbfc;
+    border-radius: 4px;
+    /* padding: 8px 10px; */
+    margin-top: 2px;
 }
 
 .research-outcomes {
@@ -348,5 +383,18 @@ hr {
 
 .likes i {
     margin-right: 3px;
+}
+
+@media (max-width: 768px) {
+    .owner-profile {
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+    }
+    .owner-details {
+        margin-left: 0;
+        margin-top: 12px;
+        text-align: left;
+    }
 }
 </style>
