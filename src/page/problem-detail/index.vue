@@ -16,7 +16,7 @@
                                     <div class="info-container">
                                         <div class="detail-info">
                                             <span class="info-label">提问者：</span>
-                                            <span>{{ questionData.userName }}</span>
+                                            <span class="user-link" @click="goToUserProfile(questionData.userId)">{{ questionData.userName }}</span>
                                         </div>
                                         <div class="detail-info" v-if="questionData.askedAt">
                                             <span class="info-label">提问时间：</span>
@@ -41,9 +41,14 @@
                                              :class="{'accepted': questionData.acceptAnswer === answer.answerId}">
                                             <div class="answer-header">
                                                 <div class="user-info">
-                                                    <img :src="answer.userAvatar || defaultAvatar" class="avatar" alt="用户头像">
+                                                    <img 
+                                                        :src="answer.userAvatar || defaultAvatar" 
+                                                        class="avatar" 
+                                                        alt="用户头像"
+                                                        @click="goToUserProfile(answer.userId)"
+                                                    >
                                                     <div>
-                                                        <div class="username">{{ answer.userName }}</div>
+                                                        <div class="username user-link" @click="goToUserProfile(answer.userId)">{{ answer.userName }}</div>
                                                         <div class="timestamp">{{ formatDate(answer.answeredAt) }}</div>
                                                     </div>
                                                 </div>
@@ -51,30 +56,53 @@
                                                     <el-button 
                                                         size="small" 
                                                         :type="answer.isLiked ? 'primary' : 'default'"
-                                                        icon="el-icon-thumb"
                                                         @click="handleLike(answer)"
                                                         :loading="answer.likeLoading"
                                                     >
-                                                        {{ answer.likeCount }}
+                                                        👍 {{ answer.likeCount }}
                                                     </el-button>
-                                                    <el-button size="small" icon="el-icon-chat-dot-round" @click="replyToAnswer(answer.answerId)">回复</el-button>
+                                                    <el-button 
+                                                        size="small" 
+                                                        @click="replyToAnswer(answer.answerId)"
+                                                    >
+                                                        💬 回复
+                                                    </el-button>
+                                                    
+                                                    <!-- 编辑按钮（仅对自己的回答显示） -->
+                                                    <el-button 
+                                                        v-if="isCurrentUserAnswer(answer)" 
+                                                        size="small" 
+                                                        type="info" 
+                                                        @click="editAnswer(answer)"
+                                                    >
+                                                        ✏️ 编辑
+                                                    </el-button>
+                                                    
+                                                    <!-- 删除按钮（仅对自己的回答显示） -->
+                                                    <el-button 
+                                                        v-if="isCurrentUserAnswer(answer)" 
+                                                        size="small" 
+                                                        type="danger" 
+                                                        @click="confirmDeleteAnswer(answer.answerId)"
+                                                    >
+                                                        🗑️ 删除
+                                                    </el-button>
                                                     
                                                     <!-- 采纳按钮，仅在当前用户是问题所有者且没有采纳过回答时显示 -->
                                                     <el-button 
                                                         v-if="isQuestionOwner && !questionData.acceptAnswer && answer.layer === 1" 
                                                         type="success" 
                                                         size="small" 
-                                                        icon="el-icon-check" 
                                                         @click="acceptAnswerAction(answer.answerId)"
                                                         :loading="acceptLoading === answer.answerId"
                                                     >
-                                                        采纳
+                                                        ✓ 采纳
                                                     </el-button>
                                                 </div>
                                             </div>
                                             <!-- 采纳标识 -->
                                             <div v-if="questionData.acceptAnswer === answer.answerId" class="accepted-answer-tag">
-                                                <i class="el-icon-check"></i> 已采纳
+                                                ✓ 已采纳
                                             </div>
                                             <div class="answer-content">{{ answer.answerText }}</div>
                                             
@@ -85,9 +113,14 @@
                                                      class="nested-answer-item">
                                                     <div class="answer-header">
                                                         <div class="user-info">
-                                                            <img :src="childAnswer.userAvatar || defaultAvatar" class="avatar small-avatar" alt="用户头像">
+                                                            <img 
+                                                                :src="childAnswer.userAvatar || defaultAvatar" 
+                                                                class="avatar small-avatar" 
+                                                                alt="用户头像"
+                                                                @click="goToUserProfile(childAnswer.userId)"
+                                                            >
                                                             <div>
-                                                                <div class="username">{{ childAnswer.userName }}</div>
+                                                                <div class="username user-link" @click="goToUserProfile(childAnswer.userId)">{{ childAnswer.userName }}</div>
                                                                 <div class="timestamp">{{ formatDate(childAnswer.answeredAt) }}</div>
                                                             </div>
                                                         </div>
@@ -95,11 +128,30 @@
                                                             <el-button 
                                                                 size="small" 
                                                                 :type="childAnswer.isLiked ? 'primary' : 'default'"
-                                                                icon="el-icon-thumb"
                                                                 @click="handleLike(childAnswer)"
                                                                 :loading="childAnswer.likeLoading"
                                                             >
-                                                                {{ childAnswer.likeCount }}
+                                                                👍 {{ childAnswer.likeCount }}
+                                                            </el-button>
+                                                            
+                                                            <!-- 编辑按钮（仅对自己的回答显示） -->
+                                                            <el-button 
+                                                                v-if="isCurrentUserAnswer(childAnswer)" 
+                                                                size="small" 
+                                                                type="info" 
+                                                                @click="editAnswer(childAnswer)"
+                                                            >
+                                                                ✏️ 编辑
+                                                            </el-button>
+                                                            
+                                                            <!-- 删除按钮（仅对自己的回答显示） -->
+                                                            <el-button 
+                                                                v-if="isCurrentUserAnswer(childAnswer)" 
+                                                                size="small" 
+                                                                type="danger" 
+                                                                @click="confirmDeleteAnswer(childAnswer.answerId)"
+                                                            >
+                                                                🗑️ 删除
                                                             </el-button>
                                                         </div>
                                                     </div>
@@ -112,9 +164,14 @@
                                                             class="nested-answer-item">
                                                             <div class="answer-header">
                                                                 <div class="user-info">
-                                                                    <img :src="grandChildAnswer.userAvatar || defaultAvatar" class="avatar smaller-avatar" alt="用户头像">
+                                                                    <img 
+                                                                        :src="grandChildAnswer.userAvatar || defaultAvatar" 
+                                                                        class="avatar smaller-avatar" 
+                                                                        alt="用户头像"
+                                                                        @click="goToUserProfile(grandChildAnswer.userId)"
+                                                                    >
                                                                     <div>
-                                                                        <div class="username">{{ grandChildAnswer.userName }}</div>
+                                                                        <div class="username user-link" @click="goToUserProfile(grandChildAnswer.userId)">{{ grandChildAnswer.userName }}</div>
                                                                         <div class="timestamp">{{ formatDate(grandChildAnswer.answeredAt) }}</div>
                                                                     </div>
                                                                 </div>
@@ -122,11 +179,30 @@
                                                                     <el-button 
                                                                         size="small" 
                                                                         :type="grandChildAnswer.isLiked ? 'primary' : 'default'"
-                                                                        icon="el-icon-thumb"
                                                                         @click="handleLike(grandChildAnswer)"
                                                                         :loading="grandChildAnswer.likeLoading"
                                                                     >
-                                                                        {{ grandChildAnswer.likeCount }}
+                                                                        👍 {{ grandChildAnswer.likeCount }}
+                                                                    </el-button>
+                                                                    
+                                                                    <!-- 编辑按钮（仅对自己的回答显示） -->
+                                                                    <el-button 
+                                                                        v-if="isCurrentUserAnswer(grandChildAnswer)" 
+                                                                        size="small" 
+                                                                        type="info" 
+                                                                        @click="editAnswer(grandChildAnswer)"
+                                                                    >
+                                                                        ✏️ 编辑
+                                                                    </el-button>
+                                                                    
+                                                                    <!-- 删除按钮（仅对自己的回答显示） -->
+                                                                    <el-button 
+                                                                        v-if="isCurrentUserAnswer(grandChildAnswer)" 
+                                                                        size="small" 
+                                                                        type="danger" 
+                                                                        @click="confirmDeleteAnswer(grandChildAnswer.answerId)"
+                                                                    >
+                                                                        🗑️ 删除
                                                                     </el-button>
                                                                 </div>
                                                             </div>
@@ -162,6 +238,26 @@
                                         </span>
                                     </template>
                                 </el-dialog>
+                                
+                                <!-- 编辑回答对话框 -->
+                                <el-dialog
+                                    v-model="editDialogVisible"
+                                    title="编辑回答"
+                                    width="600px"
+                                >
+                                    <el-input
+                                        type="textarea"
+                                        v-model="editingAnswerText"
+                                        :rows="8"
+                                        placeholder="请输入修改后的回答内容..."
+                                    ></el-input>
+                                    <template #footer>
+                                        <span class="dialog-footer">
+                                            <el-button @click="editDialogVisible = false">取消</el-button>
+                                            <el-button type="primary" @click="submitEditAnswer">保存修改</el-button>
+                                        </span>
+                                    </template>
+                                </el-dialog>
                             </div>
                             <div v-else class="error-container">
                                 <el-empty description="未找到该问题或加载失败"></el-empty>
@@ -181,17 +277,32 @@
 
 <script lang="js">
 import ProblemSideComponent from "./side-component/index.vue";
-import { ref, onMounted, computed } from "vue";
-import { useRoute } from "vue-router";
-import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer } from "@/api/question";
-import { ElMessage } from "element-plus";
+import { defineComponent, ref, onMounted, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer, deleteAnswer, updateAnswer, AnswerUpdateRequest } from "@/api/question";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { 
+    Thumb, 
+    ChatDotRound, 
+    Edit, 
+    Delete, 
+    Check
+} from '@element-plus/icons-vue';
 import store from "@/store";
 
-export default {
+export default defineComponent({
     name: "problem-detail",
-    components: { ProblemSideComponent },
+    components: { 
+        ProblemSideComponent,
+        Thumb,
+        ChatDotRound,
+        Edit,
+        Delete,
+        Check
+    },
     setup() {
         const route = useRoute();
+        const router = useRouter();
         const questionId = ref(Number(route.params.id) || null);
         const questionData = ref(null);
         const loading = ref(true);
@@ -212,6 +323,17 @@ export default {
             const currentUserId = store.getters.getId;
             return questionData.value && currentUserId && questionData.value.userId === currentUserId;
         });
+        
+        // 在setup函数中添加新的变量和方法
+        const currentUserId = computed(() => store.getters.getId);
+        const editDialogVisible = ref(false);
+        const editingAnswerId = ref(null);
+        const editingAnswerText = ref('');
+        
+        // 判断是否是当前用户的回答
+        const isCurrentUserAnswer = (answer) => {
+            return currentUserId.value && answer.userId === currentUserId.value;
+        };
         
         // 加载问题详情
         const loadQuestionDetail = async () => {
@@ -436,6 +558,72 @@ export default {
             }
         };
         
+        // 编辑回答
+        const editAnswer = (answer) => {
+            editingAnswerId.value = answer.answerId;
+            editingAnswerText.value = answer.answerText;
+            editDialogVisible.value = true;
+        };
+        
+        // 提交编辑
+        const submitEditAnswer = async () => {
+            if (!editingAnswerId.value) return;
+            
+            if (!editingAnswerText.value.trim()) {
+                ElMessage.warning('回答内容不能为空');
+                return;
+            }
+            
+            try {
+                const updateRequest = {
+                    answerText: editingAnswerText.value.trim()
+                };
+                
+                const success = await updateAnswer(editingAnswerId.value, updateRequest);
+                if (success) {
+                    ElMessage.success('回答已更新');
+                    editDialogVisible.value = false;
+                    await loadQuestionDetail(); // 重新加载数据
+                }
+            } catch (error) {
+                console.error('更新回答失败:', error);
+                ElMessage.error('更新回答失败');
+            }
+        };
+        
+        // 确认删除回答
+        const confirmDeleteAnswer = (answerId) => {
+            ElMessageBox.confirm('确定要删除这个回答吗？此操作不可恢复', '提示', {
+                confirmButtonText: '确定',
+                cancelButtonText: '取消',
+                type: 'warning'
+            }).then(() => {
+                deleteAnswerAction(answerId);
+            }).catch(() => {
+                // 用户取消删除
+            });
+        };
+        
+        // 删除回答
+        const deleteAnswerAction = async (answerId) => {
+            try {
+                const success = await deleteAnswer(answerId);
+                if (success) {
+                    ElMessage.success('回答已删除');
+                    await loadQuestionDetail(); // 重新加载数据
+                }
+            } catch (error) {
+                console.error('删除回答失败:', error);
+                ElMessage.error('删除回答失败');
+            }
+        };
+        
+        // 跳转到用户个人主页
+        const goToUserProfile = (userId) => {
+            if (!userId) return;
+            router.push(`/profile/${userId}`);
+        };
+        
         return {
             questionId,
             questionData,
@@ -452,153 +640,229 @@ export default {
             handleLike,
             acceptLoading,
             acceptAnswerAction,
-            isQuestionOwner
+            isQuestionOwner,
+            // 新增
+            isCurrentUserAnswer,
+            editAnswer,
+            confirmDeleteAnswer,
+            editDialogVisible,
+            editingAnswerText,
+            submitEditAnswer,
+            goToUserProfile
         };
     }
-}
+})
 </script>
 
 <style scoped>
 .bg-container {
+    background: url('@/asset/home/homehead.png');
     position: fixed;
-    left: 0;
-    top: 0;
-    width: 100vw;
     height: 100vh;
-    background: #f5f7fa;
-    z-index: -2;
-}
-.bg-strong-container {
-    position: fixed;
-    left: 0;
-    top: 0;
     width: 100vw;
-    height: 320px;
-    background: linear-gradient(90deg, #e0eafc 0%, #cfdef3 100%);
-    z-index: -1;
+    z-index: -2;
+    top: 0;
+    left: 0;
+    background-size: cover;
 }
+
+.bg-strong-container {
+    display: none;
+}
+
 .el-main {
     padding: 0;
 }
+
 .el-row {
     margin-left: 0 !important;
     margin-right: 0 !important;
 }
+
 .el-col {
     padding-left: 12px !important;
     padding-right: 12px !important;
 }
+
 .main-container {
-    background: #fff;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     padding: 36px 40px 30px 40px;
     margin-bottom: 24px;
+    transition: all 0.3s ease;
+    position: relative;
 }
+
+.main-container:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
 .header-container {
     border-bottom: 1px solid #f0f0f0;
     padding-bottom: 16px;
     margin-bottom: 24px;
 }
+
 .header-title {
     font-size: 28px;
     font-weight: bold;
+    line-height: 1.3;
+    color: #2c3e50;
     margin-bottom: 12px;
     text-align: center;
 }
+
 .info-container {
-    margin-bottom: 12px;
+    margin-bottom: 20px;
 }
+
 .detail-info {
     margin-bottom: 8px;
-    font-size: 15px;
+    font-size: 14px;
 }
+
 .info-label {
-    color: #888;
+    min-width: 80px;
+    font-weight: 500;
+    color: #666;
     margin-right: 8px;
 }
+
 .down-container {
     margin-top: 24px;
 }
+
 .abstract-title, .answers-title, .editor-title {
     font-size: 18px;
     font-weight: bold;
     margin-bottom: 16px;
     text-align: left;
 }
+
 .abstract-content {
     font-size: 15px;
-    color: #333;
     line-height: 1.7;
-    background: #f8fafd;
-    border-radius: 8px;
-    padding: 16px;
+    color: #333;
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 6px;
+    border-left: 4px solid #409eff;
     text-align: left;
 }
+
 .side-container {
     width: 100%;
-    background-color: rgba(255, 255, 255, 0.9);
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 0;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     margin-bottom: 24px;
-    margin-top: 8px;
+    margin-top: 0;
     box-sizing: border-box;
-    padding: 20px 0;
+    padding: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    position: sticky;
+    top: 100px;
+}
+
+.side-container:hover {
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
 }
 
 /* 答案样式 */
 .answers-list {
     margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
 }
+
 .answer-item {
-    background: #fff;
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0;
+    border: none;
     padding: 20px;
-    margin-bottom: 20px;
-    border: 1px solid #ebeef5;
+    margin-bottom: 0;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
 }
+
+.answer-item:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+.answer-item.accepted {
+    border-left: 4px solid #67c23a;
+    background-color: #f0f9eb;
+}
+
 .answer-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
 }
+
 .user-info {
     display: flex;
     align-items: flex-start;
     text-align: left;
 }
+
 .avatar {
     width: 40px;
     height: 40px;
     border-radius: 50%;
     margin-right: 12px;
     object-fit: cover;
+    cursor: pointer;
+    transition: opacity 0.2s;
 }
+
+.avatar:hover {
+    opacity: 0.85;
+}
+
 .small-avatar {
     width: 30px;
     height: 30px;
 }
+
 .smaller-avatar {
     width: 26px;
     height: 26px;
 }
+
 .username {
     font-size: 16px;
     font-weight: 500;
     color: #333;
     text-align: left;
+    cursor: pointer;
+    transition: color 0.2s;
 }
+
+.username:hover {
+    color: #1890ff;
+    text-decoration: underline;
+}
+
 .timestamp {
     font-size: 12px;
     color: #909399;
     margin-top: 4px;
     text-align: left;
 }
+
 .answer-actions {
     display: flex;
     gap: 8px;
 }
+
 .answer-content {
     font-size: 15px;
     line-height: 1.6;
@@ -606,38 +870,39 @@ export default {
     margin-top: 12px;
     text-align: left;
     background: #f9f9fa;
-    padding: 12px;
+    padding: 16px;
     border-radius: 6px;
 }
+
+/* 嵌套回答样式 */
 .nested-answers {
     margin-top: 16px;
     padding-left: 24px;
     border-left: 3px solid #ebeef5;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
-.nested-answers.deeper {
-    margin-top: 12px;
-    padding-left: 20px;
-    border-left: 2px solid #ebeef5;
-}
+
 .nested-answer-item {
     background: #f5f7fa;
-    border-radius: 8px;
+    border-radius: 0;
     padding: 16px;
-    margin-bottom: 12px;
-    border: 1px solid #ebeef5;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all 0.2s ease;
 }
-.nested-answers.deeper .nested-answer-item {
-    background: #f8f9fa;
-    padding: 12px;
-    margin-bottom: 8px;
+
+.nested-answer-item:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
 }
-.nested-answer-item .answer-content {
-    background: #f5f7fa;
-}
+
 .empty-answers {
     text-align: center;
     padding: 40px 0;
 }
+
 .empty-text {
     font-size: 16px;
     color: #909399;
@@ -648,6 +913,7 @@ export default {
 .editor-container {
     margin-top: 16px;
 }
+
 .editor-actions {
     display: flex;
     justify-content: flex-end;
@@ -656,8 +922,10 @@ export default {
 
 /* 加载状态 */
 .loading-container {
-    padding: 20px;
+    padding: 40px 20px;
+    text-align: center;
 }
+
 .error-container {
     padding: 40px 0;
     text-align: center;
@@ -665,25 +933,86 @@ export default {
 
 /* 采纳标识样式 */
 .accepted-answer-tag {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     background-color: #f0f9eb;
     border: 1px solid #e1f3d8;
     border-radius: 4px;
-    padding: 2px 8px;
+    padding: 6px 12px;
     margin-top: 8px;
     margin-bottom: 8px;
-    font-size: 12px;
+    font-size: 14px;
     color: #67c23a;
     font-weight: 500;
 }
 
-.accepted-answer-tag .el-icon-check {
+.accepted-answer-tag .el-icon {
     margin-right: 4px;
+    font-size: 14px;
 }
 
-/* 采纳后的回答样式 */
-.answer-item.accepted {
-    border-left: 3px solid #67c23a;
-    background-color: #f0f9eb;
+/* 确保图标正确显示 */
+.el-button .el-icon {
+    margin-right: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 如果图标仍有问题，尝试使用固定宽度 */
+.el-button .el-icon {
+    width: 16px;
+    height: 16px;
+}
+
+/* 让文字和图标垂直居中对齐 */
+.el-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.user-link {
+    color: #409eff;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.user-link:hover {
+    color: #1890ff;
+    text-decoration: underline;
+}
+
+.nested-answers.deeper {
+    margin-top: 12px;
+    padding-left: 20px;
+    border-left: 2px solid #ebeef5;
+}
+
+.nested-answers.deeper .nested-answer-item {
+    background: #f8f9fa;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+.nested-answer-item .answer-content {
+    background: #f5f7fa;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .side-container {
+        width: 100%;
+        position: static;
+        top: auto;
+    }
+    
+    .header-title {
+        font-size: 24px;
+    }
 }
 </style> 
