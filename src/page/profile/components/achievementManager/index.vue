@@ -304,7 +304,7 @@
                         <el-input v-model="formData.issue" placeholder="请输入期号" />
                     </el-form-item>
                     <el-form-item label="页码" prop="pages">
-                        <el-input v-model="formData.pages" placeholder="例如：123-130" />
+                        <el-input v-model="formData.pages" placeholder="例如：123" />
                     </el-form-item>
                 </template>
 
