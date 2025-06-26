@@ -1,307 +1,344 @@
 <template>
   <div class="bg-container"/>
-  <div class="bg-strong-container"/>
-  <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 100px">
-    <div style="width: 1400px; margin-bottom: 40px">
-      <el-container class="el-main">
-        <el-row :gutter="20" style="width: 100%;">
-          <el-col :span="17">
-            <div class="main-container" style="width: 100%; box-sizing: border-box;">
+  
+  <div class="view-set-margin">
+    <div class="outcome-detail-container">
+      <div class="outcome-content">
+        
+        <!-- 主要内容区域 -->
+        <div class="main-content">
+          <!-- 左侧成果详情 -->
+          <div class="content-left">
+            <!-- 成果标题卡片 -->
+            <div class="section-card title-card">
               <div v-if="loading" class="loading-container">
-                <el-skeleton :rows="10" animated />
+                <el-skeleton :rows="5" animated />
               </div>
-              <div v-else-if="outcomeData">
-                <!-- 成果信息 -->
-                <div class="outcome-content">
-                  <div class="outcome-title">{{ outcomeData ? outcomeData.title : '成果标题' }}</div>
+              <div v-else-if="outcomeData" class="card-content">
+                <div class="outcome-header">
+                  <div class="meta-tags">
+                    <span class="type-tag" :class="outcomeData.type">
+                      {{ formatType(outcomeData.type) }}
+                    </span>
+                    <span v-if="outcomeData.status" class="status-tag">
+                      {{ outcomeData.status }}
+                    </span>
+                  </div>
+                  <div class="outcome-title">{{ outcomeData.title || '成果标题' }}</div>
                   
                   <!-- 编辑按钮 (只有成果所有者才能看到) -->
-                  <div class="edit-actions" v-if="outcomeData && outcomeData.isMine">
+                  <div class="edit-actions" v-if="outcomeData.isMine">
                     <el-button type="primary" size="small" @click="showEditDialog" style="margin-right: 10px;">
-                      <i class="el-icon-edit"></i> 编辑成果信息
+                      ✏️ 编辑
                     </el-button>
                     <el-button type="success" size="small" @click="showUploadDialog">
-                      <i class="el-icon-upload"></i> 上传成果全文
+                      📤 上传全文
                     </el-button>
                   </div>
-                  
-                  <!-- 作者、日期、期刊等信息 -->
-                  <div class="outcome-meta">
-                    <div v-if="outcomeData">
-                      <span class="meta-item">作者: {{ outcomeData.authors }}</span>
-                      <span class="meta-item" v-if="outcomeData.publishDate">发表日期: {{ formatDate(outcomeData.publishDate) }}</span>
-                      <span class="meta-item" v-if="outcomeData.journal">期刊: {{ outcomeData.journal }}</span>
-                      <span class="meta-item" v-if="outcomeData.volume">卷号: {{ outcomeData.volume }}</span>
-                      <span class="meta-item" v-if="outcomeData.issue">期号: {{ outcomeData.issue }}</span>
-                      <span class="meta-item" v-if="outcomeData.pages">页码: {{ outcomeData.pages }}</span>
-                      <span class="meta-item" v-if="outcomeData.doi">DOI: {{ outcomeData.doi }}</span>
-                      <span class="meta-item" v-if="outcomeData.category">分类: {{ outcomeData.category }}</span>
+                </div>
+                
+                <!-- 元数据信息 -->
+                <div class="outcome-meta">
+                  <div class="meta-info">
+                    <div class="meta-row">
+                      <span class="meta-label">作者：</span>
+                      <span class="meta-value">{{ outcomeData.authors || '未知' }}</span>
                     </div>
-                    <div v-else>
-                      <!-- 占位内容 -->
-                      <span class="meta-item">作者: 默认作者</span>
-                      <span class="meta-item">发表日期: 2023-01-01</span>
-                      <span class="meta-item">期刊: 示例期刊</span>
+                    <div class="meta-row" v-if="outcomeData.publishDate">
+                      <span class="meta-label">发表日期：</span>
+                      <span class="meta-value">{{ formatDate(outcomeData.publishDate) }}</span>
                     </div>
-                  </div>
-                  
-                  <!-- 摘要内容 -->
-                  <div class="outcome-section">
-                    <div class="section-header">摘要</div>
-                    <div class="abstract-content">
-                      {{ outcomeData && outcomeData.abstractContent ? outcomeData.abstractContent : '暂无摘要内容' }}
+                    <div class="meta-row" v-if="outcomeData.journal">
+                      <span class="meta-label">期刊：</span>
+                      <span class="meta-value">{{ outcomeData.journal }}</span>
                     </div>
-                  </div>
-                  
-                  <!-- 关键词 (基于分类字段) -->
-                  <div class="outcome-section" v-if="outcomeData && outcomeData.category">
-                    <div class="section-header">关键词</div>
-                    <div class="keywords-list">
-                      <el-tag v-for="(keyword, index) in categoryList" :key="index" size="small" class="keyword-tag">
-                        {{ keyword }}
-                      </el-tag>
-                    </div>
-                  </div>
-                  
-                  <!-- 链接区 -->
-                  <div class="outcome-section">
-                    <div class="section-header">链接</div>
-                    <div class="links-list">
-                      <div v-if="outcomeData && outcomeData.url" class="link-item">
-                        <span class="link-label">原文链接:</span>
-                        <el-button type="primary" size="small" @click="openUrl(outcomeData.url)" icon="el-icon-link" plain>
-                          访问原文
-                        </el-button>
-                      </div>
-                      <div v-if="outcomeData && outcomeData.pdfUrl" class="link-item">
-                        <span class="link-label">PDF全文:</span>
-                        <el-button type="danger" size="small" @click="openUrl(outcomeData.pdfUrl)" icon="el-icon-document" plain>
-                          下载原文
-                        </el-button>
-                      </div>
-                      <div v-if="outcomeData && outcomeData.arxivId" class="link-item">
-                        <span class="link-label">arXiv:</span>
-                        <el-button type="success" size="small" @click="openUrl('https://arxiv.org/abs/' + outcomeData.arxivId)" icon="el-icon-document" plain>
-                          访问arXiv
-                        </el-button>
-                      </div>
+                    <div class="meta-row" v-if="outcomeData.doi">
+                      <span class="meta-label">DOI：</span>
+                      <span class="meta-value">{{ outcomeData.doi }}</span>
                     </div>
                   </div>
                 </div>
                 
-                <!-- 评论区 -->
-                <div class="comments-container">
-                  <div class="section-title">评论区</div>
-                  
-                  <!-- 评论输入框 -->
-                  <div class="comment-input-container">
-                    <el-avatar :size="40" :src="currentUserAvatar" v-if="currentUserAvatar"></el-avatar>
-                    <el-avatar :size="40" icon="el-icon-user" v-else></el-avatar>
-                    <div class="comment-input-wrapper">
-                      <textarea
-                        v-model="commentText"
-                        class="comment-textarea"
-                        rows="3"
-                        placeholder="添加您的评论..."
-                      ></textarea>
-                      <div class="comment-actions">
-                        <el-button 
-                          type="primary" 
-                          @click="submitComment" 
-                          :disabled="!commentText" 
-                          :loading="submittingComment"
-                        >
-                          发表评论
-                        </el-button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- 评论列表 -->
-                  <div class="comment-list" v-loading="loadingComments">
-                    <!-- 无评论时显示提示 -->
-                    <div class="empty-comment" v-if="!loadingComments && (!comments || comments.length === 0)">
-                      <el-empty description="暂无评论，快来发表第一条评论吧！"></el-empty>
-                    </div>
-                    
-                    <!-- 评论列表内容 -->
-                    <div v-else class="comment-items">
-                      <div v-for="comment in comments" :key="comment.commentId" class="comment-item">
-                        <!-- 一级评论 -->
-                        <div class="comment-header">
-                          <div class="comment-user">
-                            <el-avatar :size="40" :src="comment.userAvatar" v-if="comment.userAvatar"></el-avatar>
-                            <el-avatar :size="40" icon="el-icon-user" v-else></el-avatar>
-                            <div class="user-info">
-                              <div class="username">{{ comment.userAccount }}</div>
-                              <div class="comment-time">{{ formatCommentTime(comment.commentedAt) }}</div>
-                            </div>
-                          </div>
-                          <div class="comment-actions">
-                            <el-button 
-                              type="text" 
-                              @click="replyToComment(comment)" 
-                            >
-                              回复
-                            </el-button>
-                          </div>
-                        </div>
-                        <div class="comment-content">
-                          {{ comment.comment }}
-                        </div>
-                        
-                        <!-- 回复输入框 -->
-                        <div class="reply-input-container" v-if="replyingToId === comment.commentId">
-                          <textarea
-                            v-model="replyText"
-                            class="reply-textarea"
-                            rows="2"
-                            placeholder="回复评论..."
-                          ></textarea>
-                          <div class="reply-actions">
-                            <el-button size="small" @click="cancelReply">取消</el-button>
-                            <el-button 
-                              type="primary" 
-                              size="small" 
-                              @click="submitReply(comment.commentId)" 
-                              :disabled="!replyText" 
-                              :loading="submittingReply"
-                            >
-                              回复
-                            </el-button>
-                          </div>
-                        </div>
-                        
-                        <!-- 二级评论 -->
-                        <div class="reply-list" v-if="comment.children && comment.children.length > 0">
-                          <div v-for="reply in comment.children" :key="reply.commentId" class="reply-item">
-                            <div class="reply-header">
-                              <div class="reply-user">
-                                <el-avatar :size="30" :src="reply.userAvatar" v-if="reply.userAvatar"></el-avatar>
-                                <el-avatar :size="30" icon="el-icon-user" v-else></el-avatar>
-                                <div class="user-info">
-                                  <div class="username">{{ reply.userAccount }}</div>
-                                  <div class="comment-time">{{ formatCommentTime(reply.commentedAt) }}</div>
-                                </div>
-                              </div>
-                            </div>
-                            <div class="reply-content">
-                              {{ reply.comment }}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <!-- 分页 -->
-                    <div class="pagination-container" v-if="totalComments > pageSize">
-                      <el-pagination
-                        background
-                        layout="prev, pager, next"
-                        :total="totalComments"
-                        :page-size="pageSize"
-                        :current-page="currentPage"
-                        @current-change="handlePageChange"
-                      ></el-pagination>
-                    </div>
-                  </div>
+                <!-- 点赞按钮 (放在卡片左下角) -->
+                <div class="like-section-bottom">
+                  <el-button 
+                    :type="isLiked ? 'danger' : 'default'" 
+                    size="small" 
+                    @click="toggleLike"
+                    :loading="likingInProgress"
+                    plain
+                  >
+                    {{ isLiked ? `❤️ 已点赞 (${likeCount})` : `🤍 点赞 (${likeCount})` }}
+                  </el-button>
                 </div>
-              </div>
-              <div v-else class="error-container">
-                <el-empty description="未找到该研究成果或加载失败"></el-empty>
               </div>
             </div>
-          </el-col>
-          <el-col :span="7">
-            <div class="side-container">
-              <!-- 侧边栏信息 -->
-              <div class="side-panel">
-                <div class="panel-section">
-                  <div class="section-title">成果信息</div>
-                  <div v-if="outcomeData" class="info-list">
-                    <div class="info-item">
-                      <div class="info-label">类型</div>
-                      <div class="info-value">{{ formatType(outcomeData.type) }}</div>
-                    </div>
-                    <div class="info-item" v-if="outcomeData.publishDate">
-                      <div class="info-label">年份</div>
-                      <div class="info-value">{{ new Date(outcomeData.publishDate).getFullYear() }}</div>
-                    </div>
-                    <div class="info-item" v-if="outcomeData.journal">
-                      <div class="info-label">期刊</div>
-                      <div class="info-value">{{ outcomeData.journal }}</div>
-                    </div>
-                    <div class="info-item" v-if="outcomeData.category">
-                      <div class="info-label">分类</div>
-                      <div class="info-value">{{ outcomeData.category }}</div>
-                    </div>
-                    <div class="info-item" v-if="outcomeData.status">
-                      <div class="info-label">状态</div>
-                      <div class="info-value">{{ outcomeData.status }}</div>
+            
+            <!-- 摘要卡片 -->
+            <div class="section-card abstract-card" v-if="outcomeData">
+              <div class="card-header">
+                <h3>摘要</h3>
+              </div>
+              <div class="card-content">
+                <div class="abstract-content">
+                  {{ outcomeData.abstractContent || '暂无摘要内容' }}
+                </div>
+              </div>
+            </div>
+            
+            <!-- 关键词卡片 -->
+            <div class="section-card keywords-card" v-if="outcomeData && outcomeData.category">
+              <div class="card-header">
+                <h3>关键词</h3>
+              </div>
+              <div class="card-content">
+                <div class="keywords-list">
+                  <el-tag v-for="(keyword, index) in categoryList" :key="index" size="small" class="keyword-tag">
+                    {{ keyword }}
+                  </el-tag>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 链接卡片 -->
+            <div class="section-card links-card" v-if="outcomeData && (outcomeData.url || outcomeData.pdfUrl || outcomeData.arxivId)">
+              <div class="card-header">
+                <h3>相关链接</h3>
+              </div>
+              <div class="card-content">
+                <div class="links-list">
+                  <div v-if="outcomeData.url" class="link-item">
+                    <span class="link-label">原文链接</span>
+                    <el-button type="primary" size="small" @click="openUrl(outcomeData.url)" plain>
+                      🔗 访问原文
+                    </el-button>
+                  </div>
+                  <div v-if="outcomeData.pdfUrl" class="link-item">
+                    <span class="link-label">PDF全文</span>
+                    <el-button type="danger" size="small" @click="openUrl(outcomeData.pdfUrl)" plain>
+                      📄 下载原文
+                    </el-button>
+                  </div>
+                  <div v-if="outcomeData.arxivId" class="link-item">
+                    <span class="link-label">arXiv</span>
+                    <el-button type="success" size="small" @click="openUrl('https://arxiv.org/abs/' + outcomeData.arxivId)" plain>
+                      📚 访问arXiv
+                    </el-button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 评论区卡片 -->
+            <div class="section-card comments-card">
+              <div class="card-header">
+                <h3>评论区</h3>
+                <span class="comment-count">({{ totalComments }})</span>
+              </div>
+              <div class="card-content">
+                <!-- 评论输入框 -->
+                <div class="comment-input-container">
+                  <el-avatar :size="40" :src="currentUserAvatar" v-if="currentUserAvatar"></el-avatar>
+                  <el-avatar :size="40" icon="el-icon-user" v-else></el-avatar>
+                  <div class="comment-input-wrapper">
+                    <textarea
+                      v-model="commentText"
+                      class="comment-textarea"
+                      rows="3"
+                      placeholder="添加您的评论..."
+                    ></textarea>
+                    <div class="comment-actions">
+                      <el-button 
+                        type="primary" 
+                        @click="submitComment" 
+                        :disabled="!commentText" 
+                        :loading="submittingComment"
+                        size="small"
+                      >
+                        发表评论
+                      </el-button>
                     </div>
                   </div>
                 </div>
                 
-                <!-- 作者信息区 -->
-                <div class="panel-section">
-                  <div class="section-title">作者信息</div>
+                <!-- 评论列表 -->
+                <div class="comment-list" v-loading="loadingComments">
+                  <!-- 无评论时显示提示 -->
+                  <div class="empty-comment" v-if="!loadingComments && (!comments || comments.length === 0)">
+                    <el-empty description="暂无评论，快来发表第一条评论吧！" :image-size="60"></el-empty>
+                  </div>
                   
-                  <!-- 有作者列表时显示第一个作者的详细信息 -->
-                  <div v-if="outcomeData && outcomeData.authorList && outcomeData.authorList.length > 0" class="authors-list">
-                    <div class="author-item main-author">
-                      <div class="author-avatar">
-                        <el-avatar :size="60" :src="outcomeData.authorList[0].avatar" v-if="outcomeData.authorList[0].avatar"></el-avatar>
-                        <el-avatar :size="60" icon="el-icon-user" v-else></el-avatar>
+                  <!-- 评论列表内容 -->
+                  <div v-else class="comment-items">
+                    <div v-for="comment in comments" :key="comment.commentId" class="comment-item">
+                      <!-- 一级评论 -->
+                      <div class="comment-header">
+                        <div class="comment-user">
+                          <el-avatar :size="40" :src="comment.userAvatar" v-if="comment.userAvatar"></el-avatar>
+                          <el-avatar :size="40" icon="el-icon-user" v-else></el-avatar>
+                          <div class="user-info">
+                            <div class="username">{{ comment.userAccount }}</div>
+                            <div class="comment-time">{{ formatCommentTime(comment.commentedAt) }}</div>
+                          </div>
+                        </div>
+                        <div class="comment-actions">
+                          <el-button 
+                            type="text" 
+                            @click="replyToComment(comment)" 
+                            size="small"
+                          >
+                            回复
+                          </el-button>
+                        </div>
                       </div>
+                      <div class="comment-content">
+                        {{ comment.comment }}
+                      </div>
+                      
+                      <!-- 回复输入框 -->
+                      <div class="reply-input-container" v-if="replyingToId === comment.commentId">
+                        <textarea
+                          v-model="replyText"
+                          class="reply-textarea"
+                          rows="2"
+                          placeholder="回复评论..."
+                        ></textarea>
+                        <div class="reply-actions">
+                          <el-button size="small" @click="cancelReply">取消</el-button>
+                          <el-button 
+                            type="primary" 
+                            size="small" 
+                            @click="submitReply(comment.commentId)" 
+                            :disabled="!replyText" 
+                            :loading="submittingReply"
+                          >
+                            回复
+                          </el-button>
+                        </div>
+                      </div>
+                      
+                      <!-- 二级评论 -->
+                      <div class="reply-list" v-if="comment.children && comment.children.length > 0">
+                        <div v-for="reply in comment.children" :key="reply.commentId" class="reply-item">
+                          <div class="reply-header">
+                            <div class="reply-user">
+                              <el-avatar :size="30" :src="reply.userAvatar" v-if="reply.userAvatar"></el-avatar>
+                              <el-avatar :size="30" icon="el-icon-user" v-else></el-avatar>
+                              <div class="user-info">
+                                <div class="username">{{ reply.userAccount }}</div>
+                                <div class="comment-time">{{ formatCommentTime(reply.commentedAt) }}</div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="reply-content">
+                            {{ reply.comment }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- 分页 -->
+                  <div class="pagination-container" v-if="totalComments > pageSize">
+                    <el-pagination
+                      background
+                      layout="prev, pager, next"
+                      :total="totalComments"
+                      :page-size="pageSize"
+                      :current-page="currentPage"
+                      @current-change="handlePageChange"
+                      small
+                    ></el-pagination>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 右侧侧边栏 -->
+          <div class="content-right">
+            <!-- 成果信息卡片 -->
+            <div class="section-card info-sidebar-card">
+              <div class="card-header">
+                <h3>成果信息</h3>
+              </div>
+              <div v-if="outcomeData" class="card-content">
+                <div class="info-list">
+                  <div class="info-item">
+                    <div class="info-label">类型</div>
+                    <div class="info-value">{{ formatType(outcomeData.type) }}</div>
+                  </div>
+                  <div class="info-item" v-if="outcomeData.publishDate">
+                    <div class="info-label">年份</div>
+                    <div class="info-value">{{ new Date(outcomeData.publishDate).getFullYear() }}</div>
+                  </div>
+                  <div class="info-item" v-if="outcomeData.journal">
+                    <div class="info-label">期刊</div>
+                    <div class="info-value">{{ outcomeData.journal }}</div>
+                  </div>
+                  <div class="info-item" v-if="outcomeData.category">
+                    <div class="info-label">分类</div>
+                    <div class="info-value">{{ outcomeData.category }}</div>
+                  </div>
+                  <div class="info-item" v-if="outcomeData.status">
+                    <div class="info-label">状态</div>
+                    <div class="info-value">{{ outcomeData.status }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 作者信息卡片 -->
+            <div class="section-card author-sidebar-card">
+              <div class="card-header">
+                <h3>作者信息</h3>
+              </div>
+              <div class="card-content">
+                <!-- 有作者列表时显示详细信息 -->
+                <div v-if="outcomeData && outcomeData.authorList && outcomeData.authorList.length > 0" class="authors-list">
+                  <div class="author-item main-author">
+                    <div class="author-avatar">
+                      <el-avatar :size="60" :src="outcomeData.authorList[0].avatar" v-if="outcomeData.authorList[0].avatar"></el-avatar>
+                      <el-avatar :size="60" icon="el-icon-user" v-else></el-avatar>
+                    </div>
+                    <div class="author-details">
                       <div class="author-name">{{ outcomeData.authorList[0].name || outcomeData.authorList[0].account }}</div>
                       <div class="author-info" v-if="outcomeData.authorList[0].institution">
-                        <div class="info-label">机构:</div>
+                        <div class="info-label">机构：</div>
                         <div>{{ outcomeData.authorList[0].institution }}</div>
                       </div>
                       <div class="author-info" v-if="outcomeData.authorList[0].department">
-                        <div class="info-label">院系:</div>
+                        <div class="info-label">院系：</div>
                         <div>{{ outcomeData.authorList[0].department }}</div>
                       </div>
                       <div class="author-info" v-if="outcomeData.authorList[0].jobTitle">
-                        <div class="info-label">职称:</div>
+                        <div class="info-label">职称：</div>
                         <div>{{ outcomeData.authorList[0].jobTitle }}</div>
-                      </div>
-                      <div class="author-info" v-if="outcomeData.authorList[0].field">
-                        <div class="info-label">研究领域:</div>
-                        <div>{{ outcomeData.authorList[0].field }}</div>
-                      </div>
-                    </div>
-                    
-                    <!-- 显示其他作者名字列表 -->
-                    <div class="other-authors" v-if="outcomeData.authorList.length > 1">
-                      <div class="section-subtitle">其他作者</div>
-                      <div v-for="(author, index) in outcomeData.authorList.slice(1)" :key="index" class="other-author-item">
-                        {{ author.name || author.account }}
                       </div>
                     </div>
                   </div>
                   
-                  <!-- 无作者列表时使用静态数据 -->
-                  <div v-else class="authors-list">
-                    <div class="author-item">
-                      <div class="author-name">张三</div>
-                      <div class="author-info">北京大学计算机科学与技术学院</div>
+                  <!-- 其他作者 -->
+                  <div class="other-authors" v-if="outcomeData.authorList.length > 1">
+                    <div class="section-subtitle">其他作者</div>
+                    <div v-for="(author, index) in outcomeData.authorList.slice(1)" :key="index" class="other-author-item">
+                      {{ author.name || author.account }}
                     </div>
-                    <div class="author-item">
-                      <div class="author-name">李四</div>
-                      <div class="author-info">清华大学人工智能研究院</div>
-                    </div>
-                    <div class="author-item">
-                      <div class="author-name">王五</div>
-                      <div class="author-info">中国科学院计算技术研究所</div>
-                    </div>
+                  </div>
+                </div>
+                
+                <!-- 无作者列表时使用静态数据 -->
+                <div v-else class="authors-list">
+                  <div class="author-item">
+                    <div class="author-name">张三</div>
+                    <div class="author-info">北京大学计算机科学与技术学院</div>
                   </div>
                 </div>
               </div>
             </div>
-          </el-col>
-        </el-row>
-      </el-container>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   
@@ -393,7 +430,7 @@
         :file-list="fileList"
         accept=".pdf"
       >
-        <i class="el-icon-upload"></i>
+        <div style="font-size: 48px; margin-bottom: 16px;">📤</div>
         <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
         <template #tip>
           <div class="el-upload__tip">只能上传PDF文件</div>
@@ -412,7 +449,7 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta } from '@/api/outcome';
+import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta, likeOutcome, cancelLikeOutcome, isOutcomeLiked, getOutcomeLikeCount } from '@/api/outcome';
 import { ElMessage } from 'element-plus';
 import store from '@/store';
 
@@ -450,6 +487,11 @@ export default defineComponent({
     // 获取当前用户信息
     const currentUserId = computed(() => store.state.id || null);
     const currentUserAvatar = computed(() => store.state.avatar || '');
+    
+    // 点赞相关
+    const isLiked = ref(false);
+    const likingInProgress = ref(false);
+    const likeCount = ref(0);
     
     // 从路由参数获取ID
     const outcomeId = computed(() => {
@@ -806,10 +848,80 @@ export default defineComponent({
       }
     };
     
+    // 切换点赞状态
+    const toggleLike = async () => {
+      if (!currentUserId.value || !outcomeId.value) {
+        ElMessage.warning('请先登录');
+        return;
+      }
+      
+      likingInProgress.value = true;
+      try {
+        let success = false;
+        if (isLiked.value) {
+          // 取消点赞
+          success = await cancelLikeOutcome(currentUserId.value, Number(outcomeId.value));
+        } else {
+          // 点赞
+          success = await likeOutcome(currentUserId.value, Number(outcomeId.value));
+        }
+        
+        if (success) {
+          const wasLiked = isLiked.value;
+          isLiked.value = !isLiked.value;
+          
+          // 更新点赞数量
+          if (wasLiked) {
+            // 取消点赞，数量-1
+            likeCount.value = Math.max(0, likeCount.value - 1);
+          } else {
+            // 点赞，数量+1
+            likeCount.value = likeCount.value + 1;
+          }
+        }
+      } catch (error) {
+        console.error('点赞操作失败:', error);
+        ElMessage.error('操作失败');
+      } finally {
+        likingInProgress.value = false;
+      }
+    };
+    
+    // 检查点赞状态
+    const checkLikeStatus = async () => {
+      if (!currentUserId.value || !outcomeId.value) {
+        return;
+      }
+      
+      try {
+        const liked = await isOutcomeLiked(currentUserId.value, Number(outcomeId.value));
+        isLiked.value = liked;
+      } catch (error) {
+        console.error('检查点赞状态失败:', error);
+      }
+    };
+    
+    // 获取点赞数量
+    const loadLikeCount = async () => {
+      if (!outcomeId.value) {
+        return;
+      }
+      
+      try {
+        const count = await getOutcomeLikeCount(Number(outcomeId.value));
+        likeCount.value = count;
+      } catch (error) {
+        console.error('获取点赞数量失败:', error);
+        likeCount.value = 0;
+      }
+    };
+    
     // 页面加载时获取数据
     onMounted(() => {
       loadOutcomeData();
       loadComments();
+      checkLikeStatus();
+      loadLikeCount();
     });
     
     return {
@@ -852,335 +964,341 @@ export default defineComponent({
       editFormData,
       submittingEdit,
       showEditDialog,
-      submitEdit
+      submitEdit,
+      // 点赞相关
+      isLiked,
+      likingInProgress,
+      likeCount,
+      toggleLike,
+      checkLikeStatus,
+      loadLikeCount
     };
   }
 });
 </script>
 
 <style scoped>
+/* 背景容器 */
 .bg-container {
+  background: url('@/asset/home/homehead.png');
   position: fixed;
-  left: 0;
-  top: 0;
-  width: 100vw;
   height: 100vh;
-  background: #f5f7fa;
-  z-index: -2;
-}
-
-.bg-strong-container {
-  position: fixed;
-  left: 0;
-  top: 0;
   width: 100vw;
-  height: 320px;
-  background: linear-gradient(90deg, #e0eafc 0%, #cfdef3 100%);
-  z-index: -1;
+  z-index: -2;
+  top: 0;
+  left: 0;
+  background-size: cover;
 }
 
-.el-main {
-  padding: 0;
+/* 主容器布局 */
+.view-set-margin {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 100px;
+  padding-bottom: 40px;
 }
 
-.el-row {
-  margin-left: 0 !important;
-  margin-right: 0 !important;
+.outcome-detail-container {
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 20px;
 }
 
-.el-col {
-  padding-left: 12px !important;
-  padding-right: 12px !important;
+.outcome-content {
+  display: flex;
+  flex-direction: column;
 }
 
-.main-container {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  padding: 36px 40px 30px 40px;
-  margin-bottom: 24px;
+.main-content {
+  display: flex;
+  gap: 25px;
+  width: 100%;
 }
 
-.loading-container {
-  padding: 20px;
+.content-left {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
 }
 
-.header-container {
+.content-right {
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  position: sticky;
+  top: 100px;
+  align-self: flex-start;
+  z-index: 10;
+}
+
+/* 卡片样式 */
+.section-card {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 0;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+.section-card:hover {
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+}
+
+.card-header {
+  padding: 20px 24px 16px;
   border-bottom: 1px solid #f0f0f0;
-  padding-bottom: 16px;
+  background: #fafbfc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.comment-count {
+  font-size: 14px;
+  color: #909399;
+  margin-left: 8px;
+}
+
+.card-content {
+  padding: 24px;
+  text-align: left;
+}
+
+/* 标题卡片特殊样式 */
+.title-card .card-content {
+  padding: 32px 24px 24px;
+}
+
+.outcome-header {
+  position: relative;
   margin-bottom: 24px;
 }
 
-.header-title {
+.outcome-title {
   font-size: 28px;
   font-weight: bold;
-  margin-bottom: 16px;
   line-height: 1.3;
-}
-
-.info-container {
-  margin-bottom: 20px;
-}
-
-.detail-info {
-  margin-bottom: 8px;
-  font-size: 15px;
-  display: flex;
-}
-
-.info-label {
-  color: #888;
-  min-width: 80px;
-  font-weight: 500;
-}
-
-.action-container {
-  display: flex;
-  gap: 12px;
-  margin-top: 16px;
-}
-
-.down-container {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: bold;
-  margin-bottom: 16px;
-  color: #333;
-}
-
-.side-container {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 0;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  margin-bottom: 24px;
-  margin-top: 8px;
-}
-
-.side-panel {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  overflow: hidden;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.panel-section {
-  padding: 20px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.panel-section:last-child {
-  border-bottom: none;
-}
-
-.info-list, .authors-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.info-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.info-item .info-label {
-  font-size: 14px;
-  color: #888;
-  min-width: auto;
-}
-
-.info-value {
-  font-size: 16px;
-  color: #333;
-}
-
-.author-item {
-  padding: 12px;
-  background: #f5f7fa;
-  border-radius: 6px;
-}
-
-.author-name {
-  font-size: 15px;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 4px;
-}
-
-.author-info {
-  font-size: 14px;
-  color: #666;
+  color: #2c3e50;
+  margin-top: 12px;
 }
 
 .edit-actions {
   position: absolute;
-  top: 10px;
-  right: 10px;
+  top: 0;
+  right: 0;
   display: flex;
+  gap: 8px;
 }
 
-.edit-form {
-  max-height: 70vh;
-  overflow-y: auto;
-  padding-right: 10px;
+.like-section-bottom {
+  padding: 16px 0 0 0;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-start;
 }
 
-.doi-link {
+/* 元数据样式 */
+.outcome-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.meta-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-bottom: 0;
+}
+
+.type-tag {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: white;
+  white-space: nowrap;
+  background: #909399; /* 默认背景色 */
+}
+
+.type-tag.article { background: #67c23a !important; }
+.type-tag.journal { background: #409eff !important; }
+.type-tag.conference { background: #e6a23c !important; }
+.type-tag.patent { background: #f56c6c !important; }
+.type-tag.book { background: #909399 !important; }
+.type-tag.chapter { background: #8e44ad !important; }
+
+.status-tag {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  background: #f0f9ff;
   color: #1890ff;
-  text-decoration: none;
+  border: 1px solid #d6f3ff;
 }
 
-.doi-link:hover {
-  text-decoration: underline;
+.meta-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.error-container {
-  padding: 40px 0;
-  text-align: center;
+.meta-row {
+  display: flex;
+  align-items: flex-start;
 }
 
-/* 文件上传相关样式 */
-.upload-container {
-  padding: 10px 0;
-}
-
-.upload-tip {
-  margin-bottom: 15px;
-  color: #606266;
+.meta-label {
+  min-width: 80px;
+  font-weight: 500;
+  color: #666;
   font-size: 14px;
 }
 
-.pdf-uploader {
-  width: 100%;
+.meta-value {
+  color: #333;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
 }
 
-.el-upload__tip {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #909399;
-}
-
-.abstract-container {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #f0f0f0;
-}
-
+/* 摘要样式 */
 .abstract-content {
-  margin-top: 16px;
   font-size: 15px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: #333;
-  text-align: justify;
-  background: #f9f9f9;
-  padding: 16px;
-  border-radius: 8px;
-  border-left: 4px solid #1890ff;
+  text-align: left;
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 6px;
+  border-left: 4px solid #409eff;
 }
 
-.abstract-content.empty-abstract {
-  color: #909399;
-  font-size: 14px;
-  text-align: center;
-}
-
-/* 关键词相关样式 */
-.keywords-container {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.keywords-content {
-  margin-top: 16px;
-  font-size: 15px;
-  line-height: 1.6;
-  color: #333;
-  text-align: justify;
-  background: #f9f9f9;
-  padding: 16px;
-  border-radius: 8px;
-  border-left: 4px solid #1890ff;
-}
-
-.keywords-content.empty-keywords {
-  color: #909399;
-  font-size: 14px;
-  text-align: center;
+/* 关键词样式 */
+.keywords-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  text-align: left;
 }
 
 .keyword-tag {
-  margin-right: 8px;
+  margin: 0;
+  background: #e8f4fd !important;
+  color: #1890ff !important;
+  border: 1px solid #bee7ff !important;
 }
 
-/* 评论区相关样式 */
-.comments-container {
-  margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid #f0f0f0;
+/* 链接样式 */
+.links-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.comment-input-container {
+.link-item {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-radius: 0;
+  border: 1px solid #e9ecef;
+}
+
+.link-label {
+  font-weight: 500;
+  color: #666;
+  font-size: 14px;
+}
+
+/* 评论区样式 */
+.comment-input-container {
+  display: flex;
   gap: 12px;
-  padding: 12px;
-  background: #fff;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 0;
+  margin-bottom: 20px;
 }
 
 .comment-input-wrapper {
   flex: 1;
 }
 
+.comment-textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dcdfe6;
+  border-radius: 0;
+  resize: vertical;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #606266;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease;
+  font-family: inherit;
+}
+
+.comment-textarea:focus {
+  outline: none;
+  border-color: #409eff;
+}
+
 .comment-actions {
   display: flex;
-  gap: 12px;
+  justify-content: flex-end;
   margin-top: 8px;
 }
 
-.login-tip {
-  color: #909399;
-  font-size: 14px;
-}
-
 .comment-list {
-  margin-top: 16px;
-}
-
-.empty-comment {
-  padding: 16px;
-  text-align: center;
+  min-height: 200px;
 }
 
 .comment-items {
-  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .comment-item {
-  margin-bottom: 16px;
+  padding: 16px;
+  background: #fdfdfd;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.comment-item:hover {
+  background: #fafafa;
+  border-color: #e0e0e0;
 }
 
 .comment-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .comment-user {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .user-info {
@@ -1189,33 +1307,44 @@ export default defineComponent({
 }
 
 .username {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   color: #333;
 }
 
 .comment-time {
-  font-size: 14px;
-  color: #909399;
-}
-
-.comment-actions {
-  display: flex;
-  gap: 8px;
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
 }
 
 .comment-content {
-  margin-top: 8px;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1.6;
   color: #333;
+  margin-left: 50px;
+  text-align: left;
 }
 
 .reply-input-container {
-  margin-top: 8px;
+  margin-top: 12px;
+  margin-left: 50px;
   padding: 12px;
-  background: #f9f9f9;
-  border-radius: 8px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+
+.reply-textarea {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #606266;
+  box-sizing: border-box;
+  font-family: inherit;
 }
 
 .reply-actions {
@@ -1226,17 +1355,27 @@ export default defineComponent({
 }
 
 .reply-list {
-  margin-top: 8px;
+  margin-top: 12px;
+  margin-left: 50px;
+  padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
 }
 
 .reply-item {
+  padding: 12px;
+  background: #fafbfc;
+  border-radius: 6px;
   margin-bottom: 8px;
+}
+
+.reply-item:last-child {
+  margin-bottom: 0;
 }
 
 .reply-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .reply-user {
@@ -1246,214 +1385,176 @@ export default defineComponent({
 }
 
 .reply-content {
-  margin-top: 8px;
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 13px;
+  line-height: 1.5;
   color: #333;
+  text-align: left;
 }
 
 .pagination-container {
-  margin-top: 16px;
-  text-align: right;
-}
-
-.comment-textarea {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  resize: vertical;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #606266;
-  box-sizing: border-box;
-  transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
-}
-
-.comment-textarea:focus {
-  outline: none;
-  border-color: #409eff;
-}
-
-.reply-textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  resize: vertical;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #606266;
-  box-sizing: border-box;
-  transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
-}
-
-.reply-textarea:focus {
-  outline: none;
-  border-color: #409eff;
-}
-
-.outcome-content {
-  margin-bottom: 24px;
-  position: relative;
-}
-
-.outcome-title {
-  font-size: 28px;
-  font-weight: bold;
-  margin-bottom: 20px;
-  line-height: 1.3;
-  padding-right: 220px; /* 为右侧按钮留出空间 */
-}
-
-.outcome-meta {
+  margin-top: 20px;
   display: flex;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  justify-content: center;
 }
 
-.meta-item {
-  margin-right: 16px;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #666;
+/* 侧边栏信息卡片 */
+.info-sidebar-card,
+.author-sidebar-card {
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
 }
 
-.outcome-section {
-  margin-bottom: 24px;
-}
-
-.section-header {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 12px;
-  color: #333;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.abstract-content {
-  font-size: 15px;
-  line-height: 1.6;
-  color: #333;
-  text-align: justify;
-}
-
-.keywords-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.keyword-tag {
-  margin-right: 8px;
-}
-
-.links-list {
+.info-list {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.link-item {
+.info-item {
   display: flex;
-  align-items: center;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.link-label {
-  min-width: 90px;
+.info-item .info-label {
+  font-size: 12px;
+  color: #999;
   font-weight: 500;
-  color: #666;
-  margin-right: 10px;
+  text-transform: uppercase;
 }
 
-.link-url {
-  color: #1890ff;
-  text-decoration: none;
-  word-break: break-all;
+.info-value {
+  font-size: 14px;
+  color: #333;
+  font-weight: 500;
+  text-align: left;
 }
 
-.link-url:hover {
-  text-decoration: underline;
+/* 作者信息样式 */
+.authors-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .main-author {
   display: flex;
-  flex-direction: column;
   align-items: center;
+  gap: 12px;
   padding: 16px;
-  text-align: center;
-  border-bottom: 1px dashed #f0f0f0;
+  background: #f8f9fa;
+  border-radius: 8px;
 }
 
 .author-avatar {
-  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.author-details {
+  flex: 1;
+  text-align: left;
 }
 
 .author-name {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  margin-bottom: 8px;
   color: #333;
+  margin-bottom: 8px;
 }
 
 .author-info {
   display: flex;
+  align-items: flex-start;
   margin-bottom: 4px;
-  font-size: 14px;
+  font-size: 13px;
   color: #666;
+  text-align: left;
 }
 
-.info-label {
-  margin-right: 8px;
-  color: #888;
+.author-info .info-label {
+  min-width: 40px;
+  color: #999;
   font-weight: 500;
 }
 
 .section-subtitle {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
-  margin: 16px 0 12px;
   color: #666;
+  margin-bottom: 8px;
 }
 
 .other-authors {
   padding-top: 12px;
+  border-top: 1px solid #f0f0f0;
 }
 
 .other-author-item {
-  margin-bottom: 8px;
-  padding: 8px;
-  background-color: #f9f9f9;
+  padding: 8px 12px;
+  background: #f5f7fa;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 6px;
+  text-align: left;
 }
 
-/* 文件上传相关样式 */
-.upload-container {
-  padding: 10px 0;
+.other-author-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 加载状态 */
+.loading-container {
+  padding: 40px 20px;
+}
+
+/* 空状态 */
+.empty-comment {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+/* 文件上传对话框 */
+.edit-form {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 10px;
 }
 
 .upload-dialog-content {
   text-align: center;
-  padding: 10px 0;
+  padding: 20px 0;
 }
 
-.el-upload {
-  width: 100%;
-}
-
-.el-upload-dragger {
-  width: 100%;
-}
-
-.edit-actions {
-  display: flex;
-  position: absolute;
-  top: 10px;
-  right: 10px;
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .main-content {
+    flex-direction: column;
+  }
+  
+  .content-right {
+    width: 100%;
+    position: static;
+    top: auto;
+  }
+  
+  .outcome-title {
+    font-size: 24px;
+  }
+  
+  .edit-actions {
+    position: static;
+    margin-top: 16px;
+  }
+  
+  .comment-content,
+  .reply-content {
+    margin-left: 0;
+  }
+  
+  .reply-input-container,
+  .reply-list {
+    margin-left: 0;
+  }
 }
 </style> 

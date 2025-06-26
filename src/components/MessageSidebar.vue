@@ -91,6 +91,18 @@
                                         已阅
                                     </div>
                                 </div>
+                                
+                                <!-- 其他类型消息的标记已读按钮/状态 -->
+                                <div v-if="!['project_invite', 'project_apply', 'data_request', 'researcher_update', 'question_reply'].includes(message.type)">
+                                    <div v-if="!message.read" class="message-actions">
+                                        <el-button type="default" size="small" @click="handleMarkAsRead(message.id)">
+                                            标记已读
+                                        </el-button>
+                                    </div>
+                                    <div v-else class="message-status processed">
+                                        已阅
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div v-if="!message.read" class="unread-dot"></div>
@@ -157,10 +169,18 @@ const filteredMessages = computed(() => {
 // 计算非项目类型的未读消息（用于全部已读功能）
 const unreadNonProjectMessages = computed(() => {
     return filteredMessages.value.filter(message => {
-        // 只包括非项目类型的未读消息
-        return ['data_request', 'researcher_update', 'question_reply'].includes(message.type) &&
-               message.status === 'pending' &&
-               !message.read
+        // 项目类型的消息不包括在内（它们有自己的同意/拒绝逻辑）
+        if (['project_invite', 'project_apply'].includes(message.type)) {
+            return false
+        }
+        
+        // 对于已知的三种类型，检查status是否为pending
+        if (['data_request', 'researcher_update', 'question_reply'].includes(message.type)) {
+            return message.status === 'pending' && !message.read
+        }
+        
+        // 对于其他未知类型，只要是未读就包括在内
+        return !message.read
     })
 })
 
@@ -543,7 +563,7 @@ const handleMarkAsRead = async (messageId) => {
     }
     
     try {
-        console.log(`开始标记消息为已读:`, messageId)
+        console.log(`开始标记消息为已读:`, messageId, `消息类型: ${message.type}`)
         
         // 调用后端接口标记消息为已读
         const success = await markAsRead({
@@ -552,9 +572,14 @@ const handleMarkAsRead = async (messageId) => {
         
         if (success) {
             // 更新前端状态
-            message.status = 'processed'
+            // 对于已知的三种类型，设置status为processed
+            if (['data_request', 'researcher_update', 'question_reply'].includes(message.type)) {
+                message.status = 'processed'
+            }
+            // 对于所有类型，都设置read为true
             message.read = true
-            console.log(`消息ID ${messageId} 已标记为已读，未读数量将更新`)
+            
+            console.log(`消息ID ${messageId} 已标记为已读，消息类型: ${message.type}，未读数量将更新`)
             callSuccess('消息已标记为已读')
         } else {
             // 接口调用失败的错误信息已在API中处理
@@ -590,7 +615,11 @@ const handleMarkAllAsRead = async () => {
         if (success) {
             // 更新前端状态
             unreadMessages.forEach(message => {
-                message.status = 'processed'
+                // 对于已知的三种类型，设置status为processed
+                if (['data_request', 'researcher_update', 'question_reply'].includes(message.type)) {
+                    message.status = 'processed'
+                }
+                // 对于所有类型，都设置read为true
                 message.read = true
             })
             
