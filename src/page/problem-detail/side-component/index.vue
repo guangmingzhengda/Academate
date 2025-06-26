@@ -12,6 +12,22 @@
                     <div class="stat-label">点赞数</div>
                 </div>
             </div>
+            
+            <!-- 显示被采纳的回答 -->
+            <div v-if="problem && problem.acceptAnswer && acceptedAnswer" class="info-card accepted-answer">
+                <div class="card-title"><i class="el-icon-check"></i> 已采纳回答</div>
+                <div class="answer-preview">
+                    <div class="answer-info">
+                        <img :src="acceptedAnswer.userAvatar || defaultAvatar" class="avatar" alt="用户头像">
+                        <div class="user-info">
+                            <div class="username">{{ acceptedAnswer.userName }}</div>
+                            <div class="timestamp">{{ formatDate(acceptedAnswer.answeredAt) }}</div>
+                        </div>
+                    </div>
+                    <div class="answer-content">{{ truncateText(acceptedAnswer.answerText, 100) }}</div>
+                </div>
+            </div>
+            
             <div v-if="problem && problem.answers && problem.answers.length > 0" class="info-card">
                 <div class="card-title">最新回答</div>
                 <div v-for="(answer, index) in recentAnswers" :key="index" class="answer-preview">
@@ -70,6 +86,12 @@ export default {
             return [...problem.value.answers]
                 .sort((a, b) => new Date(b.answeredAt) - new Date(a.answeredAt))
                 .slice(0, 3);
+        });
+
+        // 获取被采纳的回答
+        const acceptedAnswer = computed(() => {
+            if (!problem.value || !problem.value.acceptAnswer || !problem.value.answers) return null;
+            return problem.value.answers.find(answer => answer.answerId === problem.value.acceptAnswer);
         });
         
         // 获取问题详情
@@ -154,7 +176,8 @@ export default {
             recentAnswers,
             defaultAvatar,
             formatDate,
-            truncateText
+            truncateText,
+            acceptedAnswer
         };
     }
 }
@@ -182,10 +205,11 @@ export default {
 }
 
 .section-title {
-    font-size: 16px;
-    font-weight: bold;
+    font-size: 18px;
+    font-weight: 600;
     color: #333;
     margin-bottom: 16px;
+    text-align: left;
 }
 
 .stat-row {
@@ -217,16 +241,17 @@ export default {
 }
 
 .card-title {
-    font-size: 14px;
-    font-weight: bold;
-    margin-bottom: 12px;
+    font-size: 16px;
+    font-weight: 500;
     color: #333;
+    margin-bottom: 12px;
+    text-align: left;
 }
 
 .answer-preview {
-    margin-bottom: 16px;
-    padding-bottom: 16px;
-    border-bottom: 1px solid #eee;
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    text-align: left;
 }
 
 .answer-preview:last-child {
@@ -237,8 +262,8 @@ export default {
 
 .answer-info {
     display: flex;
-    align-items: center;
-    margin-bottom: 8px;
+    align-items: flex-start;
+    text-align: left;
 }
 
 .avatar {
@@ -250,24 +275,31 @@ export default {
 }
 
 .user-info {
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
 }
 
 .username {
     font-size: 14px;
     font-weight: 500;
     color: #333;
+    text-align: left;
 }
 
 .timestamp {
     font-size: 12px;
     color: #909399;
+    text-align: left;
 }
 
 .answer-content {
+    margin-top: 8px;
     font-size: 14px;
-    color: #606266;
-    line-height: 1.5;
+    color: #333;
+    line-height: 1.6;
+    text-align: left;
 }
 
 .empty-state {
@@ -313,5 +345,14 @@ export default {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+.accepted-answer {
+    border-left: 3px solid #67c23a;
+    background-color: #f0f9eb;
+}
+
+.accepted-answer .card-title {
+    color: #67c23a;
 }
 </style> 

@@ -35,7 +35,10 @@
                                 <div class="down-container" v-if="questionData.answers && questionData.answers.length > 0">
                                     <div class="answers-title">全部回答 ({{ questionData.answerCount }})</div>
                                     <div class="answers-list">
-                                        <div v-for="(answer, index) in questionData.answers" :key="index" class="answer-item">
+                                        <div v-for="(answer, index) in questionData.answers" 
+                                             :key="index" 
+                                             class="answer-item"
+                                             :class="{'accepted': questionData.acceptAnswer === answer.answerId}">
                                             <div class="answer-header">
                                                 <div class="user-info">
                                                     <img :src="answer.userAvatar || defaultAvatar" class="avatar" alt="用户头像">
@@ -55,7 +58,23 @@
                                                         {{ answer.likeCount }}
                                                     </el-button>
                                                     <el-button size="small" icon="el-icon-chat-dot-round" @click="replyToAnswer(answer.answerId)">回复</el-button>
+                                                    
+                                                    <!-- 采纳按钮，仅在当前用户是问题所有者且没有采纳过回答时显示 -->
+                                                    <el-button 
+                                                        v-if="isQuestionOwner && !questionData.acceptAnswer && answer.layer === 1" 
+                                                        type="success" 
+                                                        size="small" 
+                                                        icon="el-icon-check" 
+                                                        @click="acceptAnswerAction(answer.answerId)"
+                                                        :loading="acceptLoading === answer.answerId"
+                                                    >
+                                                        采纳
+                                                    </el-button>
                                                 </div>
+                                            </div>
+                                            <!-- 采纳标识 -->
+                                            <div v-if="questionData.acceptAnswer === answer.answerId" class="accepted-answer-tag">
+                                                <i class="el-icon-check"></i> 已采纳
                                             </div>
                                             <div class="answer-content">{{ answer.answerText }}</div>
                                             
@@ -164,7 +183,7 @@
 import ProblemSideComponent from "./side-component/index.vue";
 import { ref, onMounted, computed } from "vue";
 import { useRoute } from "vue-router";
-import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount } from "@/api/question";
+import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer } from "@/api/question";
 import { ElMessage } from "element-plus";
 import store from "@/store";
 
@@ -180,11 +199,18 @@ export default {
         const answerText = ref('');
         const answerDialogVisible = ref(false);
         const currentParentId = ref(null);
+        const acceptLoading = ref(null);
         
         // 过滤一级回答（主回答）
         const mainAnswers = computed(() => {
             if (!questionData.value || !questionData.value.answers) return [];
             return questionData.value.answers.filter(answer => answer.layer === 1);
+        });
+        
+        // 判断当前用户是否是问题所有者
+        const isQuestionOwner = computed(() => {
+            const currentUserId = store.getters.getId;
+            return questionData.value && currentUserId && questionData.value.userId === currentUserId;
         });
         
         // 加载问题详情
@@ -387,6 +413,29 @@ export default {
             }
         };
         
+        // 采纳回答
+        const acceptAnswerAction = async (answerId) => {
+            const userId = store.getters.getId;
+            if (!userId) {
+                ElMessage.warning('请先登录后再采纳回答');
+                return;
+            }
+            
+            try {
+                acceptLoading.value = answerId;
+                const success = await acceptAnswer(questionId.value, answerId);
+                if (success) {
+                    ElMessage.success('回答已采纳');
+                    await loadQuestionDetail();
+                }
+            } catch (error) {
+                console.error('采纳回答失败:', error);
+                ElMessage.error('采纳回答失败，请稍后重试');
+            } finally {
+                acceptLoading.value = null;
+            }
+        };
+        
         return {
             questionId,
             questionData,
@@ -400,7 +449,10 @@ export default {
             replyToAnswer,
             submitAnswer,
             formatDate,
-            handleLike
+            handleLike,
+            acceptLoading,
+            acceptAnswerAction,
+            isQuestionOwner
         };
     }
 }
@@ -452,6 +504,7 @@ export default {
     font-size: 28px;
     font-weight: bold;
     margin-bottom: 12px;
+    text-align: center;
 }
 .info-container {
     margin-bottom: 12px;
@@ -471,6 +524,7 @@ export default {
     font-size: 18px;
     font-weight: bold;
     margin-bottom: 16px;
+    text-align: left;
 }
 .abstract-content {
     font-size: 15px;
@@ -511,7 +565,8 @@ export default {
 }
 .user-info {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
+    text-align: left;
 }
 .avatar {
     width: 40px;
@@ -532,11 +587,13 @@ export default {
     font-size: 16px;
     font-weight: 500;
     color: #333;
+    text-align: left;
 }
 .timestamp {
     font-size: 12px;
     color: #909399;
     margin-top: 4px;
+    text-align: left;
 }
 .answer-actions {
     display: flex;
@@ -548,27 +605,34 @@ export default {
     color: #333;
     margin-top: 12px;
     text-align: left;
+    background: #f9f9fa;
+    padding: 12px;
+    border-radius: 6px;
 }
 .nested-answers {
     margin-top: 16px;
     padding-left: 24px;
-    border-left: 2px solid #f0f0f0;
+    border-left: 3px solid #ebeef5;
 }
 .nested-answers.deeper {
     margin-top: 12px;
     padding-left: 20px;
-    border-left: 1px solid #f0f0f0;
+    border-left: 2px solid #ebeef5;
 }
 .nested-answer-item {
-    background: #f8f9fa;
+    background: #f5f7fa;
     border-radius: 8px;
     padding: 16px;
     margin-bottom: 12px;
+    border: 1px solid #ebeef5;
 }
 .nested-answers.deeper .nested-answer-item {
-    background: #f5f7fa;
+    background: #f8f9fa;
     padding: 12px;
     margin-bottom: 8px;
+}
+.nested-answer-item .answer-content {
+    background: #f5f7fa;
 }
 .empty-answers {
     text-align: center;
@@ -597,5 +661,29 @@ export default {
 .error-container {
     padding: 40px 0;
     text-align: center;
+}
+
+/* 采纳标识样式 */
+.accepted-answer-tag {
+    display: inline-block;
+    background-color: #f0f9eb;
+    border: 1px solid #e1f3d8;
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: #67c23a;
+    font-weight: 500;
+}
+
+.accepted-answer-tag .el-icon-check {
+    margin-right: 4px;
+}
+
+/* 采纳后的回答样式 */
+.answer-item.accepted {
+    border-left: 3px solid #67c23a;
+    background-color: #f0f9eb;
 }
 </style> 
