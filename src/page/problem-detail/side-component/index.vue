@@ -4,12 +4,7 @@
             <div class="section-title">问题概览</div>
             <div class="stat-row">
                 <div class="stat-item">
-                    <div class="stat-value">{{ problem?.answerCount || 0 }}</div>
-                    <div class="stat-label">回答数</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-value">{{ problem?.likeCount || 0 }}</div>
-                    <div class="stat-label">点赞数</div>
+                    <div class="stat-inline">回答数：{{ problem?.answerCount || 0 }}</div>
                 </div>
             </div>
             
@@ -260,6 +255,13 @@ export default {
     color: #606266;
 }
 
+.stat-inline {
+    font-size: 16px;
+    font-weight: 500;
+    color: #333;
+    text-align: left;
+}
+
 .info-card {
     background: #f8f9fa;
     border-radius: 8px;
@@ -337,6 +339,7 @@ export default {
 
 .user-details {
     flex: 1;
+    text-align: left;
 }
 
 .user-name {

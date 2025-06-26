@@ -2,7 +2,7 @@
     <div class="bg-container"/>
     <div class="bg-strong-container"/>
     <div style="width: 100%; height: 100%; display: flex; justify-content: center; margin-top: 100px">
-        <div style="width: 1400px; margin-bottom: 40px">
+        <div style="width: 1200px; margin-bottom: 40px">
             <el-container class="el-main">
                 <el-row :gutter="20">
                     <el-col :span="17">
@@ -22,6 +22,17 @@
                                             <span class="info-label">提问时间：</span>
                                             <span>{{ formatDate(questionData.askedAt) }}</span>
                                         </div>
+                                    </div>
+                                    <!-- 问题点赞按钮 -->
+                                    <div class="question-like-section" v-if="false">
+                                        <el-button 
+                                            size="small" 
+                                            :type="questionLiked ? 'danger' : 'default'"
+                                            @click="handleQuestionLike"
+                                            :loading="questionLikeLoading"
+                                        >
+                                            {{ questionLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ questionLikeCount }})
+                                        </el-button>
                                     </div>
                                 </div>
                                 <div class="down-container">
@@ -55,11 +66,11 @@
                                                 <div class="answer-actions">
                                                     <el-button 
                                                         size="small" 
-                                                        :type="answer.isLiked ? 'primary' : 'default'"
+                                                        :type="answer.isLiked ? 'danger' : 'default'"
                                                         @click="handleLike(answer)"
                                                         :loading="answer.likeLoading"
                                                     >
-                                                        👍 {{ answer.likeCount }}
+                                                        {{ answer.isLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ answer.likeCount }})
                                                     </el-button>
                                                     <el-button 
                                                         size="small" 
@@ -98,12 +109,19 @@
                                                     >
                                                         ✓ 采纳
                                                     </el-button>
+                                                    
+                                                    <!-- 已采纳状态按钮 -->
+                                                    <el-button 
+                                                        v-if="questionData.acceptAnswer === answer.answerId" 
+                                                        type="success" 
+                                                        size="small" 
+                                                        disabled
+                                                    >
+                                                        ✓ 已采纳
+                                                    </el-button>
                                                 </div>
                                             </div>
-                                            <!-- 采纳标识 -->
-                                            <div v-if="questionData.acceptAnswer === answer.answerId" class="accepted-answer-tag">
-                                                ✓ 已采纳
-                                            </div>
+
                                             <div class="answer-content">{{ answer.answerText }}</div>
                                             
                                             <!-- 嵌套回复 -->
@@ -127,11 +145,11 @@
                                                         <div class="answer-actions">
                                                             <el-button 
                                                                 size="small" 
-                                                                :type="childAnswer.isLiked ? 'primary' : 'default'"
+                                                                :type="childAnswer.isLiked ? 'danger' : 'default'"
                                                                 @click="handleLike(childAnswer)"
                                                                 :loading="childAnswer.likeLoading"
                                                             >
-                                                                👍 {{ childAnswer.likeCount }}
+                                                                {{ childAnswer.isLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ childAnswer.likeCount }})
                                                             </el-button>
                                                             
                                                             <!-- 编辑按钮（仅对自己的回答显示） -->
@@ -178,11 +196,11 @@
                                                                 <div class="answer-actions">
                                                                     <el-button 
                                                                         size="small" 
-                                                                        :type="grandChildAnswer.isLiked ? 'primary' : 'default'"
+                                                                        :type="grandChildAnswer.isLiked ? 'danger' : 'default'"
                                                                         @click="handleLike(grandChildAnswer)"
                                                                         :loading="grandChildAnswer.likeLoading"
                                                                     >
-                                                                        👍 {{ grandChildAnswer.likeCount }}
+                                                                        {{ grandChildAnswer.isLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ grandChildAnswer.likeCount }})
                                                                     </el-button>
                                                                     
                                                                     <!-- 编辑按钮（仅对自己的回答显示） -->
@@ -224,6 +242,10 @@
                                     v-model="answerDialogVisible"
                                     :title="currentParentId ? '回复回答' : '撰写回答'"
                                     width="600px"
+                                    :append-to-body="true"
+                                    :modal-append-to-body="true"
+                                    :close-on-click-modal="false"
+                                    center
                                 >
                                     <el-input
                                         type="textarea"
@@ -244,6 +266,10 @@
                                     v-model="editDialogVisible"
                                     title="编辑回答"
                                     width="600px"
+                                    :append-to-body="true"
+                                    :modal-append-to-body="true"
+                                    :close-on-click-modal="false"
+                                    center
                                 >
                                     <el-input
                                         type="textarea"
@@ -279,7 +305,7 @@
 import ProblemSideComponent from "./side-component/index.vue";
 import { defineComponent, ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer, deleteAnswer, updateAnswer, AnswerUpdateRequest } from "@/api/question";
+import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer, deleteAnswer, updateAnswer, AnswerUpdateRequest, likeQuestion, cancelLikeQuestion, getQuestionLikeCount, isQuestionLiked } from "@/api/question";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { 
     Thumb, 
@@ -330,6 +356,11 @@ export default defineComponent({
         const editingAnswerId = ref(null);
         const editingAnswerText = ref('');
         
+        // 问题点赞相关
+        const questionLiked = ref(false);
+        const questionLikeCount = ref(0);
+        const questionLikeLoading = ref(false);
+        
         // 判断是否是当前用户的回答
         const isCurrentUserAnswer = (answer) => {
             return currentUserId.value && answer.userId === currentUserId.value;
@@ -356,6 +387,9 @@ export default defineComponent({
                     
                     data.answers = processAnswers(data.answers);
                     questionData.value = data;
+                    
+                    // 加载问题点赞状态
+                    await loadQuestionLikeStatus();
                 } else {
                         ElMessage.error('获取问题详情失败');
                     }
@@ -624,6 +658,77 @@ export default defineComponent({
             router.push(`/profile/${userId}`);
         };
         
+        // 加载问题点赞状态
+        const loadQuestionLikeStatus = async () => {
+            if (!questionId.value) return;
+            
+            try {
+                // 获取点赞数量
+                const likeCount = await getQuestionLikeCount(questionId.value);
+                questionLikeCount.value = likeCount;
+                
+                // 获取当前用户是否点赞
+                const userId = store.getters.getId;
+                if (userId) {
+                    const liked = await isQuestionLiked(userId, questionId.value);
+                    questionLiked.value = liked;
+                }
+            } catch (error) {
+                console.error('加载问题点赞状态失败:', error);
+            }
+        };
+        
+        // 处理问题点赞
+        const handleQuestionLike = async () => {
+            if (questionLikeLoading.value) return;
+            
+            const userId = store.getters.getId;
+            if (!userId) {
+                ElMessage.warning('请先登录后再点赞');
+                return;
+            }
+            
+            if (!questionId.value) {
+                ElMessage.warning('问题ID不存在');
+                return;
+            }
+            
+            try {
+                questionLikeLoading.value = true;
+                
+                let success = false;
+                
+                if (questionLiked.value) {
+                    // 取消点赞
+                    success = await cancelLikeQuestion(userId, questionId.value);
+                    if (success) {
+                        questionLiked.value = false;
+                        questionLikeCount.value = Math.max(0, questionLikeCount.value - 1);
+                        ElMessage.success('取消点赞成功');
+                    }
+                } else {
+                    // 点赞
+                    success = await likeQuestion(userId, questionId.value);
+                    if (success) {
+                        questionLiked.value = true;
+                        questionLikeCount.value = questionLikeCount.value + 1;
+                        ElMessage.success('点赞成功');
+                    }
+                }
+                
+                if (success) {
+                    // 获取最新点赞数
+                    const newLikeCount = await getQuestionLikeCount(questionId.value);
+                    questionLikeCount.value = newLikeCount;
+                }
+            } catch (error) {
+                console.error('问题点赞操作失败:', error);
+                ElMessage.error('操作失败，请稍后重试');
+            } finally {
+                questionLikeLoading.value = false;
+            }
+        };
+        
         return {
             questionId,
             questionData,
@@ -648,7 +753,12 @@ export default defineComponent({
             editDialogVisible,
             editingAnswerText,
             submitEditAnswer,
-            goToUserProfile
+            goToUserProfile,
+            // 问题点赞相关
+            questionLiked,
+            questionLikeCount,
+            questionLikeLoading,
+            handleQuestionLike
         };
     }
 })
@@ -677,11 +787,21 @@ export default defineComponent({
 .el-row {
     margin-left: 0 !important;
     margin-right: 0 !important;
+    align-items: flex-start !important;
 }
 
 .el-col {
-    padding-left: 12px !important;
-    padding-right: 12px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    vertical-align: top !important;
+}
+
+.el-col:first-child {
+    padding-right: 10px !important;
+}
+
+.el-col:last-child {
+    padding-left: 10px !important;
 }
 
 .main-container {
@@ -690,8 +810,10 @@ export default defineComponent({
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     padding: 36px 40px 30px 40px;
     margin-bottom: 24px;
+    margin-top: 0;
     transition: all 0.3s ease;
     position: relative;
+    min-height: 900px;
 }
 
 .main-container:hover {
@@ -716,6 +838,13 @@ export default defineComponent({
 
 .info-container {
     margin-bottom: 20px;
+}
+
+.question-like-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    text-align: left;
 }
 
 .detail-info {

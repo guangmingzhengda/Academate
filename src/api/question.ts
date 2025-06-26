@@ -410,10 +410,15 @@ export async function acceptAnswer(questionId: number, answerId: number): Promis
  */
 export async function deleteAnswer(answerId: number): Promise<boolean> {
   try {
-    const response = await axios.delete(`/question/answer/${answerId}`);
+    const response = await axios.post(`/question/answer/delete`, null, {
+      params: { answerId },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
     
     if (response.status === 200 && response.data.code === 0) {
-      return response.data.data;
+      return true;
     } else {
       callError(response.data.message || "删除回答失败");
       return false;
@@ -439,16 +444,130 @@ export interface AnswerUpdateRequest {
  */
 export async function updateAnswer(answerId: number, data: AnswerUpdateRequest): Promise<boolean> {
   try {
-    const response = await axios.put(`/question/answer/${answerId}`, data);
+    const response = await axios.post(`/question/answer/update`, {
+      answerId,
+      ...data
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
     
     if (response.status === 200 && response.data.code === 0) {
-      return response.data.data;
+      return true;
     } else {
       callError(response.data.message || "更新回答失败");
       return false;
     }
   } catch (error) {
     callError("更新回答失败: " + error);
+    return false;
+  }
+}
+
+/**
+ * 获取问题点赞数量
+ * @param questionId 问题ID
+ * @returns 点赞数量
+ */
+export async function getQuestionLikeCount(questionId: number): Promise<number> {
+  try {
+    const response = await axios.post<BaseResponseLong>('/api/question_like/like_count', null, {
+      params: { questionId },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return response.data.data;
+    } else {
+      console.error("获取问题点赞数量失败:", response.data.message);
+      return 0;
+    }
+  } catch (error) {
+    console.error("获取问题点赞数量失败:", error);
+    return 0;
+  }
+}
+
+/**
+ * 点赞问题
+ * @param uid 用户ID
+ * @param questionId 问题ID
+ * @returns 是否点赞成功
+ */
+export async function likeQuestion(uid: number, questionId: number): Promise<boolean> {
+  try {
+    const response = await axios.post('/api/question_like/like', null, {
+      params: { uid, questionId },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return true;
+    } else {
+      callError(response.data.message || "点赞问题失败");
+      return false;
+    }
+  } catch (error) {
+    callError("点赞问题失败: " + error);
+    return false;
+  }
+}
+
+/**
+ * 取消点赞问题
+ * @param uid 用户ID
+ * @param questionId 问题ID
+ * @returns 是否取消点赞成功
+ */
+export async function cancelLikeQuestion(uid: number, questionId: number): Promise<boolean> {
+  try {
+    const response = await axios.post('/api/question_like/cancel_like', null, {
+      params: { uid, questionId },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return true;
+    } else {
+      callError(response.data.message || "取消点赞问题失败");  
+      return false;
+    }
+  } catch (error) {
+    callError("取消点赞问题失败: " + error);
+    return false;
+  }
+}
+
+/**
+ * 检查是否点赞该问题
+ * @param uid 用户ID
+ * @param questionId 问题ID
+ * @returns 是否已点赞
+ */
+export async function isQuestionLiked(uid: number, questionId: number): Promise<boolean> {
+  try {
+    const response = await axios.post<{ code: number; data: boolean; message: string }>('/api/question_like/is_like', null, {
+      params: { uid, questionId },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return response.data.data;
+    } else {
+      console.error("检查问题点赞状态失败:", response.data.message);
+      return false;
+    }
+  } catch (error) {
+    console.error("检查问题点赞状态失败:", error);
     return false;
   }
 } 

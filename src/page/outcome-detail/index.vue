@@ -297,12 +297,36 @@
                 <!-- 有作者列表时显示详细信息 -->
                 <div v-if="outcomeData && outcomeData.authorList && outcomeData.authorList.length > 0" class="authors-list">
                   <div class="author-item main-author">
-                    <div class="author-avatar">
+                    <!-- 有ID时显示可点击头像 -->
+                    <router-link 
+                      v-if="outcomeData.authorList[0].id"
+                      :to="`/profile/${outcomeData.authorList[0].id}`" 
+                      class="author-avatar-link"
+                      style="text-decoration: none;"
+                    >
+                      <div class="author-avatar">
+                        <el-avatar :size="60" :src="outcomeData.authorList[0].avatar" v-if="outcomeData.authorList[0].avatar"></el-avatar>
+                        <el-avatar :size="60" icon="el-icon-user" v-else></el-avatar>
+                      </div>
+                    </router-link>
+                    <!-- 没有ID时显示普通头像 -->
+                    <div v-else class="author-avatar">
                       <el-avatar :size="60" :src="outcomeData.authorList[0].avatar" v-if="outcomeData.authorList[0].avatar"></el-avatar>
                       <el-avatar :size="60" icon="el-icon-user" v-else></el-avatar>
                     </div>
+                    
                     <div class="author-details">
-                      <div class="author-name">{{ outcomeData.authorList[0].name || outcomeData.authorList[0].account }}</div>
+                      <!-- 有ID时显示可点击名字 -->
+                      <router-link 
+                        v-if="outcomeData.authorList[0].id"
+                        :to="`/profile/${outcomeData.authorList[0].id}`" 
+                        class="author-name-link"
+                        style="text-decoration: none;"
+                      >
+                        <div class="author-name">{{ outcomeData.authorList[0].name || outcomeData.authorList[0].account }}</div>
+                      </router-link>
+                      <!-- 没有ID时显示普通名字 -->
+                      <div v-else class="author-name">{{ outcomeData.authorList[0].name || outcomeData.authorList[0].account }}</div>
                       <div class="author-info" v-if="outcomeData.authorList[0].institution">
                         <div class="info-label">机构：</div>
                         <div>{{ outcomeData.authorList[0].institution }}</div>
@@ -321,9 +345,21 @@
                   <!-- 其他作者 -->
                   <div class="other-authors" v-if="outcomeData.authorList.length > 1">
                     <div class="section-subtitle">其他作者</div>
-                    <div v-for="(author, index) in outcomeData.authorList.slice(1)" :key="index" class="other-author-item">
-                      {{ author.name || author.account }}
-                    </div>
+                    <template v-for="(author, index) in outcomeData.authorList.slice(1)" :key="index">
+                      <!-- 有ID时显示可点击链接 -->
+                      <router-link 
+                        v-if="author.id"
+                        :to="`/profile/${author.id}`"
+                        class="other-author-item"
+                        style="text-decoration: none;"
+                      >
+                        {{ author.name || author.account }}
+                      </router-link>
+                      <!-- 没有ID时显示普通文字 -->
+                      <div v-else class="other-author-item non-clickable">
+                        {{ author.name || author.account }}
+                      </div>
+                    </template>
                   </div>
                 </div>
                 
@@ -377,7 +413,7 @@
           <el-input-number v-model="editFormData.issue" :min="0" placeholder="请输入期号"></el-input-number>
         </el-form-item>
         <el-form-item label="页码" v-if="editFormData.type !== 'patent'">
-          <el-input v-model="editFormData.pages" placeholder="请输入页码，例如：156-163"></el-input>
+          <el-input v-model="editFormData.pages" placeholder="请输入页码，例如：156"></el-input>
         </el-form-item>
         <el-form-item label="专利号" v-if="editFormData.type === 'patent'">
           <el-input v-model="editFormData.patentNumber" placeholder="请输入专利号"></el-input>
@@ -1462,6 +1498,28 @@ export default defineComponent({
   margin-bottom: 8px;
 }
 
+.author-avatar-link {
+  transition: transform 0.2s ease;
+  cursor: pointer;
+}
+
+.author-avatar-link:hover {
+  transform: scale(1.05);
+}
+
+.author-name-link {
+  transition: color 0.2s ease;
+  cursor: pointer;
+}
+
+.author-name-link:hover {
+  color: #409eff !important;
+}
+
+.author-name-link:hover .author-name {
+  color: #409eff;
+}
+
 .author-info {
   display: flex;
   align-items: flex-start;
@@ -1497,10 +1555,29 @@ export default defineComponent({
   color: #666;
   margin-bottom: 6px;
   text-align: left;
+  display: block;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.other-author-item:hover {
+  background: #e8f4fd;
+  color: #409eff;
+  transform: translateX(2px);
 }
 
 .other-author-item:last-child {
   margin-bottom: 0;
+}
+
+.other-author-item.non-clickable {
+  cursor: default;
+}
+
+.other-author-item.non-clickable:hover {
+  background: #f5f7fa;
+  color: #666;
+  transform: none;
 }
 
 /* 加载状态 */
