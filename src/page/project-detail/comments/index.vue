@@ -25,8 +25,8 @@
              class="comment" :ref="el => { if(el) commentRefs[comment.commentId] = el }">
             <div class="comment-header">
                 <div class="comment-info">
-                    <img :src="comment.userAvatar || defaultAvatar" class="small-image" alt="用户头像"/>
-                    <span class="user">{{ comment.userAccount }}</span>
+                    <img :src="comment.userAvatar || defaultAvatar" class="small-image" alt="用户头像" @click="goToProfile(comment.userId)" style="cursor:pointer;"/>
+                    <span class="user" @click="goToProfile(comment.userId)" style="cursor:pointer;">{{ comment.userAccount }}</span>
                     <span class="time">{{ formatDate(comment.commentedAt) }}</span>
                 </div>
                 <div class="comment-actions">
@@ -68,8 +68,8 @@
                      class="child-comment" :ref="el => { if(el) commentRefs[childComment.commentId] = el }">
                     <div class="child-comment-header">
                         <div class="comment-info">
-                            <img :src="childComment.userAvatar || defaultAvatar" class="small-image" alt="用户头像"/>
-                            <span class="user">{{ childComment.userAccount }}</span>
+                            <img :src="childComment.userAvatar || defaultAvatar" class="small-image" alt="用户头像" @click="goToProfile(childComment.userId)" style="cursor:pointer;"/>
+                            <span class="user" @click="goToProfile(childComment.userId)" style="cursor:pointer;">{{ childComment.userAccount }}</span>
                             <span class="time">{{ formatDate(childComment.commentedAt) }}</span>
                         </div>
                         <div class="comment-actions">
@@ -565,6 +565,11 @@ export default {
             }
         });
         
+        function goToProfile(userId) {
+            if (!userId) return;
+            window.open(`/profile/${userId}`, '_blank');
+        }
+        
         return {
             loading,
             commentList,
@@ -588,7 +593,8 @@ export default {
             deleteComment,
             handleLike,
             applyJoin,
-            Star
+            Star,
+            goToProfile
         };
     }
 }
@@ -668,25 +674,25 @@ export default {
     height: 32px;
     border-radius: 50%;
     object-fit: cover;
+    transition: box-shadow 0.2s, border-color 0.2s;
 }
 
-.custom-textarea {
-    width: 95%;
-    height: 150px;
-    padding: 12px;
-    font-size: 14px;
-    line-height: 1.5;
-    border: 1px solid #dcdfe6;
-    border-radius: 4px;
-    resize: vertical;
-    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.02);
-    overflow-y: auto;
+.small-image:hover {
+    box-shadow: 0 4px 2px rgba(64,158,255,0.18);
+    border-color: #409eff;
 }
 
 .user {
     font-weight: 600;
-    font-size: 16px;
+    font-size: 14px;
     color: #303133;
+    cursor: pointer;
+    transition: text-decoration 0.2s, color 0.2s;
+}
+
+.user:hover {
+    text-decoration: underline;
+    color: #409eff;
 }
 
 .time {

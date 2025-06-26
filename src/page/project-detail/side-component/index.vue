@@ -5,9 +5,9 @@
         </div>
         <div class="card-body">
             <div class="owner-profile">
-                <img :src="owner.avatar || '../assets/default_avatar.png'" alt="owner avatar" class="avatar">
+                <img :src="owner.avatar || '../assets/default_avatar.png'" alt="owner avatar" class="avatar" @click="viewProfile" style="cursor:pointer;">
                 <div class="owner-details">
-                    <div class="owner-name">{{ owner.name }}</div>
+                    <div class="owner-name" @click="viewProfile" style="cursor:pointer;">{{ owner.name }}</div>
                     <div class="owner-institution">工作单位：{{ owner.institution }}</div>
                     <div class="owner-title">当前职称：{{ owner.jobTitle }}</div>
                 </div>
@@ -247,6 +247,11 @@ hr {
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid #e0e0e0;
+    transition: box-shadow 0.2s, border-color 0.2s;
+}
+.avatar:hover {
+    box-shadow: 0 4px 16px rgba(64,158,255,0.18);
+    border-color: #409eff;
 }
 
 .owner-details {
@@ -263,6 +268,12 @@ hr {
     font-weight: 600;
     color: #333;
     margin-bottom: 5px;
+    cursor: pointer;
+    transition: text-decoration 0.2s, color 0.2s;
+}
+.owner-name:hover {
+    text-decoration: underline;
+    color: #409eff;
 }
 
 .owner-institution, .owner-title {

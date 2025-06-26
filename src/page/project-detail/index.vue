@@ -365,7 +365,7 @@ export default {
 }
 
 .detail-info {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     color: #6c757d;
 }
 
@@ -544,7 +544,7 @@ export default {
 }
 .info-card-content {
     padding: 20px 28px 0 28px;
-    font-size: 17px;
+    font-size: 15px;
     color: #606266;
     line-height: 1.7;
     text-align: left;
