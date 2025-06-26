@@ -4,7 +4,10 @@
             <div class="section-title">问题概览</div>
             <div class="stat-row">
                 <div class="stat-item">
-                    <div class="stat-inline">回答数：{{ problem?.answerCount || 0 }}</div>
+                    <div class="stat-inline">
+                        <span class="stat-label-bold">回答数：</span>
+                        <span class="stat-number">{{ problem?.answerCount || 0 }}</span>
+                    </div>
                 </div>
             </div>
             
@@ -259,7 +262,17 @@ export default {
     font-size: 16px;
     font-weight: 500;
     color: #333;
-    text-align: left;
+    text-align: center;
+}
+
+.stat-label-bold {
+    font-weight: bold;
+    color: #409eff;
+}
+
+.stat-number {
+    font-weight: bold;
+    color: #409eff;
 }
 
 .info-card {
