@@ -23,6 +23,17 @@
                                             <span>{{ formatDate(questionData.askedAt) }}</span>
                                         </div>
                                     </div>
+                                    <!-- 问题点赞按钮 -->
+                                    <div class="question-like-section" v-if="false">
+                                        <el-button 
+                                            size="small" 
+                                            :type="questionLiked ? 'danger' : 'default'"
+                                            @click="handleQuestionLike"
+                                            :loading="questionLikeLoading"
+                                        >
+                                            {{ questionLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ questionLikeCount }})
+                                        </el-button>
+                                    </div>
                                 </div>
                                 <div class="down-container">
                                     <div class="abstract-title">问题描述</div>
@@ -294,7 +305,7 @@
 import ProblemSideComponent from "./side-component/index.vue";
 import { defineComponent, ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer, deleteAnswer, updateAnswer, AnswerUpdateRequest } from "@/api/question";
+import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer, deleteAnswer, updateAnswer, AnswerUpdateRequest, likeQuestion, cancelLikeQuestion, getQuestionLikeCount, isQuestionLiked } from "@/api/question";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { 
     Thumb, 
@@ -345,6 +356,11 @@ export default defineComponent({
         const editingAnswerId = ref(null);
         const editingAnswerText = ref('');
         
+        // 问题点赞相关
+        const questionLiked = ref(false);
+        const questionLikeCount = ref(0);
+        const questionLikeLoading = ref(false);
+        
         // 判断是否是当前用户的回答
         const isCurrentUserAnswer = (answer) => {
             return currentUserId.value && answer.userId === currentUserId.value;
@@ -371,6 +387,9 @@ export default defineComponent({
                     
                     data.answers = processAnswers(data.answers);
                     questionData.value = data;
+                    
+                    // 加载问题点赞状态
+                    await loadQuestionLikeStatus();
                 } else {
                         ElMessage.error('获取问题详情失败');
                     }
@@ -639,6 +658,77 @@ export default defineComponent({
             router.push(`/profile/${userId}`);
         };
         
+        // 加载问题点赞状态
+        const loadQuestionLikeStatus = async () => {
+            if (!questionId.value) return;
+            
+            try {
+                // 获取点赞数量
+                const likeCount = await getQuestionLikeCount(questionId.value);
+                questionLikeCount.value = likeCount;
+                
+                // 获取当前用户是否点赞
+                const userId = store.getters.getId;
+                if (userId) {
+                    const liked = await isQuestionLiked(userId, questionId.value);
+                    questionLiked.value = liked;
+                }
+            } catch (error) {
+                console.error('加载问题点赞状态失败:', error);
+            }
+        };
+        
+        // 处理问题点赞
+        const handleQuestionLike = async () => {
+            if (questionLikeLoading.value) return;
+            
+            const userId = store.getters.getId;
+            if (!userId) {
+                ElMessage.warning('请先登录后再点赞');
+                return;
+            }
+            
+            if (!questionId.value) {
+                ElMessage.warning('问题ID不存在');
+                return;
+            }
+            
+            try {
+                questionLikeLoading.value = true;
+                
+                let success = false;
+                
+                if (questionLiked.value) {
+                    // 取消点赞
+                    success = await cancelLikeQuestion(userId, questionId.value);
+                    if (success) {
+                        questionLiked.value = false;
+                        questionLikeCount.value = Math.max(0, questionLikeCount.value - 1);
+                        ElMessage.success('取消点赞成功');
+                    }
+                } else {
+                    // 点赞
+                    success = await likeQuestion(userId, questionId.value);
+                    if (success) {
+                        questionLiked.value = true;
+                        questionLikeCount.value = questionLikeCount.value + 1;
+                        ElMessage.success('点赞成功');
+                    }
+                }
+                
+                if (success) {
+                    // 获取最新点赞数
+                    const newLikeCount = await getQuestionLikeCount(questionId.value);
+                    questionLikeCount.value = newLikeCount;
+                }
+            } catch (error) {
+                console.error('问题点赞操作失败:', error);
+                ElMessage.error('操作失败，请稍后重试');
+            } finally {
+                questionLikeLoading.value = false;
+            }
+        };
+        
         return {
             questionId,
             questionData,
@@ -663,7 +753,12 @@ export default defineComponent({
             editDialogVisible,
             editingAnswerText,
             submitEditAnswer,
-            goToUserProfile
+            goToUserProfile,
+            // 问题点赞相关
+            questionLiked,
+            questionLikeCount,
+            questionLikeLoading,
+            handleQuestionLike
         };
     }
 })
@@ -743,6 +838,13 @@ export default defineComponent({
 
 .info-container {
     margin-bottom: 20px;
+}
+
+.question-like-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    text-align: left;
 }
 
 .detail-info {
