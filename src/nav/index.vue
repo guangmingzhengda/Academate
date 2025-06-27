@@ -39,6 +39,7 @@
             <nav-button v-if="1" buttonName="首页" dest="/home"/>
             <nav-button v-if="1" buttonName="人员检索" dest="/researcher-search"/>
             <nav-button v-if="1" buttonName="提问大厅" dest="/question-hall"/>
+            <nav-button v-if="1" buttonName="PDF阅读器" dest="/pdf-reader"/>
 
 <!--            <button @click="showvip" class="showButton"><p class="customFont">增值服务</p></button>-->
             <!-- <div @click="showvip">
