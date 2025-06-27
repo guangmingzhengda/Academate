@@ -87,20 +87,12 @@
                         />
                     </div>
                     
-                    <el-button 
-                        v-if="pdfDocument"
-                        :icon="Notebook" 
-                        @click="toggleNotesPanel"
-                        :type="showNotesPanel ? 'primary' : 'default'"
-                        class="notes-toggle-btn"
-                    >
-                        笔记面板
-                    </el-button>
+
                 </div>
             </div>
 
-            <!-- PDF显示和笔记区域 -->
-            <div class="pdf-container" :class="{ 'with-notes': showNotesPanel }">
+            <!-- PDF显示区域 -->
+            <div class="pdf-container">
                 <!-- PDF显示区域 -->
                 <div class="pdf-viewer">
                     <div v-if="!pdfDocument" class="empty-state">
@@ -147,7 +139,17 @@
                                                 class="highlight-rect"
                                                 :style="getHighlightStyle(highlight)"
                                                 @click="selectHighlight(highlight)"
-                                            ></div>
+                                                @contextmenu.prevent="showHighlightContextMenu($event, highlight)"
+                                                :title="`高亮区域 - 右键删除`"
+                                            >
+                                                <div 
+                                                    class="highlight-delete-btn"
+                                                    @click.stop="deleteHighlight(highlight.id)"
+                                                    title="删除高亮"
+                                                >
+                                                    <el-icon><Close /></el-icon>
+                                                </div>
+                                            </div>
                                         </div>
                                         
                                         <!-- 批注标记层 -->
@@ -159,6 +161,7 @@
                                                 class="annotation-marker"
                                                 :style="getAnnotationStyle(annotation)"
                                                 @click="showAnnotationDialog(annotation)"
+                                                @contextmenu.prevent="showAnnotationContextMenu($event, annotation)"
                                                 :title="`批注: ${annotation.content}`"
                                             >
                                                 <el-icon><Edit /></el-icon>
@@ -175,16 +178,24 @@
                                                     height: eraserPreview.size + 'px'
                                                 }"
                                             ></div>
+                                            
+                                            <!-- 高亮选择预览 -->
+                                            <div 
+                                                v-if="selectionPreview.show"
+                                                class="selection-preview"
+                                                :style="{
+                                                    left: selectionPreview.x + 'px',
+                                                    top: selectionPreview.y + 'px',
+                                                    width: selectionPreview.width + 'px',
+                                                    height: selectionPreview.height + 'px'
+                                                }"
+                                            ></div>
                                         </div>
                                         
                                         <!-- 调试信息 -->
-                                        <div class="debug-info" v-if="annotations.length > 0 || clickPosition">
+                                        <div class="debug-info" v-if="annotations.length > 0">
                                             <div>总批注数: {{ annotations.length }}</div>
                                             <div>当前页批注数: {{ getPageAnnotations(currentPage).length }}</div>
-                                            <div v-if="clickPosition">点击位置: ({{ Math.round(clickPosition.x) }}, {{ Math.round(clickPosition.y) }})</div>
-                                            <div v-if="annotations.length > 0">
-                                                最新批注: ({{ Math.round(annotations[annotations.length-1].x) }}, {{ Math.round(annotations[annotations.length-1].y) }})
-                                            </div>
                                         </div>
                                     </div>
                                     
@@ -224,54 +235,12 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- 笔记侧边栏 -->
-                <div v-if="showNotesPanel" class="notes-sidebar">
-                    <div class="notes-header">
-                        <h3>笔记与批注</h3>
-                        <el-button 
-                            @click="showNotesPanel = false"
-                            icon="el-icon-close"
-                            size="small"
-                            circle
-                            class="close-btn"
-                        ></el-button>
-                    </div>
-                    
-                    <div class="notes-content">
-                        <div v-if="notes.length === 0" class="no-notes">
-                            <el-empty description="暂无笔记" :image-size="80"></el-empty>
-                        </div>
-                        
-                        <div v-else class="notes-list">
-                            <div 
-                                v-for="note in notes" 
-                                :key="note.id"
-                                class="note-item"
-                                @click="scrollToPage(note.page)"
-                            >
-                                <div class="note-header">
-                                    <span class="note-page">第{{ note.page }}页</span>
-                                    <span class="note-type">{{ note.type }}</span>
-                                    <el-button 
-                                        @click.stop="deleteNote(note.id)"
-                                        icon="el-icon-delete"
-                                        size="mini"
-                                        type="text"
-                                    ></el-button>
-                                </div>
-                                <div class="note-content">{{ note.content }}</div>
-                                <div class="note-time">{{ formatTime(note.timestamp) }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
             
             <!-- 文字批注对话框 -->
             <el-dialog
                 v-model="noteDialogVisible"
-                title="添加批注"
+                :title="currentEditingAnnotation ? '编辑批注' : '添加批注'"
                 width="400px"
                 :before-close="cancelNote"
             >
@@ -285,8 +254,30 @@
                 ></el-input>
                 
                 <template #footer>
-                    <el-button @click="cancelNote">取消</el-button>
-                    <el-button type="primary" @click="saveCurrentNote">保存</el-button>
+                    <div class="dialog-footer">
+                        <el-button 
+                            v-if="currentEditingAnnotation"
+                            type="danger"
+                            @click="deleteCurrentAnnotation"
+                            :icon="Delete"
+                            class="dialog-btn"
+                        >
+                            删除
+                        </el-button>
+                        <el-button 
+                            @click="cancelNote"
+                            class="dialog-btn"
+                        >
+                            取消
+                        </el-button>
+                        <el-button 
+                            type="primary" 
+                            @click="saveCurrentNote"
+                            class="dialog-btn"
+                        >
+                            {{ currentEditingAnnotation ? '更新' : '保存' }}
+                        </el-button>
+                    </div>
                 </template>
             </el-dialog>
         </div>
@@ -297,7 +288,7 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { 
     Upload, Download, ZoomIn, ZoomOut, ArrowLeft, ArrowRight, 
-    Document, Notebook, Plus, Delete, Edit 
+    Document, Plus, Delete, Edit, Close 
 } from '@element-plus/icons-vue'
 import { callSuccess, callError, callInfo } from '@/call'
 // 使用本地的PDF.js
@@ -473,12 +464,10 @@ export default {
         const noteDialogVisible = ref(false)
         const currentNoteContent = ref('')
         const currentAnnotation = ref(null)
+        const currentEditingAnnotation = ref(null) // 当前正在编辑的批注
         const clickPosition = ref(null) // 记录点击位置
         
-        // 笔记相关
-        const showNotesPanel = ref(false)
-        const notes = ref([])
-        const noteIdCounter = ref(1)
+
         
         // 批注数据
         const highlights = ref([])
@@ -490,6 +479,15 @@ export default {
         const isDrawing = ref(false)
         const startPos = ref({ x: 0, y: 0 })
         const currentSelection = ref(null)
+        
+        // 实时选择预览
+        const selectionPreview = ref({
+            show: false,
+            x: 0,
+            y: 0,
+            width: 0,
+            height: 0
+        })
         
         // 绘制内容存储（按页面存储Canvas绘制数据）
         const drawingData = ref(new Map())
@@ -503,7 +501,21 @@ export default {
             show: false,
             x: 0,
             y: 0,
-            size: 40 // 橡皮擦大小
+            size: 80 // 橡皮擦大小，增大一倍
+        })
+
+        // 橡皮擦性能优化
+        const eraserThrottle = ref({
+            lastTime: 0,
+            throttleDelay: 100, // 增加到100ms节流
+            pendingOperations: new Set()
+        })
+
+        // 绘制性能优化
+        const drawingThrottle = ref({
+            lastSaveTime: 0,
+            saveDelay: 200, // 200ms保存延迟
+            saveTimer: null
         })
 
         // 设置页面引用
@@ -594,9 +606,8 @@ export default {
             const handleMouseUp = () => {
                 if (isDrawing && pageNum === currentPage.value) {
                     isDrawing = false
-                    console.log(`结束绘制 - 页面:${pageNum}，当前页:${currentPage.value}`)
-                    // 实时保存绘制内容 - 确保保存到正确的页面
-                    saveDrawingData(pageNum)
+                    // 延迟保存，减少频繁操作
+                    debouncedSaveDrawing(pageNum)
                 }
             }
             
@@ -604,9 +615,8 @@ export default {
             const handleMouseLeave = () => {
                 if (isDrawing && pageNum === currentPage.value) {
                     isDrawing = false
-                    console.log(`绘制中断 - 页面:${pageNum}`)
-                    // 保存中断的绘制内容
-                    saveDrawingData(pageNum)
+                    // 延迟保存，减少频繁操作
+                    debouncedSaveDrawing(pageNum)
                 }
             }
             
@@ -839,21 +849,16 @@ export default {
         // 页面导航
         const nextPage = async () => {
             if (currentPage.value < totalPages.value) {
-                // 保存当前页面的绘制内容
-                console.log('翻页前保存绘制内容，当前页:', currentPage.value)
+                // 立即保存当前页面的绘制内容
                 saveDrawingData(currentPage.value)
                 
-                const oldPage = currentPage.value
                 currentPage.value++
-                
-                console.log(`从第${oldPage}页切换到第${currentPage.value}页`)
                 
                 await nextTick()
                 await renderCurrentPage()
                 
                 // 恢复新页面的绘制内容
                 setTimeout(() => {
-                    console.log('翻页后恢复绘制内容，目标页:', currentPage.value)
                     restoreDrawingData(currentPage.value)
                 }, 200)
             }
@@ -861,21 +866,16 @@ export default {
 
         const prevPage = async () => {
             if (currentPage.value > 1) {
-                // 保存当前页面的绘制内容
-                console.log('翻页前保存绘制内容，当前页:', currentPage.value)
+                // 立即保存当前页面的绘制内容
                 saveDrawingData(currentPage.value)
                 
-                const oldPage = currentPage.value
                 currentPage.value--
-                
-                console.log(`从第${oldPage}页切换到第${currentPage.value}页`)
                 
                 await nextTick()
                 await renderCurrentPage()
                 
                 // 恢复新页面的绘制内容
                 setTimeout(() => {
-                    console.log('翻页后恢复绘制内容，目标页:', currentPage.value)
                     restoreDrawingData(currentPage.value)
                 }, 200)
             }
@@ -883,21 +883,16 @@ export default {
 
         const scrollToPage = async (pageNum) => {
             if (pageNum >= 1 && pageNum <= totalPages.value) {
-                // 保存当前页面的绘制内容
-                console.log('翻页前保存绘制内容，当前页:', currentPage.value)
+                // 立即保存当前页面的绘制内容
                 saveDrawingData(currentPage.value)
                 
-                const oldPage = currentPage.value
                 currentPage.value = pageNum
-                
-                console.log(`从第${oldPage}页切换到第${currentPage.value}页`)
                 
                 await nextTick()
                 await renderCurrentPage()
                 
                 // 恢复新页面的绘制内容
                 setTimeout(() => {
-                    console.log('翻页后恢复绘制内容，目标页:', currentPage.value)
                     restoreDrawingData(currentPage.value)
                 }, 200)
             }
@@ -1021,6 +1016,17 @@ export default {
                 y: relativeY
             }
             
+            // 如果是高亮模式，初始化选择预览
+            if (annotationMode.value === 'highlight') {
+                selectionPreview.value = {
+                    show: true,
+                    x: relativeX,
+                    y: relativeY,
+                    width: 0,
+                    height: 0
+                }
+            }
+            
             console.log('开始批注', {
                 mode: annotationMode.value,
                 startPos: startPoint.value,
@@ -1045,6 +1051,27 @@ export default {
             
             event.preventDefault()
             event.stopPropagation()
+            
+            // 如果是高亮模式，更新选择预览
+            if (annotationMode.value === 'highlight') {
+                const overlayRect = event.currentTarget.getBoundingClientRect()
+                const currentX = event.clientX - overlayRect.left
+                const currentY = event.clientY - overlayRect.top
+                
+                // 计算选择框的位置和大小
+                const minX = Math.min(startPoint.value.x, currentX)
+                const minY = Math.min(startPoint.value.y, currentY)
+                const maxX = Math.max(startPoint.value.x, currentX)
+                const maxY = Math.max(startPoint.value.y, currentY)
+                
+                selectionPreview.value = {
+                    show: true,
+                    x: minX,
+                    y: minY,
+                    width: maxX - minX,
+                    height: maxY - minY
+                }
+            }
         }
 
         const finishAnnotation = (event) => {
@@ -1054,6 +1081,9 @@ export default {
             
             event.preventDefault()
             event.stopPropagation()
+            
+            // 隐藏选择预览
+            selectionPreview.value.show = false
             
             // 获取annotation-overlay相对于视口的位置
             const overlayRect = event.currentTarget.getBoundingClientRect()
@@ -1109,16 +1139,6 @@ export default {
             // 有实际选择区域（拖拽）
             if (annotationMode.value === 'highlight') {
                 addHighlight(selection)
-                
-                // 同时添加到笔记面板
-                addNote({
-                    type: 'highlight',
-                    page: currentPage.value,
-                    content: '高亮区域',
-                    position: selection
-                })
-                
-                callSuccess('高亮添加成功')
             } else if (annotationMode.value === 'note') {
                 currentSelection.value = selection
                 noteDialogVisible.value = true
@@ -1128,6 +1148,8 @@ export default {
         const cancelAnnotation = () => {
             isAnnotating.value = false
             currentSelection.value = null
+            // 隐藏选择预览
+            selectionPreview.value.show = false
         }
 
         // 高亮功能
@@ -1150,19 +1172,40 @@ export default {
         }
 
         const getHighlightStyle = (highlight) => {
+            const color = highlight.color || '#ffff00'
             return {
                 left: highlight.x + 'px',
                 top: highlight.y + 'px',
                 width: highlight.width + 'px',
                 height: highlight.height + 'px',
-                border: `4px solid ${highlight.color || '#ffff00'}`,
-                backgroundColor: 'transparent'
+                backgroundColor: color,
+                opacity: '0.3',
+                border: 'none'
             }
         }
 
         const selectHighlight = (highlight) => {
             // 可以实现高亮选择和编辑功能
             console.log('选中高亮:', highlight)
+        }
+
+        // 删除高亮
+        const deleteHighlight = (highlightId) => {
+            const index = highlights.value.findIndex(h => h.id === highlightId)
+            if (index > -1) {
+                highlights.value.splice(index, 1)
+                console.log(`删除了高亮 ID: ${highlightId}`)
+            }
+        }
+
+        // 显示高亮右键菜单
+        const showHighlightContextMenu = (event, highlight) => {
+            // 可以在这里添加右键菜单功能
+            console.log('高亮右键菜单:', highlight)
+            // 简单实现：直接删除
+            if (confirm('确定要删除这个高亮吗？')) {
+                deleteHighlight(highlight.id)
+            }
         }
 
         // 批注功能
@@ -1219,6 +1262,7 @@ export default {
         const showAnnotationDialog = (annotation) => {
             console.log('显示批注对话框:', annotation)
             currentNoteContent.value = annotation.content
+            currentEditingAnnotation.value = annotation
             currentSelection.value = {
                 x: annotation.x - 50,
                 y: annotation.y,
@@ -1226,6 +1270,25 @@ export default {
                 height: 30
             }
             noteDialogVisible.value = true
+        }
+
+        // 删除批注
+        const deleteAnnotation = (annotationId) => {
+            const index = annotations.value.findIndex(a => a.id === annotationId)
+            if (index > -1) {
+                annotations.value.splice(index, 1)
+                console.log(`删除了批注 ID: ${annotationId}`)
+            }
+        }
+
+        // 显示批注右键菜单
+        const showAnnotationContextMenu = (event, annotation) => {
+            // 可以在这里添加右键菜单功能
+            console.log('批注右键菜单:', annotation)
+            // 简单实现：直接删除
+            if (confirm('确定要删除这个批注吗？')) {
+                deleteAnnotation(annotation.id)
+            }
         }
 
         const saveAnnotation = () => {
@@ -1238,144 +1301,115 @@ export default {
             noteDialogVisible.value = false
         }
 
-        // 笔记管理
-        const toggleNotesPanel = () => {
-            showNotesPanel.value = !showNotesPanel.value
-        }
 
-        const addNote = (noteData = {}) => {
-            const note = {
-                id: noteIdCounter.value++,
-                type: noteData.type || 'note',
-                page: noteData.page || currentPage.value,
-                content: noteData.content || '',
-                timestamp: new Date().toLocaleString(),
-                position: noteData.position || null
-            }
-            notes.value.push(note)
-        }
-
-        const deleteNote = (noteId) => {
-            const index = notes.value.findIndex(note => note.id === noteId)
-            if (index > -1) {
-                notes.value.splice(index, 1)
-            }
-        }
-
-        const saveNote = (note) => {
-            // 这里可以添加保存到后端的逻辑
-            console.log('保存笔记:', note)
-        }
 
         const saveCurrentNote = () => {
             console.log('保存批注被调用', {
                 content: currentNoteContent.value,
                 selection: currentSelection.value,
                 clickPosition: clickPosition.value,
-                currentPage: currentPage.value
+                currentPage: currentPage.value,
+                isEditing: !!currentEditingAnnotation.value
             })
             
             if (!currentNoteContent.value.trim()) {
-                callError('请输入批注内容')
                 return
             }
             
-            // 优先使用点击位置，不管是否有选择区域
-            if (clickPosition.value && clickPosition.value.x !== undefined && clickPosition.value.y !== undefined) {
-                console.log('使用点击位置保存批注:', clickPosition.value)
-                
-                // 创建一个虚拟选择区域用于笔记面板
-                const virtualSelection = {
-                    x: clickPosition.value.x - 10,
-                    y: clickPosition.value.y - 10,
-                    width: 20,
-                    height: 20
+            // 如果是编辑模式，更新现有批注
+            if (currentEditingAnnotation.value) {
+                const annotationIndex = annotations.value.findIndex(a => a.id === currentEditingAnnotation.value.id)
+                if (annotationIndex > -1) {
+                    annotations.value[annotationIndex].content = currentNoteContent.value
+                    annotations.value[annotationIndex].timestamp = new Date().toLocaleString()
+                    
+
+                    
+                    console.log('批注已更新:', annotations.value[annotationIndex])
                 }
-                
-                addAnnotation(virtualSelection, currentNoteContent.value, clickPosition.value)
-                
-                // 同时添加到笔记面板
-                addNote({
-                    type: 'note',
-                    page: currentPage.value,
-                    content: currentNoteContent.value,
-                    position: virtualSelection
-                })
-                
-                callSuccess('批注添加成功')
-            } else if (currentSelection.value) {
-                console.log('使用选择区域保存批注:', currentSelection.value)
-                
-                addAnnotation(currentSelection.value, currentNoteContent.value, null)
-                
-                // 同时添加到笔记面板
-                addNote({
-                    type: 'note',
-                    page: currentPage.value,
-                    content: currentNoteContent.value,
-                    position: currentSelection.value
-                })
-                
-                callSuccess('批注添加成功')
             } else {
-                console.log('没有点击位置和选择区域，使用默认位置')
-                
-                // 如果都没有，创建一个默认的
-                const defaultSelection = {
-                    x: 50,
-                    y: 50,
-                    width: 100,
-                    height: 30
+                // 新增批注的逻辑保持不变
+                if (clickPosition.value && clickPosition.value.x !== undefined && clickPosition.value.y !== undefined) {
+                    console.log('使用点击位置保存批注:', clickPosition.value)
+                    
+                    const virtualSelection = {
+                        x: clickPosition.value.x - 10,
+                        y: clickPosition.value.y - 10,
+                        width: 20,
+                        height: 20
+                    }
+                    
+                    addAnnotation(virtualSelection, currentNoteContent.value, clickPosition.value)
+                } else if (currentSelection.value) {
+                    console.log('使用选择区域保存批注:', currentSelection.value)
+                    
+                    addAnnotation(currentSelection.value, currentNoteContent.value, null)
+                } else {
+                    console.log('没有点击位置和选择区域，使用默认位置')
+                    
+                    const defaultSelection = {
+                        x: 50,
+                        y: 50,
+                        width: 100,
+                        height: 30
+                    }
+                    
+                    const defaultClickPos = {
+                        x: 50,
+                        y: 50
+                    }
+                    
+                    addAnnotation(defaultSelection, currentNoteContent.value, defaultClickPos)
                 }
-                
-                const defaultClickPos = {
-                    x: 50,
-                    y: 50
-                }
-                
-                addAnnotation(defaultSelection, currentNoteContent.value, defaultClickPos)
-                addNote({
-                    type: 'note',
-                    page: currentPage.value,
-                    content: currentNoteContent.value,
-                    position: defaultSelection
-                })
-                
-                callSuccess('批注添加成功（使用默认位置）')
             }
             
             // 清理状态
             currentSelection.value = null
             currentNoteContent.value = ''
+            currentEditingAnnotation.value = null
             noteDialogVisible.value = false
             
-            console.log('批注保存完成，保留clickPosition用于调试:', clickPosition.value)
+            console.log('批注保存完成')
         }
         
         const cancelNote = () => {
             noteDialogVisible.value = false
             currentAnnotation.value = null
             currentNoteContent.value = ''
+            currentEditingAnnotation.value = null
         }
 
-        const getNoteTypeLabel = (type) => {
-            const labels = {
-                highlight: '高亮',
-                note: '批注',
-                draw: '绘制',
-                default: '笔记'
+        // 删除当前正在编辑的批注
+        const deleteCurrentAnnotation = () => {
+            if (currentEditingAnnotation.value) {
+                deleteAnnotation(currentEditingAnnotation.value.id)
+                noteDialogVisible.value = false
+                currentNoteContent.value = ''
+                currentEditingAnnotation.value = null
             }
-            return labels[type] || labels.default
-        }
-        
-        const formatTime = (timeString) => {
-            return timeString || '未知时间'
         }
 
-        // 保存当前页面的绘制内容
+
+
+        // 防抖保存函数
+        const debouncedSaveDrawing = (pageNum) => {
+            // 清除之前的定时器
+            if (drawingThrottle.value.saveTimer) {
+                clearTimeout(drawingThrottle.value.saveTimer)
+            }
+            
+            // 设置新的定时器
+            drawingThrottle.value.saveTimer = setTimeout(() => {
+                saveDrawingData(pageNum)
+            }, drawingThrottle.value.saveDelay)
+        }
+
+        // 保存当前页面的绘制内容（优化版本）
         const saveDrawingData = (pageNum) => {
             const canvas = annotationRefs.value.get(pageNum)
-            if (canvas) {
+            if (!canvas) return
+            
+            try {
                 const imageData = canvas.toDataURL()
                 // 检查是否是空白画布（避免保存空白内容）
                 const emptyCanvas = document.createElement('canvas')
@@ -1385,15 +1419,12 @@ export default {
                 
                 if (imageData !== emptyData) {
                     drawingData.value.set(pageNum, imageData)
-                    console.log(`第${pageNum}页绘制内容已保存（有内容）`)
                 } else {
                     // 如果是空白，删除之前保存的数据
                     drawingData.value.delete(pageNum)
-                    console.log(`第${pageNum}页绘制内容为空，已清除保存数据`)
                 }
-                console.log('当前绘制数据页面:', Array.from(drawingData.value.keys()))
-            } else {
-                console.log(`第${pageNum}页canvas不存在，无法保存绘制内容`)
+            } catch (error) {
+                console.error(`保存第${pageNum}页绘制内容失败:`, error)
             }
         }
 
@@ -1402,40 +1433,35 @@ export default {
             const canvas = annotationRefs.value.get(pageNum)
             const savedData = drawingData.value.get(pageNum)
             
-            if (canvas) {
-                const ctx = canvas.getContext('2d')
-                // 先完全清空画布
-                ctx.clearRect(0, 0, canvas.width, canvas.height)
-                
-                if (savedData && savedData !== 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==') {
-                    const img = new Image()
-                    img.onload = () => {
-                        // 再次确保画布是干净的
-                        ctx.clearRect(0, 0, canvas.width, canvas.height)
-                        ctx.drawImage(img, 0, 0)
-                        
-                        // 恢复绘制内容后，重新设置绘制样式，确保后续绘制使用正确的样式
-                        ctx.strokeStyle = drawColor.value
-                        ctx.lineWidth = 3
-                        ctx.lineCap = 'round'
-                        ctx.lineJoin = 'round'
-                        
-                        console.log(`第${pageNum}页绘制内容已恢复，绘制样式已重置`)
-                    }
-                    img.onerror = () => {
-                        console.error(`第${pageNum}页绘制内容恢复失败`)
-                    }
-                    img.src = savedData
-                } else {
-                    // 即使没有绘制内容，也要设置绘制样式
+            if (!canvas) return
+            
+            const ctx = canvas.getContext('2d')
+            // 先完全清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            
+            if (savedData && savedData !== 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==') {
+                const img = new Image()
+                img.onload = () => {
+                    // 再次确保画布是干净的
+                    ctx.clearRect(0, 0, canvas.width, canvas.height)
+                    ctx.drawImage(img, 0, 0)
+                    
+                    // 恢复绘制内容后，重新设置绘制样式
                     ctx.strokeStyle = drawColor.value
                     ctx.lineWidth = 3
                     ctx.lineCap = 'round'
                     ctx.lineJoin = 'round'
-                    console.log(`第${pageNum}页没有有效的绘制内容，保持空白，绘制样式已设置`)
                 }
+                img.onerror = () => {
+                    console.error(`第${pageNum}页绘制内容恢复失败`)
+                }
+                img.src = savedData
             } else {
-                console.log(`第${pageNum}页canvas不存在，无法恢复绘制内容`)
+                // 即使没有绘制内容，也要设置绘制样式
+                ctx.strokeStyle = drawColor.value
+                ctx.lineWidth = 3
+                ctx.lineCap = 'round'
+                ctx.lineJoin = 'round'
             }
         }
 
@@ -1447,9 +1473,6 @@ export default {
                 ctx.clearRect(0, 0, canvas.width, canvas.height)
                 // 从存储中删除
                 drawingData.value.delete(currentPage.value)
-                console.log(`第${currentPage.value}页绘制内容已清除`)
-                console.log('当前绘制数据状态:', Array.from(drawingData.value.keys()))
-                callSuccess('当前页面绘制内容已清除')
             }
         }
 
@@ -1486,10 +1509,14 @@ export default {
             
             isAnnotating.value = true
             const rect = event.currentTarget.getBoundingClientRect()
-            startPoint.value = {
+            const currentPos = {
                 x: event.clientX - rect.left,
                 y: event.clientY - rect.top
             }
+            startPoint.value = currentPos
+            
+            // 立即开始清除
+            performErase(currentPos)
             
             console.log('开始橡皮擦', startPoint.value)
         }
@@ -1499,6 +1526,52 @@ export default {
             
             event.preventDefault()
             event.stopPropagation()
+            
+            const rect = event.currentTarget.getBoundingClientRect()
+            const currentPos = {
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top
+            }
+            
+            // 在拖拽过程中持续清除
+            performErase(currentPos)
+        }
+
+        // 执行清除操作（优化版本）
+        const performErase = (centerPos) => {
+            const now = Date.now()
+            
+            // 节流控制
+            if (now - eraserThrottle.value.lastTime < eraserThrottle.value.throttleDelay) {
+                return
+            }
+            eraserThrottle.value.lastTime = now
+            
+            const eraseArea = {
+                x: centerPos.x - eraserPreview.size / 2,
+                y: centerPos.y - eraserPreview.size / 2,
+                width: eraserPreview.size,
+                height: eraserPreview.size
+            }
+            
+            // 批量处理，减少频繁的数组操作
+            let hasChanges = false
+            
+            // 删除重叠的高亮（优化版）
+            const highlightChanges = eraseHighlightsOptimized(eraseArea)
+            if (highlightChanges > 0) hasChanges = true
+            
+            // 删除重叠的批注（优化版）
+            const annotationChanges = eraseAnnotationsOptimized(eraseArea)
+            if (annotationChanges > 0) hasChanges = true
+            
+            // 清除Canvas绘制内容（使用圆形清除）
+            eraseDrawingCircular(centerPos, eraserPreview.size / 2)
+            
+            // 只在需要时输出调试信息
+            if (hasChanges && (highlightChanges > 0 || annotationChanges > 0)) {
+                console.log(`橡皮擦清除: ${highlightChanges}个高亮, ${annotationChanges}个批注`)
+            }
         }
 
         const finishErasing = (event) => {
@@ -1509,43 +1582,34 @@ export default {
             event.preventDefault()
             event.stopPropagation()
             
-            const rect = event.currentTarget.getBoundingClientRect()
-            const endPos = {
-                x: event.clientX - rect.left,
-                y: event.clientY - rect.top
-            }
-            
-            // 计算橡皮擦区域
-            const eraseArea = {
-                x: Math.min(startPoint.value.x, endPos.x),
-                y: Math.min(startPoint.value.y, endPos.y),
-                width: Math.abs(endPos.x - startPoint.value.x),
-                height: Math.abs(endPos.y - startPoint.value.y)
-            }
-            
-            // 忽略过小的选择
-            if (eraseArea.width < 10 || eraseArea.height < 10) {
-                console.log('橡皮擦区域太小，忽略')
-                return
-            }
-            
-            // 删除重叠的高亮
-            eraseHighlights(eraseArea)
-            
-            // 删除重叠的批注
-            eraseAnnotations(eraseArea)
-            
-            // 清除Canvas绘制内容
-            eraseDrawing(eraseArea)
-            
-            callSuccess('橡皮擦操作完成')
+            console.log('橡皮擦操作结束')
         }
 
         const cancelErasing = () => {
             isAnnotating.value = false
         }
 
-        // 删除重叠的高亮
+        // 删除重叠的高亮（优化版本）
+        const eraseHighlightsOptimized = (eraseArea) => {
+            const toDelete = []
+            const pageHighlights = highlights.value.filter(h => h.page === currentPage.value)
+            
+            // 收集需要删除的高亮
+            pageHighlights.forEach(highlight => {
+                if (isOverlapping(highlight, eraseArea)) {
+                    toDelete.push(highlight.id)
+                }
+            })
+            
+            // 批量删除
+            if (toDelete.length > 0) {
+                highlights.value = highlights.value.filter(h => !toDelete.includes(h.id))
+            }
+            
+            return toDelete.length
+        }
+
+        // 删除重叠的高亮（原版本，保留作为备用）
         const eraseHighlights = (eraseArea) => {
             const pageHighlights = highlights.value.filter(h => h.page === currentPage.value)
             let erasedCount = 0
@@ -1565,7 +1629,27 @@ export default {
             }
         }
 
-        // 删除重叠的批注
+        // 删除重叠的批注（优化版本）
+        const eraseAnnotationsOptimized = (eraseArea) => {
+            const toDelete = []
+            const pageAnnotations = annotations.value.filter(a => a.page === currentPage.value)
+            
+            // 收集需要删除的批注
+            pageAnnotations.forEach(annotation => {
+                if (isPointInArea(annotation, eraseArea)) {
+                    toDelete.push(annotation.id)
+                }
+            })
+            
+            // 批量删除批注
+            if (toDelete.length > 0) {
+                annotations.value = annotations.value.filter(a => !toDelete.includes(a.id))
+            }
+            
+            return toDelete.length
+        }
+
+        // 删除重叠的批注（原版本，保留作为备用）
         const eraseAnnotations = (eraseArea) => {
             const pageAnnotations = annotations.value.filter(a => a.page === currentPage.value)
             let erasedCount = 0
@@ -1578,15 +1662,7 @@ export default {
                         erasedCount++
                     }
                     
-                    // 同时从笔记中删除
-                    const noteIndex = notes.value.findIndex(n => 
-                        n.type === 'note' && 
-                        n.page === currentPage.value && 
-                        n.content === annotation.content
-                    )
-                    if (noteIndex > -1) {
-                        notes.value.splice(noteIndex, 1)
-                    }
+
                 }
             })
             
@@ -1595,7 +1671,27 @@ export default {
             }
         }
 
-        // 清除Canvas绘制内容
+        // 清除Canvas绘制内容（圆形清除）
+        const eraseDrawingCircular = (centerPos, radius) => {
+            const canvas = annotationRefs.value.get(currentPage.value)
+            if (canvas) {
+                const ctx = canvas.getContext('2d')
+                // 保存当前状态
+                ctx.save()
+                // 设置全局合成操作为清除模式
+                ctx.globalCompositeOperation = 'destination-out'
+                // 绘制圆形清除区域
+                ctx.beginPath()
+                ctx.arc(centerPos.x, centerPos.y, radius, 0, 2 * Math.PI)
+                ctx.fill()
+                // 恢复状态
+                ctx.restore()
+                // 重新保存绘制数据
+                saveDrawingData(currentPage.value)
+            }
+        }
+
+        // 清除Canvas绘制内容（矩形清除，保留作为备用）
         const eraseDrawing = (eraseArea) => {
             const canvas = annotationRefs.value.get(currentPage.value)
             if (canvas) {
@@ -1623,6 +1719,13 @@ export default {
                    point.y <= area.y + area.height
         }
 
+        // 检查点是否在圆形区域内
+        const isPointInCircle = (point, centerPos, radius) => {
+            const dx = point.x - centerPos.x
+            const dy = point.y - centerPos.y
+            return Math.sqrt(dx * dx + dy * dy) <= radius
+        }
+
 
 
         return {
@@ -1636,8 +1739,7 @@ export default {
             totalPages,
             scale,
             annotationMode,
-            showNotesPanel,
-            notes,
+
             noteDialogVisible,
             currentNoteContent,
             highlights,
@@ -1646,6 +1748,8 @@ export default {
             drawColor,
             clickPosition,
             eraserPreview,
+            selectionPreview,
+            currentEditingAnnotation,
             
             // 方法
             handleFileUpload,
@@ -1669,14 +1773,8 @@ export default {
             getAnnotationStyle,
             showAnnotationDialog,
             saveAnnotation,
-            toggleNotesPanel,
-            addNote,
-            deleteNote,
-            saveNote,
             saveCurrentNote,
             cancelNote,
-            getNoteTypeLabel,
-            formatTime,
             clearDrawing,
             updateColor,
             startErasing,
@@ -1685,8 +1783,19 @@ export default {
             cancelErasing,
             saveDrawingData,
             restoreDrawingData,
+            debouncedSaveDrawing,
             setPageRef,
             setAnnotationRef,
+            performErase,
+            eraseDrawingCircular,
+            isPointInCircle,
+            deleteAnnotation,
+            deleteHighlight,
+            showAnnotationContextMenu,
+            showHighlightContextMenu,
+            deleteCurrentAnnotation,
+            eraseHighlightsOptimized,
+            eraseAnnotationsOptimized,
             
             // 图标
             Upload,
@@ -1696,10 +1805,10 @@ export default {
             ArrowLeft,
             ArrowRight,
             Document,
-            Notebook,
             Plus,
             Delete,
-            Edit
+            Edit,
+            Close
         }
     }
 }
@@ -1894,10 +2003,6 @@ export default {
     min-height: calc(100vh - 300px);
 }
 
-.pdf-container.with-notes {
-    gap: 20px;
-}
-
 .pdf-viewer {
     flex: 1;
     background-color: rgba(255, 255, 255, 0.95);
@@ -1909,10 +2014,6 @@ export default {
 
 .pdf-viewer:hover {
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-}
-
-.pdf-container.with-notes .pdf-viewer {
-    flex: 0 0 70%;
 }
 
 /* 空状态 */
@@ -2089,10 +2190,44 @@ export default {
     cursor: pointer;
     transition: opacity 0.2s ease;
     box-sizing: border-box;
+    border-radius: 2px;
 }
 
 .highlight-rect:hover {
-    opacity: 0.7;
+    opacity: 0.5 !important;
+}
+
+.highlight-rect:hover .highlight-delete-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* 高亮删除按钮 */
+.highlight-delete-btn {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    width: 16px;
+    height: 16px;
+    background-color: #ff4757;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 10px;
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.8);
+    transition: all 0.2s ease;
+    border: 1px solid white;
+    z-index: 12;
+    pointer-events: auto;
+}
+
+.highlight-delete-btn:hover {
+    background-color: #ff3838;
+    transform: scale(1.1);
 }
 
 /* 批注标记层 */
@@ -2131,16 +2266,19 @@ export default {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
+
+
 /* 橡皮擦预览 */
 .eraser-preview {
     position: absolute;
-    border: 2px dashed #ff6b6b;
+    border: 3px solid #888888;
     border-radius: 50%;
-    background-color: rgba(255, 107, 107, 0.1);
+    background-color: transparent;
     pointer-events: none;
     z-index: 15;
     transition: all 0.1s ease;
-    box-shadow: 0 0 8px rgba(255, 107, 107, 0.3);
+    box-shadow: 0 0 12px rgba(136, 136, 136, 0.4);
+    opacity: 0.8;
 }
 
 .eraser-preview::before {
@@ -2148,9 +2286,9 @@ export default {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 2px;
-    height: 2px;
-    background-color: #ff6b6b;
+    width: 4px;
+    height: 4px;
+    background-color: #666666;
     border-radius: 50%;
     transform: translate(-50%, -50%);
 }
@@ -2160,12 +2298,40 @@ export default {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 8px;
-    height: 8px;
-    border: 1px solid #ff6b6b;
+    width: 60%;
+    height: 60%;
+    border: 1px solid #aaaaaa;
     border-radius: 50%;
     transform: translate(-50%, -50%);
     background-color: transparent;
+    opacity: 0.6;
+}
+
+/* 高亮选择预览 */
+.selection-preview {
+    position: absolute;
+    border: 2px dashed #409eff;
+    background-color: rgba(255, 255, 0, 0.2);
+    pointer-events: none;
+    z-index: 15;
+    border-radius: 2px;
+    animation: dash-animation 1s linear infinite;
+    box-shadow: 0 0 8px rgba(64, 158, 255, 0.3);
+}
+
+@keyframes dash-animation {
+    0% {
+        border-color: #409eff;
+        background-color: rgba(255, 255, 0, 0.15);
+    }
+    50% {
+        border-color: #66b3ff;
+        background-color: rgba(255, 255, 0, 0.25);
+    }
+    100% {
+        border-color: #409eff;
+        background-color: rgba(255, 255, 0, 0.15);
+    }
 }
 
 /* 调试信息 */
@@ -2269,147 +2435,6 @@ export default {
     text-align: center;
 }
 
-/* 笔记侧边栏 - 与profile页面风格一致 */
-.notes-sidebar {
-    width: 350px;
-    background-color: rgba(255, 255, 255, 0.95);
-    border-radius: 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    display: flex;
-    flex-direction: column;
-    transition: all 0.3s ease;
-}
-
-.notes-sidebar:hover {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-}
-
-.notes-header {
-    padding: 20px 25px;
-    border-bottom: 2px solid #f0f2f5;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.notes-header h3 {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 18px;
-    font-weight: bold;
-    color: #2c3e50;
-    margin: 0;
-}
-
-.close-btn {
-    border-radius: 50%;
-    padding: 6px;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.notes-content {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-}
-
-.notes-content::-webkit-scrollbar {
-    width: 6px;
-}
-
-.notes-content::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.notes-content::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-.notes-content::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-.no-notes {
-    text-align: center;
-    color: #909399;
-    padding: 40px 0;
-}
-
-.notes-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.note-item {
-    background: #f9f9f9;
-    border-radius: 12px;
-    padding: 15px;
-    border-left: 4px solid #409eff;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.note-item:hover {
-    background: #f0f9ff;
-    transform: translateX(5px);
-    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.1);
-}
-
-.note-item.highlight-note {
-    border-left-color: #f56c6c;
-    background: #fef0f0;
-}
-
-.note-item.highlight-note:hover {
-    background: #fde2e2;
-}
-
-.note-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
-}
-
-.note-page {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 12px;
-    color: #909399;
-    font-weight: 500;
-}
-
-.note-type {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 11px;
-    padding: 3px 8px;
-    background: #409eff;
-    color: white;
-    border-radius: 10px;
-    font-weight: 500;
-}
-
-.note-content {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 14px;
-    color: #2c3e50;
-    line-height: 1.4;
-    margin-bottom: 8px;
-    text-align: left;
-}
-
-.note-time {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 11px;
-    color: #c0c4cc;
-    text-align: right;
-}
-
 .loading-container {
     display: flex;
     align-items: center;
@@ -2417,21 +2442,22 @@ export default {
     height: 400px;
 }
 
+/* 对话框footer样式 */
+.dialog-footer {
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    width: 100%;
+    gap: 12px;
+}
+
+.dialog-btn {
+    flex: 1;
+    min-width: 80px;
+}
+
 /* 响应式设计 */
 @media (max-width: 1024px) {
-    .pdf-container {
-        flex-direction: column;
-    }
-    
-    .pdf-container.with-notes .pdf-viewer {
-        flex: 1;
-    }
-    
-    .notes-sidebar {
-        width: 100%;
-        max-height: 400px;
-    }
-    
     .toolbar-card {
         flex-wrap: wrap;
         gap: 12px;
@@ -2465,10 +2491,6 @@ export default {
     
     .pdf-pages {
         padding: 15px;
-    }
-    
-    .notes-sidebar {
-        width: 100%;
     }
 }
 </style>
