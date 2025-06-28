@@ -4,293 +4,86 @@
     <div class="pdf-reader-container">
         <!-- 主要内容区域 -->
         <div class="main-content">
-            <!-- 工具栏 -->
-            <div class="toolbar-card">
-                <div class="toolbar-left">
-                    <el-upload
-                        ref="uploadRef"
-                        :show-file-list="false"
-                        :on-change="handleFileUpload"
-                        accept=".pdf"
-                        :auto-upload="false"
-                    >
-                        <el-button type="primary" :icon="Upload" class="modern-btn">
-                            上传PDF文件
-                        </el-button>
-                    </el-upload>
-                </div>
-                
-                <div class="toolbar-center" v-if="pdfDocument">
-                    <div class="control-group">
-                        <el-button-group class="zoom-controls">
-                            <el-button :icon="ZoomOut" @click="zoomOut" :disabled="scale <= 0.3" class="control-btn"></el-button>
-                            <el-button class="scale-display" @click="resetZoom" :title="点击重置缩放">{{ Math.round(scale * 100) }}%</el-button>
-                            <el-button :icon="ZoomIn" @click="zoomIn" :disabled="scale >= 4" class="control-btn"></el-button>
-                        </el-button-group>
-                        
-                        <div class="page-controls">
-                            <el-button :icon="ArrowLeft" @click="prevPage" :disabled="currentPage <= 1" class="control-btn"></el-button>
-                            <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
-                            <el-button :icon="ArrowRight" @click="nextPage" :disabled="currentPage >= totalPages" class="control-btn"></el-button>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="toolbar-right">
-                    <el-button-group v-if="pdfDocument" class="annotation-controls">
-                        <el-button 
-                            :type="annotationMode === 'highlight' ? 'primary' : 'default'"
-                            @click="setAnnotationMode('highlight')"
-                            class="annotation-btn"
-                        >
-                            高亮
-                        </el-button>
-                        <el-button 
-                            :type="annotationMode === 'note' ? 'primary' : 'default'"
-                            @click="setAnnotationMode('note')"
-                            class="annotation-btn"
-                        >
-                            批注
-                        </el-button>
-                        <el-button 
-                            :type="annotationMode === 'draw' ? 'primary' : 'default'"
-                            @click="setAnnotationMode('draw')"
-                            class="annotation-btn"
-                        >
-                            绘制
-                        </el-button>
-                        <el-button 
-                            :type="annotationMode === 'eraser' ? 'primary' : 'default'"
-                            @click="setAnnotationMode('eraser')"
-                            class="annotation-btn"
-                        >
-                            橡皮擦
-                        </el-button>
-                        <el-button 
-                            v-if="annotationMode === 'draw' || annotationMode === 'eraser'"
-                            @click="clearDrawing"
-                            class="annotation-btn"
-                            type="warning"
-                        >
-                            清除
-                        </el-button>
-                    </el-button-group>
-                    
-                    <!-- 颜色选择器 -->
-                    <div v-if="pdfDocument && (annotationMode === 'highlight' || annotationMode === 'draw')" class="color-controls">
-                        <span class="color-label">颜色:</span>
-                        <input 
-                            type="color" 
-                            :value="annotationMode === 'highlight' ? highlightColor : drawColor"
-                            @change="updateColor"
-                            class="color-picker"
-                        />
-                    </div>
-                    
-
-                </div>
-            </div>
+            <!-- 工具栏组件 -->
+            <pdf-toolbar
+                :pdf-document="pdfDocument"
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :scale="scale"
+                :annotation-mode="annotationMode"
+                :highlight-color="highlightColor"
+                :draw-color="drawColor"
+                @file-upload="handleFileUpload"
+                @zoom-in="zoomIn"
+                @zoom-out="zoomOut"
+                @reset-zoom="resetZoom"
+                @prev-page="prevPage"
+                @next-page="nextPage"
+                @set-annotation-mode="setAnnotationMode"
+                @clear-drawing="clearDrawing"
+                @update-color="updateColor"
+                @export-annotations="exportAllAnnotations"
+                @import-annotations="importAnnotationsFromFile"
+            />
 
             <!-- PDF显示区域 -->
             <div class="pdf-container">
-                <!-- PDF显示区域 -->
-                <div class="pdf-viewer">
-                    <div v-if="!pdfDocument" class="empty-state">
-                        <el-icon class="empty-icon"><Document /></el-icon>
-                        <h3>请上传PDF文件开始阅读</h3>
-                        <p>支持上传 .pdf 格式的文件</p>
-                    </div>
-                    
-                    <div v-else class="pdf-content">
-                        <div v-if="totalPages > 0" class="pdf-pages" ref="pdfContainer">
-                            <!-- PDF页面容器 -->
-                            <div class="page-container">
-                                <div 
-                                    :id="`page-wrapper-${currentPage}`"
-                                    class="page-wrapper"
-                                >
-                                    <!-- PDF Canvas层 -->
-                                    <div class="pdf-layer">
-                                        <canvas 
-                                            :id="`page-${currentPage}`"
-                                            :ref="el => setPageRef(el, currentPage)"
-                                            class="pdf-page"
-                                        ></canvas>
+                <!-- PDF显示组件 -->
+                <pdf-viewer
+                    :pdf-document="pdfDocument"
+                    :current-page="currentPage"
+                    :total-pages="totalPages"
+                    @prev-page="prevPage"
+                    @next-page="nextPage"
+                    @set-page-ref="setPageRef"
+                >
+                    <template #annotation-layer>
+                        <!-- 批注层组件 -->
+                        <annotation-layer
+                            :current-page="currentPage"
+                            :annotation-mode="annotationMode"
+                            :highlights="highlights"
+                            :annotations="annotations"
+                            :eraser-preview="eraserPreview"
+                            :selection-preview="selectionPreview"
+                            @set-annotation-ref="setAnnotationRef"
+                            @select-highlight="selectHighlight"
+                            @show-highlight-context-menu="showHighlightContextMenu"
+                            @delete-highlight="deleteHighlight"
+                            @show-annotation-dialog="showAnnotationDialog"
+                            @show-annotation-context-menu="showAnnotationContextMenu"
+                            @overlay-mousedown="handleOverlayMouseDown"
+                            @overlay-mousemove="handleOverlayMouseMove"
+                            @overlay-mouseup="handleOverlayMouseUp"
+                            @overlay-mouseleave="handleOverlayMouseLeave"
+                        />
+                    </template>
+                </pdf-viewer>
                                     </div>
                                     
-                                    <!-- 批注交互层 -->
-                                    <div 
-                                        class="annotation-overlay"
-                                        @mousedown="handleOverlayMouseDown"
-                                        @mousemove="handleOverlayMouseMove"
-                                        @mouseup="handleOverlayMouseUp"
-                                        @mouseleave="handleOverlayMouseLeave"
-                                    >
-                                        <canvas 
-                                            :ref="el => setAnnotationRef(el, currentPage)"
-                                            class="annotation-canvas"
-                                        ></canvas>
-                                        
-                                        <!-- 高亮显示层 -->
-                                        <div class="highlights-layer">
-                                            <div 
-                                                v-for="highlight in getPageHighlights(currentPage)" 
-                                                :key="highlight.id"
-                                                class="highlight-rect"
-                                                :style="getHighlightStyle(highlight)"
-                                                @click="selectHighlight(highlight)"
-                                                @contextmenu.prevent="showHighlightContextMenu($event, highlight)"
-                                                :title="`高亮区域 - 右键删除`"
-                                            >
-                                                <div 
-                                                    class="highlight-delete-btn"
-                                                    @click.stop="deleteHighlight(highlight.id)"
-                                                    title="删除高亮"
-                                                >
-                                                    <el-icon><Close /></el-icon>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- 批注标记层 -->
-                                        <div class="annotations-layer">
-                                            <!-- 批注标记 -->
-                                            <div 
-                                                v-for="annotation in getPageAnnotations(currentPage)" 
-                                                :key="annotation.id"
-                                                class="annotation-marker"
-                                                :style="getAnnotationStyle(annotation)"
-                                                @click="showAnnotationDialog(annotation)"
-                                                @contextmenu.prevent="showAnnotationContextMenu($event, annotation)"
-                                                :title="`批注: ${annotation.content}`"
-                                            >
-                                                <el-icon><Edit /></el-icon>
-                                            </div>
-                                            
-                                            <!-- 橡皮擦预览圆形 -->
-                                            <div 
-                                                v-if="annotationMode === 'eraser' && eraserPreview.show"
-                                                class="eraser-preview"
-                                                :style="{
-                                                    left: eraserPreview.x + 'px',
-                                                    top: eraserPreview.y + 'px',
-                                                    width: eraserPreview.size + 'px',
-                                                    height: eraserPreview.size + 'px'
-                                                }"
-                                            ></div>
-                                            
-                                            <!-- 高亮选择预览 -->
-                                            <div 
-                                                v-if="selectionPreview.show"
-                                                class="selection-preview"
-                                                :style="{
-                                                    left: selectionPreview.x + 'px',
-                                                    top: selectionPreview.y + 'px',
-                                                    width: selectionPreview.width + 'px',
-                                                    height: selectionPreview.height + 'px'
-                                                }"
-                                            ></div>
-                                        </div>
-                                        
-                                        <!-- 调试信息 -->
-                                        <div class="debug-info" v-if="annotations.length > 0">
-                                            <div>总批注数: {{ annotations.length }}</div>
-                                            <div>当前页批注数: {{ getPageAnnotations(currentPage).length }}</div>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- 翻页提示 -->
-                                    <div class="page-navigation-hints">
-                                        <div v-if="currentPage > 1" class="nav-hint nav-hint-left" @click="prevPage">
-                                            <el-icon><ArrowLeft /></el-icon>
-                                            <span>上一页</span>
-                                        </div>
-                                        <div v-if="currentPage < totalPages" class="nav-hint nav-hint-right" @click="nextPage">
-                                            <span>下一页</span>
-                                            <el-icon><ArrowRight /></el-icon>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- 键盘快捷键提示 -->
-                            <div class="keyboard-hints">
-                                <div class="hint-item">
-                                    <span class="key">←→</span>
-                                    <span>翻页</span>
-                                </div>
-                                <div class="hint-item">
-                                    <span class="key">+/-</span>
-                                    <span>缩放</span>
-                                </div>
-                                <div class="hint-item">
-                                    <span class="key">空格</span>
-                                    <span>下一页</span>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div v-else class="loading-container">
-                            <el-empty description="正在加载PDF页面..."></el-empty>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 文字批注对话框 -->
-            <el-dialog
-                v-model="noteDialogVisible"
-                :title="currentEditingAnnotation ? '编辑批注' : '添加批注'"
-                width="400px"
-                :before-close="cancelNote"
-            >
-                <el-input
-                    v-model="currentNoteContent"
-                    type="textarea"
-                    :rows="4"
-                    placeholder="请输入批注内容..."
-                    maxlength="500"
-                    show-word-limit
-                ></el-input>
-                
-                <template #footer>
-                    <div class="dialog-footer">
-                        <el-button 
-                            v-if="currentEditingAnnotation"
-                            type="danger"
-                            @click="deleteCurrentAnnotation"
-                            :icon="Delete"
-                            class="dialog-btn"
-                        >
-                            删除
-                        </el-button>
-                        <el-button 
-                            @click="cancelNote"
-                            class="dialog-btn"
-                        >
-                            取消
-                        </el-button>
-                        <el-button 
-                            type="primary" 
-                            @click="saveCurrentNote"
-                            class="dialog-btn"
-                        >
-                            {{ currentEditingAnnotation ? '更新' : '保存' }}
-                        </el-button>
-                    </div>
-                </template>
-            </el-dialog>
+            <!-- 批注对话框组件 -->
+            <note-dialog
+                v-model:visible="noteDialogVisible"
+                v-model:content="currentNoteContent"
+                :current-editing-annotation="currentEditingAnnotation"
+                @save-note="saveCurrentNote"
+                @cancel-note="cancelNote"
+                @delete-current-annotation="deleteCurrentAnnotation"
+            />
         </div>
     </div>
 </template>
 
 <script>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
-import { 
-    Upload, Download, ZoomIn, ZoomOut, ArrowLeft, ArrowRight, 
-    Document, Plus, Delete, Edit, Close 
-} from '@element-plus/icons-vue'
 import { callSuccess, callError, callInfo } from '@/call'
+// 导入组件
+import PdfToolbar from './components/pdfToolbar/index.vue'
+import PdfViewer from './components/pdfViewer/index.vue'
+import AnnotationLayer from './components/annotationLayer/index.vue'
+import NoteDialog from './components/noteDialog/index.vue'
+// 导入持久化模块
+import createAnnotationPersistence from './utils/annotationPersistence.js'
 // 使用本地的PDF.js
 let pdfjsLib = null
 
@@ -342,7 +135,12 @@ const loadPDFJS = async () => {
 
 export default {
     name: 'PdfReader',
-    components: {},
+    components: {
+        PdfToolbar,
+        PdfViewer,
+        AnnotationLayer,
+        NoteDialog
+    },
     setup() {
         // 键盘快捷键处理
         const handleKeyPress = (event) => {
@@ -396,6 +194,16 @@ export default {
             
             // 添加键盘事件监听
             document.addEventListener('keydown', handleKeyPress)
+            
+            // 设置定期自动保存（每30秒）
+            const autoSaveInterval = setInterval(() => {
+                quickSaveAnnotations()
+            }, 30000)
+            
+            // 组件销毁时清理定时器
+            onUnmounted(() => {
+                clearInterval(autoSaveInterval)
+            })
             
             // 检查组件是否在DOM中
             setTimeout(() => {
@@ -507,16 +315,496 @@ export default {
         // 橡皮擦性能优化
         const eraserThrottle = ref({
             lastTime: 0,
-            throttleDelay: 100, // 增加到100ms节流
+            throttleDelay: 16, // 减少到16ms，约60fps
             pendingOperations: new Set()
         })
 
-        // 绘制性能优化
+        // 绘制性能优化 - 更激进的优化
         const drawingThrottle = ref({
             lastSaveTime: 0,
-            saveDelay: 200, // 200ms保存延迟
-            saveTimer: null
+            saveDelay: 1000, // 增加到1秒保存延迟
+            saveTimer: null,
+            needsSave: false
         })
+
+        // 优化的绘制状态管理
+        const optimizedDrawingState = ref({
+            lastSaveTime: 0,
+            saveDelay: 1000, // 增加延迟减少保存频率
+            isDirty: new Map(), // 跟踪哪些页面需要保存
+            saveQueue: new Set() // 保存队列
+        })
+
+        // PDF文字提取存储
+        const extractedTexts = ref(new Map()) // pageNum -> 文字内容
+
+        // 持久化管理器
+        const persistenceManager = createAnnotationPersistence()
+        
+        // 当前PDF信息
+        const currentPdfInfo = ref({
+            fileName: '',
+            totalPages: 0,
+            fileSize: 0,
+            fileHash: ''
+        })
+
+        // 提取页面文字内容
+        const extractPageText = async (page, pageNum) => {
+            try {
+                console.log(`🔍 开始提取第${pageNum}页文字...`)
+                
+                // 检查是否已经提取过该页面的文字
+                if (extractedTexts.value.has(pageNum)) {
+                    const cachedText = extractedTexts.value.get(pageNum)
+                    console.log(`📄 第${pageNum}页文字（缓存）:`)
+                    console.log('─'.repeat(50))
+                    console.log(cachedText)
+                    console.log('─'.repeat(50))
+                    return cachedText
+                }
+                
+                // 使用PDF.js提取文字内容
+                const textContent = await page.getTextContent()
+                
+                // 将文字项组合成完整文本
+                let pageText = ''
+                let previousY = null
+                
+                textContent.items.forEach((item, index) => {
+                    // 检查是否需要换行（Y坐标发生变化时）
+                    if (previousY !== null && Math.abs(item.transform[5] - previousY) > 5) {
+                        pageText += '\n'
+                    }
+                    
+                    // 添加文字内容
+                    pageText += item.str
+                    
+                    // 添加空格（如果下一个item在同一行且有间距）
+                    if (index < textContent.items.length - 1) {
+                        const nextItem = textContent.items[index + 1]
+                        if (Math.abs(nextItem.transform[5] - item.transform[5]) <= 5) {
+                            // 同一行，检查水平间距
+                            const currentX = item.transform[4] + item.width
+                            const nextX = nextItem.transform[4]
+                            if (nextX - currentX > 5) {
+                                pageText += ' '
+                            }
+                        }
+                    }
+                    
+                    previousY = item.transform[5]
+                })
+                
+                // 清理多余的空行和空格
+                pageText = pageText
+                    .split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0)
+                    .join('\n')
+                
+                // 存储提取的文字
+                extractedTexts.value.set(pageNum, pageText)
+                
+                // 在控制台打印提取的文字
+                console.log(`✅ 第${pageNum}页文字提取完成！字符数: ${pageText.length}`)
+                console.log(`📄 第${pageNum}页文字内容:`)
+                console.log('═'.repeat(60))
+                if (pageText.length > 0) {
+                    console.log(pageText)
+                } else {
+                    console.log('该页面没有可提取的文字内容')
+                }
+                console.log('═'.repeat(60))
+                
+                return pageText
+                
+            } catch (error) {
+                console.error(`❌ 提取第${pageNum}页文字失败:`, error)
+                return ''
+            }
+        }
+
+        // 获取当前页面的文字
+        const getCurrentPageText = () => {
+            const text = extractedTexts.value.get(currentPage.value)
+            if (text) {
+                console.log(`📖 当前第${currentPage.value}页文字:`)
+                console.log('─'.repeat(50))
+                console.log(text)
+                console.log('─'.repeat(50))
+                return text
+            } else {
+                console.log(`第${currentPage.value}页暂无文字内容或未提取`)
+                return ''
+            }
+        }
+
+        // 获取指定页面的文字
+        const getPageText = (pageNum) => {
+            if (pageNum < 1 || pageNum > totalPages.value) {
+                console.error(`页面号${pageNum}超出范围 (1-${totalPages.value})`)
+                return ''
+            }
+            
+            const text = extractedTexts.value.get(pageNum)
+            if (text) {
+                console.log(`📖 第${pageNum}页文字:`)
+                console.log('─'.repeat(50))
+                console.log(text)
+                console.log('─'.repeat(50))
+                return text
+            } else {
+                console.log(`第${pageNum}页暂无文字内容或未提取`)
+                return ''
+            }
+        }
+
+        // 获取所有已提取的文字
+        const getAllExtractedTexts = () => {
+            const allTexts = {}
+            extractedTexts.value.forEach((text, pageNum) => {
+                allTexts[pageNum] = text
+            })
+            
+            console.log(`📚 已提取${Object.keys(allTexts).length}页文字:`)
+            Object.entries(allTexts).forEach(([pageNum, text]) => {
+                console.log(`第${pageNum}页 (${text.length}字符): ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`)
+            })
+            
+            return allTexts
+        }
+
+        // 搜索文字内容
+        const searchInTexts = (keyword) => {
+            if (!keyword || keyword.trim() === '') {
+                console.log('请输入搜索关键词')
+                return []
+            }
+            
+            const results = []
+            extractedTexts.value.forEach((text, pageNum) => {
+                if (text.toLowerCase().includes(keyword.toLowerCase())) {
+                    // 找到匹配的行
+                    const lines = text.split('\n')
+                    lines.forEach((line, lineIndex) => {
+                        if (line.toLowerCase().includes(keyword.toLowerCase())) {
+                            results.push({
+                                page: pageNum,
+                                line: lineIndex + 1,
+                                content: line.trim(),
+                                context: line
+                            })
+                        }
+                    })
+                }
+            })
+            
+            console.log(`🔍 搜索"${keyword}"找到${results.length}个结果:`)
+            results.forEach((result, index) => {
+                console.log(`${index + 1}. 第${result.page}页第${result.line}行: ${result.content}`)
+            })
+            
+            return results
+        }
+
+        // ==================== 持久化功能 ====================
+        
+        /**
+         * 导出所有标注数据
+         */
+        const exportAllAnnotations = () => {
+            try {
+                if (!pdfDocument.value) {
+                    callError('请先加载PDF文件')
+                    return
+                }
+                
+                // 保存当前页面的绘制内容
+                if (currentPage.value) {
+                    saveFast(currentPage.value)
+                }
+                
+                // 导出数据
+                const exportData = persistenceManager.exportAnnotations(
+                    currentPdfInfo.value,
+                    scale.value,
+                    highlights.value,
+                    annotations.value,
+                    drawingData.value
+                )
+                
+                // 保存到本地文件
+                const result = persistenceManager.saveToLocalFile(exportData)
+                
+                if (result.success) {
+                    callSuccess(`标注数据已保存到 ${result.fileName}`)
+                } else {
+                    callError(`保存失败: ${result.error}`)
+                }
+                
+                return result
+            } catch (error) {
+                console.error('导出标注数据失败:', error)
+                callError('导出标注数据失败')
+                return { success: false, error: error.message }
+            }
+        }
+
+        /**
+         * 从文件加载标注数据
+         */
+        const importAnnotationsFromFile = () => {
+            // 创建文件选择器
+            const input = document.createElement('input')
+            input.type = 'file'
+            input.accept = '.txt,.json'
+            input.style.display = 'none'
+            
+            input.onchange = async (event) => {
+                const file = event.target.files[0]
+                if (!file) return
+                
+                try {
+                    callInfo('正在加载标注数据...')
+                    
+                    // 读取文件内容
+                    const reader = new FileReader()
+                    reader.onload = async (e) => {
+                        try {
+                            const fileContent = e.target.result
+                            
+                            // 解析标注数据
+                            const loadResult = persistenceManager.loadFromFileContent(fileContent)
+                            if (!loadResult.success) {
+                                callError(`加载失败: ${loadResult.error}`)
+                                return
+                            }
+                            
+                            const loadedData = loadResult.data
+                            
+                            // 验证PDF匹配性
+                            const matchResult = persistenceManager.validatePDFMatch(loadedData, currentPdfInfo.value)
+                            if (!matchResult.isMatch) {
+                                const continueImport = confirm(
+                                    `检测到PDF不匹配:\n${matchResult.warnings.join('\n')}\n\n是否继续导入？`
+                                )
+                                if (!continueImport) {
+                                    callInfo('已取消导入')
+                                    return
+                                }
+                            }
+                            
+                            // 应用标注数据
+                            const applyResult = persistenceManager.applyLoadedData(
+                                loadedData,
+                                highlights.value,
+                                annotations.value,
+                                drawingData.value
+                            )
+                            
+                            if (applyResult.success) {
+                                // 应用缩放设置
+                                if (loadedData.settings && loadedData.settings.scale) {
+                                    scale.value = loadedData.settings.scale
+                                }
+                                
+                                // 重新渲染当前页面以显示恢复的内容
+                                await nextTick()
+                                await renderCurrentPage()
+                                
+                                // 恢复绘制内容
+                                setTimeout(() => {
+                                    restoreDrawingData(currentPage.value)
+                                }, 300)
+                                
+                                callSuccess(`标注数据导入成功！恢复了 ${applyResult.counts.highlights} 个高亮、${applyResult.counts.annotations} 个批注、${applyResult.counts.drawings} 页绘制内容`)
+                            } else {
+                                callError(`应用数据失败: ${applyResult.error}`)
+                            }
+                            
+                        } catch (error) {
+                            console.error('处理标注数据失败:', error)
+                            callError('处理标注数据失败')
+                        }
+                    }
+                    
+                    reader.onerror = () => {
+                        callError('读取文件失败')
+                    }
+                    
+                    reader.readAsText(file)
+                    
+                } catch (error) {
+                    console.error('加载标注数据失败:', error)
+                    callError('加载标注数据失败')
+                }
+            }
+            
+            // 触发文件选择
+            document.body.appendChild(input)
+            input.click()
+            document.body.removeChild(input)
+        }
+
+        /**
+         * 快速保存当前工作（防止数据丢失）
+         */
+        const quickSaveAnnotations = () => {
+            try {
+                if (!pdfDocument.value) {
+                    console.log('没有PDF文档，跳过快速保存')
+                    return
+                }
+                
+                const exportData = persistenceManager.exportAnnotations(
+                    currentPdfInfo.value,
+                    scale.value,
+                    highlights.value,
+                    annotations.value,
+                    drawingData.value
+                )
+                
+                // 保存到localStorage作为临时备份
+                const backupKey = `pdf_annotations_backup_${currentPdfInfo.value.fileHash}`
+                localStorage.setItem(backupKey, JSON.stringify(exportData))
+                
+                console.log('✅ 标注数据已自动备份到本地存储')
+            } catch (error) {
+                console.error('快速保存失败:', error)
+            }
+        }
+
+        /**
+         * 恢复自动备份的数据
+         */
+        const restoreAutoBackup = () => {
+            try {
+                const backupKey = `pdf_annotations_backup_${currentPdfInfo.value.fileHash}`
+                const backupData = localStorage.getItem(backupKey)
+                
+                if (backupData) {
+                    const hasAnnotations = highlights.value.length > 0 || 
+                                         annotations.value.length > 0 || 
+                                         drawingData.value.size > 0
+                    
+                    if (hasAnnotations) {
+                        const restoreBackup = confirm('检测到自动备份的标注数据，是否恢复？')
+                        if (!restoreBackup) return
+                    }
+                    
+                    const loadResult = persistenceManager.loadFromFileContent(backupData)
+                    if (loadResult.success) {
+                        persistenceManager.applyLoadedData(
+                            loadResult.data,
+                            highlights.value,
+                            annotations.value,
+                            drawingData.value
+                        )
+                        
+                        console.log('✅ 已恢复自动备份的标注数据')
+                        callInfo('已恢复自动备份的标注数据')
+                    }
+                }
+            } catch (error) {
+                console.error('恢复自动备份失败:', error)
+            }
+        }
+
+        // 空间索引优化 - 新增
+        const spatialIndex = ref({
+            highlights: new Map(), // 按页面分组的高亮空间索引
+            annotations: new Map(), // 按页面分组的批注空间索引
+            gridSize: 100 // 网格大小，用于空间分割
+        })
+
+        // Canvas离屏缓存 - 新增
+        const offscreenCanvas = ref(new Map()) // 离屏Canvas缓存
+
+        // 初始化空间索引
+        const initSpatialIndex = (pageNum) => {
+            if (!spatialIndex.value.highlights.has(pageNum)) {
+                spatialIndex.value.highlights.set(pageNum, new Map())
+            }
+            if (!spatialIndex.value.annotations.has(pageNum)) {
+                spatialIndex.value.annotations.set(pageNum, new Map())
+            }
+        }
+
+        // 获取网格键
+        const getGridKey = (x, y) => {
+            const gridX = Math.floor(x / spatialIndex.value.gridSize)
+            const gridY = Math.floor(y / spatialIndex.value.gridSize)
+            return `${gridX},${gridY}`
+        }
+
+        // 获取区域涉及的所有网格
+        const getGridKeys = (area) => {
+            const keys = []
+            const startX = Math.floor(area.x / spatialIndex.value.gridSize)
+            const endX = Math.floor((area.x + area.width) / spatialIndex.value.gridSize)
+            const startY = Math.floor(area.y / spatialIndex.value.gridSize)
+            const endY = Math.floor((area.y + area.height) / spatialIndex.value.gridSize)
+            
+            for (let x = startX; x <= endX; x++) {
+                for (let y = startY; y <= endY; y++) {
+                    keys.push(`${x},${y}`)
+                }
+            }
+            return keys
+        }
+
+        // 添加到空间索引
+        const addToSpatialIndex = (item, type, pageNum) => {
+            initSpatialIndex(pageNum)
+            const indexMap = spatialIndex.value[type].get(pageNum)
+            const keys = getGridKeys(item)
+            
+            keys.forEach(key => {
+                if (!indexMap.has(key)) {
+                    indexMap.set(key, [])
+                }
+                indexMap.get(key).push(item)
+            })
+        }
+
+        // 从空间索引中移除
+        const removeFromSpatialIndex = (item, type, pageNum) => {
+            const indexMap = spatialIndex.value[type]?.get(pageNum)
+            if (!indexMap) return
+            
+            const keys = getGridKeys(item)
+            keys.forEach(key => {
+                const items = indexMap.get(key)
+                if (items) {
+                    const index = items.findIndex(i => i.id === item.id)
+                    if (index > -1) {
+                        items.splice(index, 1)
+                        if (items.length === 0) {
+                            indexMap.delete(key)
+                        }
+                    }
+                }
+            })
+        }
+
+        // 查询空间索引
+        const queryFromSpatialIndex = (area, type, pageNum) => {
+            const indexMap = spatialIndex.value[type]?.get(pageNum)
+            if (!indexMap) return []
+            
+            const keys = getGridKeys(area)
+            const results = new Set()
+            
+            keys.forEach(key => {
+                const items = indexMap.get(key)
+                if (items) {
+                    items.forEach(item => results.add(item))
+                }
+            })
+            
+            return Array.from(results)
+        }
 
         // 设置页面引用
         const setPageRef = (el, pageNum) => {
@@ -540,58 +828,59 @@ export default {
             }
         }
 
-        // 初始化绘制事件
+        // 优化的绘制系统 - 简单但高性能
         const initDrawingEvents = (canvas, pageNum) => {
             const ctx = canvas.getContext('2d')
             let isDrawing = false
             let lastX = 0
             let lastY = 0
-            
-            // 设置绘制样式
-            ctx.strokeStyle = drawColor.value
-            ctx.lineWidth = 3
-            ctx.lineCap = 'round'
-            ctx.lineJoin = 'round'
+            let lastTime = 0
             
             // 鼠标按下事件
             const handleMouseDown = (e) => {
-                // 只有当前页面的canvas才能绘制
                 if (annotationMode.value !== 'draw' || pageNum !== currentPage.value) return
                 e.preventDefault()
                 e.stopPropagation()
-                
-                // 每次开始绘制时重新设置样式，确保使用最新的颜色和线宽
-                ctx.strokeStyle = drawColor.value
-                ctx.lineWidth = 3
-                ctx.lineCap = 'round'
-                ctx.lineJoin = 'round'
                 
                 isDrawing = true
                 const rect = canvas.getBoundingClientRect()
                 lastX = e.clientX - rect.left
                 lastY = e.clientY - rect.top
+                lastTime = 0
                 
-                console.log(`开始绘制 - 页面:${pageNum}，当前页:${currentPage.value}，颜色:${drawColor.value}`, { x: lastX, y: lastY })
+                // 设置绘制样式
+                ctx.strokeStyle = drawColor.value
+                ctx.lineWidth = 3
+                ctx.lineCap = 'round'
+                ctx.lineJoin = 'round'
+                
+                // console.log(`开始绘制 - 页面:${pageNum}`) // 减少日志提升性能
             }
             
-            // 鼠标移动事件
+            // 鼠标移动事件 - 加入性能优化
             const handleMouseMove = (e) => {
-                // 只有当前页面的canvas才能绘制
                 if (!isDrawing || annotationMode.value !== 'draw' || pageNum !== currentPage.value) return
                 e.preventDefault()
                 e.stopPropagation()
+                
+                const now = performance.now()
+                // 限制绘制频率到60fps，避免过度绘制
+                if (now - lastTime < 16) return
+                lastTime = now
                 
                 const rect = canvas.getBoundingClientRect()
                 const currentX = e.clientX - rect.left
                 const currentY = e.clientY - rect.top
                 
-                // 确保绘制样式正确（防止样式丢失）
-                if (ctx.strokeStyle !== drawColor.value || ctx.lineWidth !== 3) {
+                // 距离过滤 - 避免重复的近距离点
+                const distance = Math.sqrt((currentX - lastX) ** 2 + (currentY - lastY) ** 2)
+                if (distance < 2) return
+                
+                // 绘制线段
                     ctx.strokeStyle = drawColor.value
                     ctx.lineWidth = 3
                     ctx.lineCap = 'round'
                     ctx.lineJoin = 'round'
-                }
                 
                 ctx.beginPath()
                 ctx.moveTo(lastX, lastY)
@@ -606,7 +895,9 @@ export default {
             const handleMouseUp = () => {
                 if (isDrawing && pageNum === currentPage.value) {
                     isDrawing = false
-                    // 延迟保存，减少频繁操作
+                    // console.log(`结束绘制 - 页面:${pageNum}`) // 减少日志
+                    
+                    // 延迟保存，避免频繁保存
                     debouncedSaveDrawing(pageNum)
                 }
             }
@@ -615,7 +906,9 @@ export default {
             const handleMouseLeave = () => {
                 if (isDrawing && pageNum === currentPage.value) {
                     isDrawing = false
-                    // 延迟保存，减少频繁操作
+                    console.log(`绘制中断 - 页面:${pageNum}`)
+                    
+                    // 延迟保存
                     debouncedSaveDrawing(pageNum)
                 }
             }
@@ -626,6 +919,10 @@ export default {
             canvas.addEventListener('mouseup', handleMouseUp)
             canvas.addEventListener('mouseleave', handleMouseLeave)
         }
+        
+
+        
+
 
         // 文件上传处理
         const handleFileUpload = (uploadFile, uploadFiles) => {
@@ -645,6 +942,14 @@ export default {
             if (file.type !== 'application/pdf') {
                 callError('请选择PDF文件')
                 return
+            }
+            
+            // 更新PDF信息
+            currentPdfInfo.value = {
+                fileName: file.name,
+                fileSize: file.size,
+                totalPages: 0, // 稍后在PDF加载成功后更新
+                fileHash: ''   // 稍后生成
             }
             
             callInfo('正在加载PDF文件...')
@@ -675,6 +980,16 @@ export default {
         const loadPDF = async (data) => {
             try {
                 console.log('开始使用PDF.js解析文档')
+                
+                // 清理之前的数据
+                pageRefs.value.clear()
+                annotationRefs.value.clear()
+                drawingData.value.clear()
+                highlights.value.length = 0  // 清空数组
+                annotations.value.length = 0  // 清空数组
+                extractedTexts.value.clear() // 清理文字提取缓存
+                
+                console.log('已清理之前的PDF数据和文字提取缓存')
                 
                 // 确保PDF.js已加载
                 const pdfjs = await loadPDFJS()
@@ -710,6 +1025,13 @@ export default {
                 totalPages.value = pdf.numPages
                 currentPage.value = 1
                 
+                // 更新PDF信息
+                currentPdfInfo.value.totalPages = pdf.numPages
+                currentPdfInfo.value.fileHash = persistenceManager.generateFileHash(
+                    currentPdfInfo.value.fileName, 
+                    currentPdfInfo.value.fileSize
+                )
+                
                 console.log('准备设置PDF文档对象...')
                 
                 // 设置PDF文档对象（不使用nextTick，避免卡死）
@@ -726,6 +1048,28 @@ export default {
                 // 等待DOM更新后渲染第一页
                 await nextTick()
                 await renderCurrentPage()
+                
+                // 输出功能使用提示
+                setTimeout(() => {
+                    console.log('🎉 PDF阅读器功能已全部启用！')
+                    console.log('')
+                    console.log('📚 文字提取功能:')
+                    console.log('  getCurrentPageText() - 获取当前页面文字')
+                    console.log('  getPageText(页码) - 获取指定页面文字')
+                    console.log('  getAllExtractedTexts() - 获取所有已提取的文字')
+                    console.log('  searchInTexts("关键词") - 在文字中搜索')
+                    console.log('')
+                    console.log('💾 标注持久化功能:')
+                    console.log('  - 工具栏中的"保存标注"按钮可导出所有标注到txt文件')
+                    console.log('  - "加载标注"按钮可从txt文件恢复标注')
+                    console.log('  - 系统每30秒自动备份到浏览器本地存储')
+                    console.log('  - 重新打开同一PDF会提示恢复自动备份')
+                    console.log('')
+                    console.log('✨ 支持的标注类型: 高亮、批注、手绘，包含缩放比、坐标、颜色等完整信息')
+                    
+                    // 检查自动备份
+                    restoreAutoBackup()
+                }, 1000)
             } catch (error) {
                 console.error('loadPDF错误详情:', error)
                 throw error
@@ -815,6 +1159,9 @@ export default {
 
                 await page.render(renderContext).promise
                 console.log(`第${pageNum}页渲染完成，尺寸: ${width}x${height}`)
+                
+                // 提取页面文字内容
+                await extractPageText(page, pageNum)
                 
                 // 渲染完成后恢复绘制内容
                 setTimeout(() => restoreDrawingData(pageNum), 200)
@@ -1152,7 +1499,7 @@ export default {
             selectionPreview.value.show = false
         }
 
-        // 高亮功能
+        // 高亮功能（优化版，维护空间索引）
         const addHighlight = (selection) => {
             const highlight = {
                 id: highlightIdCounter.value++,
@@ -1164,7 +1511,14 @@ export default {
                 color: highlightColor.value,
                 timestamp: new Date().toLocaleString()
             }
+            
+            // 添加到主数组
             highlights.value.push(highlight)
+            
+            // 添加到空间索引
+            addToSpatialIndex(highlight, 'highlights', currentPage.value)
+            
+            console.log(`高亮已添加并索引: ID=${highlight.id}, 页面=${currentPage.value}`)
         }
 
         const getPageHighlights = (pageNum) => {
@@ -1189,12 +1543,19 @@ export default {
             console.log('选中高亮:', highlight)
         }
 
-        // 删除高亮
+        // 删除高亮（优化版，维护空间索引）
         const deleteHighlight = (highlightId) => {
             const index = highlights.value.findIndex(h => h.id === highlightId)
             if (index > -1) {
+                const highlight = highlights.value[index]
+                
+                // 从空间索引中移除
+                removeFromSpatialIndex(highlight, 'highlights', highlight.page)
+                
+                // 从主数组中移除
                 highlights.value.splice(index, 1)
-                console.log(`删除了高亮 ID: ${highlightId}`)
+                
+                console.log(`删除了高亮 ID: ${highlightId}，页面: ${highlight.page}`)
             }
         }
 
@@ -1208,7 +1569,7 @@ export default {
             }
         }
 
-        // 批注功能
+        // 批注功能（优化版，维护空间索引）
         const addAnnotation = (selection, content, clickPosition = null) => {
             console.log('addAnnotation被调用:', {
                 selection,
@@ -1235,13 +1596,19 @@ export default {
                 page: currentPage.value,
                 x: finalX,
                 y: finalY,
+                width: 20, // 为空间索引添加宽高
+                height: 20,
                 content: content,
                 timestamp: new Date().toLocaleString()
             }
             
+            // 添加到主数组
             annotations.value.push(annotation)
             
-            console.log('批注已添加:', annotation)
+            // 添加到空间索引
+            addToSpatialIndex(annotation, 'annotations', currentPage.value)
+            
+            console.log('批注已添加并索引:', annotation)
         }
 
         const getPageAnnotations = (pageNum) => {
@@ -1272,12 +1639,19 @@ export default {
             noteDialogVisible.value = true
         }
 
-        // 删除批注
+        // 删除批注（优化版，维护空间索引）
         const deleteAnnotation = (annotationId) => {
             const index = annotations.value.findIndex(a => a.id === annotationId)
             if (index > -1) {
+                const annotation = annotations.value[index]
+                
+                // 从空间索引中移除
+                removeFromSpatialIndex(annotation, 'annotations', annotation.page)
+                
+                // 从主数组中移除
                 annotations.value.splice(index, 1)
-                console.log(`删除了批注 ID: ${annotationId}`)
+                
+                console.log(`删除了批注 ID: ${annotationId}，页面: ${annotation.page}`)
             }
         }
 
@@ -1391,20 +1765,72 @@ export default {
 
 
 
-        // 防抖保存函数
+        // 优化的防抖保存 - 批量处理
         const debouncedSaveDrawing = (pageNum) => {
+            // 标记页面为需要保存
+            optimizedDrawingState.value.isDirty.set(pageNum, true)
+            optimizedDrawingState.value.saveQueue.add(pageNum)
+            
             // 清除之前的定时器
             if (drawingThrottle.value.saveTimer) {
                 clearTimeout(drawingThrottle.value.saveTimer)
             }
             
-            // 设置新的定时器
+            // 批量保存定时器
             drawingThrottle.value.saveTimer = setTimeout(() => {
-                saveDrawingData(pageNum)
-            }, drawingThrottle.value.saveDelay)
+                // 批量保存所有脏页面
+                const pagesToSave = Array.from(optimizedDrawingState.value.saveQueue)
+                optimizedDrawingState.value.saveQueue.clear()
+                
+                pagesToSave.forEach(page => {
+                    if (optimizedDrawingState.value.isDirty.get(page)) {
+                        saveFast(page)
+                        optimizedDrawingState.value.isDirty.set(page, false)
+                    }
+                })
+                
+                console.log(`批量保存${pagesToSave.length}个页面完成`)
+            }, optimizedDrawingState.value.saveDelay)
+        }
+        
+        // 快速保存 - 只在真正需要时调用toDataURL
+        const saveFast = (pageNum) => {
+            const canvas = annotationRefs.value.get(pageNum)
+            if (!canvas) return
+            
+            try {
+                // 检查Canvas是否为空，避免保存空白内容
+                const ctx = canvas.getContext('2d')
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+                const data = imageData.data
+                
+                // 快速检查是否有非透明像素
+                let hasContent = false
+                for (let i = 3; i < data.length; i += 4) {
+                    if (data[i] > 0) { // alpha通道
+                        hasContent = true
+                        break
+                    }
+                }
+                
+                if (hasContent) {
+                    // 有内容才保存
+                    const base64Data = canvas.toDataURL('image/png', 0.7) // 降低质量提升速度
+                    drawingData.value.set(pageNum, base64Data)
+                    console.log(`页面${pageNum}快速保存完成`)
+                } else {
+                    // 没有内容，删除存储
+                    drawingData.value.delete(pageNum)
+                    console.log(`页面${pageNum}无内容，清理存储`)
+                }
+            } catch (error) {
+                console.error(`页面${pageNum}保存失败:`, error)
+            }
         }
 
-        // 保存当前页面的绘制内容（优化版本）
+
+
+        // 保存当前页面的绘制内容（原版本，保留作为备用）
         const saveDrawingData = (pageNum) => {
             const canvas = annotationRefs.value.get(pageNum)
             if (!canvas) return
@@ -1428,7 +1854,7 @@ export default {
             }
         }
 
-        // 恢复页面的绘制内容
+        // 简化恢复功能 - 基础图像恢复
         const restoreDrawingData = (pageNum) => {
             const canvas = annotationRefs.value.get(pageNum)
             const savedData = drawingData.value.get(pageNum)
@@ -1436,44 +1862,40 @@ export default {
             if (!canvas) return
             
             const ctx = canvas.getContext('2d')
-            // 先完全清空画布
+            // 先清空画布
             ctx.clearRect(0, 0, canvas.width, canvas.height)
             
-            if (savedData && savedData !== 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==') {
+            if (savedData && savedData.startsWith('data:image/')) {
                 const img = new Image()
                 img.onload = () => {
-                    // 再次确保画布是干净的
                     ctx.clearRect(0, 0, canvas.width, canvas.height)
                     ctx.drawImage(img, 0, 0)
-                    
-                    // 恢复绘制内容后，重新设置绘制样式
-                    ctx.strokeStyle = drawColor.value
-                    ctx.lineWidth = 3
-                    ctx.lineCap = 'round'
-                    ctx.lineJoin = 'round'
+                    console.log(`页面${pageNum}绘制内容恢复完成`)
                 }
                 img.onerror = () => {
-                    console.error(`第${pageNum}页绘制内容恢复失败`)
+                    console.error(`页面${pageNum}绘制内容恢复失败`)
                 }
                 img.src = savedData
             } else {
-                // 即使没有绘制内容，也要设置绘制样式
-                ctx.strokeStyle = drawColor.value
-                ctx.lineWidth = 3
-                ctx.lineCap = 'round'
-                ctx.lineJoin = 'round'
+                console.log(`页面${pageNum}无绘制内容需要恢复`)
             }
         }
 
         // 清除当前页面的绘制内容
         const clearDrawing = () => {
-            const canvas = annotationRefs.value.get(currentPage.value)
+            const pageNum = currentPage.value
+            const canvas = annotationRefs.value.get(pageNum)
+            
             if (canvas) {
+                // 清除Canvas显示
                 const ctx = canvas.getContext('2d')
                 ctx.clearRect(0, 0, canvas.width, canvas.height)
-                // 从存储中删除
-                drawingData.value.delete(currentPage.value)
             }
+            
+            // 清除存储数据
+            drawingData.value.delete(pageNum)
+            
+            console.log(`页面${pageNum}的所有绘制内容已清除`)
         }
 
         // 更新颜色
@@ -1537,40 +1959,165 @@ export default {
             performErase(currentPos)
         }
 
-        // 执行清除操作（优化版本）
+        // 高性能橡皮擦 - 简单直接
         const performErase = (centerPos) => {
-            const now = Date.now()
+            const now = performance.now()
             
-            // 节流控制
-            if (now - eraserThrottle.value.lastTime < eraserThrottle.value.throttleDelay) {
+            // 高频节流控制 - 提升到120fps
+            if (now - eraserThrottle.value.lastTime < 8) {
                 return
             }
             eraserThrottle.value.lastTime = now
             
+            const canvas = annotationRefs.value.get(currentPage.value)
+            if (!canvas) return
+            
+            const ctx = canvas.getContext('2d')
+            const radius = eraserPreview.size / 2
+            
+            // 直接清除Canvas上的圆形区域
+            ctx.save()
+            ctx.globalCompositeOperation = 'destination-out'
+            ctx.beginPath()
+            ctx.arc(centerPos.x, centerPos.y, radius, 0, 2 * Math.PI)
+            ctx.fill()
+            ctx.restore()
+            
+            // 简化的数据清理
             const eraseArea = {
-                x: centerPos.x - eraserPreview.size / 2,
-                y: centerPos.y - eraserPreview.size / 2,
+                x: centerPos.x - radius,
+                y: centerPos.y - radius,
                 width: eraserPreview.size,
                 height: eraserPreview.size
             }
             
-            // 批量处理，减少频繁的数组操作
-            let hasChanges = false
+            // 快速删除高亮和批注
+            eraseHighlightsFast(eraseArea)
+            eraseAnnotationsFast(eraseArea)
+        }
+        
+        // 快速高亮删除 - 简化算法
+        const eraseHighlightsFast = (eraseArea) => {
+            const pageHighlights = highlights.value.filter(h => h.page === currentPage.value)
+            if (!pageHighlights || pageHighlights.length === 0) return
             
-            // 删除重叠的高亮（优化版）
-            const highlightChanges = eraseHighlightsOptimized(eraseArea)
-            if (highlightChanges > 0) hasChanges = true
+            const before = pageHighlights.length
+            // 简单的边界框检测，避免复杂计算
+            const remainingHighlights = pageHighlights.filter(highlight => {
+                return !isRectangleOverlap(highlight, eraseArea)
+            })
             
-            // 删除重叠的批注（优化版）
-            const annotationChanges = eraseAnnotationsOptimized(eraseArea)
-            if (annotationChanges > 0) hasChanges = true
+            // 移除当前页面的高亮，然后添加剩余的
+            highlights.value = highlights.value.filter(h => h.page !== currentPage.value).concat(remainingHighlights)
             
-            // 清除Canvas绘制内容（使用圆形清除）
-            eraseDrawingCircular(centerPos, eraserPreview.size / 2)
+            const removed = before - remainingHighlights.length
+            // 减少日志频率
+            if (removed > 0 && Math.random() < 0.1) {
+                console.log(`快速删除${removed}个高亮`)
+            }
+        }
+        
+        // 快速批注删除 - 简化算法
+        const eraseAnnotationsFast = (eraseArea) => {
+            const pageAnnotations = annotations.value.filter(a => a.page === currentPage.value)
+            if (!pageAnnotations || pageAnnotations.length === 0) return
             
-            // 只在需要时输出调试信息
-            if (hasChanges && (highlightChanges > 0 || annotationChanges > 0)) {
-                console.log(`橡皮擦清除: ${highlightChanges}个高亮, ${annotationChanges}个批注`)
+            const before = pageAnnotations.length
+            // 简单的点检测
+            const remainingAnnotations = pageAnnotations.filter(annotation => {
+                const distance = Math.sqrt(
+                    (annotation.x - (eraseArea.x + eraseArea.width/2)) ** 2 + 
+                    (annotation.y - (eraseArea.y + eraseArea.height/2)) ** 2
+                )
+                return distance > eraseArea.width / 2
+            })
+            
+            // 移除当前页面的批注，然后添加剩余的
+            annotations.value = annotations.value.filter(a => a.page !== currentPage.value).concat(remainingAnnotations)
+            
+            const removed = before - remainingAnnotations.length
+            // 减少日志频率
+            if (removed > 0 && Math.random() < 0.1) {
+                console.log(`快速删除${removed}个批注`)
+            }
+        }
+        
+        // 简单的矩形重叠检测
+        const isRectangleOverlap = (rect1, rect2) => {
+            return !(rect1.x + rect1.width < rect2.x || 
+                    rect2.x + rect2.width < rect1.x || 
+                    rect1.y + rect1.height < rect2.y || 
+                    rect2.y + rect2.height < rect1.y)
+        }
+        
+        // 删除被橡皮擦覆盖的笔画部分（真删除）
+        const eraseDrawingStrokes = (centerPos, radius) => {
+            const pageStrokes = drawingSystem.value.strokes.get(currentPage.value)
+            if (!pageStrokes || pageStrokes.length === 0) return 0
+            
+            let changesCount = 0
+            const strokesToRemove = []
+            
+            // 遍历所有笔画，检查是否与橡皮擦区域重叠
+            pageStrokes.forEach((stroke, strokeIndex) => {
+                // 快速边界检查
+                if (!isStrokeBoundsOverlapping(stroke.bounds, centerPos, radius)) {
+                    return
+                }
+                
+                // 详细点检查 - 移除被橡皮擦覆盖的点
+                const originalLength = stroke.points.length
+                stroke.points = stroke.points.filter(point => {
+                    const distance = Math.sqrt(
+                        Math.pow(point.x - centerPos.x, 2) + 
+                        Math.pow(point.y - centerPos.y, 2)
+                    )
+                    return distance > radius
+                })
+                
+                // 如果点被大量删除，标记整个笔画为删除
+                if (stroke.points.length < originalLength * 0.3) {
+                    strokesToRemove.push(strokeIndex)
+                    changesCount++
+                } else if (stroke.points.length !== originalLength) {
+                    // 如果还有剩余点，重新计算边界
+                    recalculateStrokeBounds(stroke)
+                    changesCount++
+                }
+            })
+            
+            // 从后往前删除笔画，避免索引问题
+            strokesToRemove.reverse().forEach(index => {
+                pageStrokes.splice(index, 1)
+            })
+            
+            return changesCount
+        }
+        
+        // 检查笔画边界是否与圆形区域重叠
+        const isStrokeBoundsOverlapping = (bounds, centerPos, radius) => {
+            // 找到矩形边界上离圆心最近的点
+            const closestX = Math.max(bounds.minX, Math.min(centerPos.x, bounds.maxX))
+            const closestY = Math.max(bounds.minY, Math.min(centerPos.y, bounds.maxY))
+            
+            // 计算距离
+            const distance = Math.sqrt(
+                Math.pow(closestX - centerPos.x, 2) + 
+                Math.pow(closestY - centerPos.y, 2)
+            )
+            
+            return distance <= radius
+        }
+        
+        // 重新计算笔画边界
+        const recalculateStrokeBounds = (stroke) => {
+            if (stroke.points.length === 0) return
+            
+            stroke.bounds = {
+                minX: Math.min(...stroke.points.map(p => p.x)),
+                minY: Math.min(...stroke.points.map(p => p.y)),
+                maxX: Math.max(...stroke.points.map(p => p.x)),
+                maxY: Math.max(...stroke.points.map(p => p.y))
             }
         }
 
@@ -1589,7 +2136,35 @@ export default {
             isAnnotating.value = false
         }
 
-        // 删除重叠的高亮（优化版本）
+        // 通过空间索引删除高亮（最优化版本）
+        const eraseHighlightsBySpatialIndex = (eraseArea, candidates) => {
+            const toDelete = []
+            
+            // 只检查候选高亮，大幅减少计算量
+            candidates.forEach(highlight => {
+                if (isOverlapping(highlight, eraseArea)) {
+                    toDelete.push(highlight)
+                }
+            })
+            
+            // 批量删除并更新空间索引
+            if (toDelete.length > 0) {
+                toDelete.forEach(highlight => {
+                    // 从空间索引中移除
+                    removeFromSpatialIndex(highlight, 'highlights', currentPage.value)
+                    
+                    // 从主数组中移除
+                    const index = highlights.value.findIndex(h => h.id === highlight.id)
+                    if (index > -1) {
+                        highlights.value.splice(index, 1)
+                    }
+                })
+            }
+            
+            return toDelete.length
+        }
+
+        // 删除重叠的高亮（优化版本，保留作为备用）
         const eraseHighlightsOptimized = (eraseArea) => {
             const toDelete = []
             const pageHighlights = highlights.value.filter(h => h.page === currentPage.value)
@@ -1629,7 +2204,35 @@ export default {
             }
         }
 
-        // 删除重叠的批注（优化版本）
+        // 通过空间索引删除批注（最优化版本）
+        const eraseAnnotationsBySpatialIndex = (eraseArea, candidates) => {
+            const toDelete = []
+            
+            // 只检查候选批注，大幅减少计算量
+            candidates.forEach(annotation => {
+                if (isPointInArea(annotation, eraseArea)) {
+                    toDelete.push(annotation)
+                }
+            })
+            
+            // 批量删除并更新空间索引
+            if (toDelete.length > 0) {
+                toDelete.forEach(annotation => {
+                    // 从空间索引中移除
+                    removeFromSpatialIndex(annotation, 'annotations', currentPage.value)
+                    
+                    // 从主数组中移除
+                    const index = annotations.value.findIndex(a => a.id === annotation.id)
+                    if (index > -1) {
+                        annotations.value.splice(index, 1)
+                    }
+                })
+            }
+            
+            return toDelete.length
+        }
+
+        // 删除重叠的批注（优化版本，保留作为备用）
         const eraseAnnotationsOptimized = (eraseArea) => {
             const toDelete = []
             const pageAnnotations = annotations.value.filter(a => a.page === currentPage.value)
@@ -1671,7 +2274,20 @@ export default {
             }
         }
 
-        // 清除Canvas绘制内容（圆形清除）
+        // 获取页面绘制状态（调试用）
+        const getDrawingStats = (pageNum) => {
+            const pageStrokes = drawingSystem.value.strokes.get(pageNum || currentPage.value)
+            if (!pageStrokes) return { strokeCount: 0, totalPoints: 0 }
+            
+            const totalPoints = pageStrokes.reduce((sum, stroke) => sum + stroke.points.length, 0)
+            return {
+                strokeCount: pageStrokes.length,
+                totalPoints,
+                memoryEstimate: totalPoints * 16 + ' bytes'
+            }
+        }
+
+        // 清除Canvas绘制内容（圆形清除，保留作为备用）
         const eraseDrawingCircular = (centerPos, radius) => {
             const canvas = annotationRefs.value.get(currentPage.value)
             if (canvas) {
@@ -1739,7 +2355,6 @@ export default {
             totalPages,
             scale,
             annotationMode,
-
             noteDialogVisible,
             currentNoteContent,
             highlights,
@@ -1765,12 +2380,8 @@ export default {
             handleOverlayMouseUp,
             handleOverlayMouseLeave,
             addHighlight,
-            getPageHighlights,
-            getHighlightStyle,
             selectHighlight,
             addAnnotation,
-            getPageAnnotations,
-            getAnnotationStyle,
             showAnnotationDialog,
             saveAnnotation,
             saveCurrentNote,
@@ -1797,18 +2408,39 @@ export default {
             eraseHighlightsOptimized,
             eraseAnnotationsOptimized,
             
-            // 图标
-            Upload,
-            Download,
-            ZoomIn,
-            ZoomOut,
-            ArrowLeft,
-            ArrowRight,
-            Document,
-            Plus,
-            Delete,
-            Edit,
-            Close
+            // 优化绘制系统
+            optimizedDrawingState,
+            debouncedSaveDrawing,
+            saveFast,
+            eraseHighlightsFast,
+            eraseAnnotationsFast,
+            isRectangleOverlap,
+
+            // PDF文字提取功能
+            extractedTexts,
+            extractPageText,
+            getCurrentPageText,
+            getPageText,
+            getAllExtractedTexts,
+            searchInTexts,
+
+            // 持久化功能
+            currentPdfInfo,
+            exportAllAnnotations,
+            importAnnotationsFromFile,
+            quickSaveAnnotations,
+            restoreAutoBackup,
+            
+            // 空间索引系统
+            eraseHighlightsBySpatialIndex,
+            eraseAnnotationsBySpatialIndex,
+            initSpatialIndex,
+            addToSpatialIndex,
+            removeFromSpatialIndex,
+            queryFromSpatialIndex,
+            
+            // 调试和状态查询
+            getDrawingStats
         }
     }
 }
@@ -1853,148 +2485,7 @@ export default {
     min-height: calc(100vh - 120px);
 }
 
-/* 工具栏卡片 - 与profile页面风格一致 */
-.toolbar-card {
-    background-color: rgba(255, 255, 255, 0.95);
-    border-radius: 0;
-    padding: 20px 30px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.toolbar-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-}
-
-.toolbar-left,
-.toolbar-center,
-.toolbar-right {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-/* 现代化按钮样式 */
-.modern-btn {
-    font-family: 'Meiryo', sans-serif;
-    border-radius: 16px;
-    padding: 8px 20px;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    border: 1px solid transparent;
-    height: 40px;
-}
-
-.modern-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-
-
-/* 控制组样式 */
-.control-group {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.zoom-controls,
-.annotation-controls {
-    border-radius: 20px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.control-btn,
-.annotation-btn {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 13px;
-    padding: 6px 12px;
-    height: 32px;
-    border: none;
-    transition: all 0.3s ease;
-}
-
-.scale-display {
-    background-color: #f8f9fa;
-    color: #2c3e50;
-    font-weight: 600;
-    cursor: pointer;
-    font-size: 13px;
-    min-width: 70px;
-    transition: all 0.3s ease;
-}
-
-.scale-display:hover {
-    background-color: #e9ecef;
-    color: #409eff;
-}
-
-.page-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 6px 16px;
-    background-color: rgba(64, 158, 255, 0.1);
-    border-radius: 20px;
-    border: 1px solid rgba(64, 158, 255, 0.2);
-}
-
-.page-info {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: #409eff;
-    min-width: 80px;
-    text-align: center;
-}
-
-.notes-toggle-btn {
-    font-family: 'Meiryo', sans-serif;
-    border-radius: 16px;
-    padding: 8px 16px;
-    font-size: 14px;
-    transition: all 0.3s ease;
-    height: 40px;
-}
-
-/* 颜色控制器 */
-.color-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 20px;
-    border: 1px solid #e0e0e0;
-}
-
-.color-label {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 12px;
-    color: #666;
-    font-weight: 500;
-}
-
-.color-picker {
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    outline: none;
-    transition: transform 0.2s ease;
-}
-
-.color-picker:hover {
-    transform: scale(1.1);
-}
+/* 工具栏和PDF容器布局样式 */
 
 /* PDF容器 */
 .pdf-container {
@@ -2003,494 +2494,18 @@ export default {
     min-height: calc(100vh - 300px);
 }
 
-.pdf-viewer {
-    flex: 1;
-    background-color: rgba(255, 255, 255, 0.95);
-    border-radius: 0;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    transition: all 0.3s ease;
-}
 
-.pdf-viewer:hover {
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
-}
-
-/* 空状态 */
-.empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    min-height: 500px;
-    color: #909399;
-    padding: 40px;
-}
-
-.empty-icon {
-    font-size: 80px;
-    margin-bottom: 20px;
-    color: #c0c4cc;
-}
-
-.empty-state h3 {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 24px;
-    font-weight: 600;
-    color: #2c3e50;
-    margin: 0 0 12px 0;
-}
-
-.empty-state p {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 16px;
-    color: #909399;
-    margin: 8px 0;
-}
-
-/* PDF内容区域 */
-.pdf-content {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.pdf-pages {
-    flex: 1;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow-y: auto;
-    overflow-x: hidden;
-    background: #fafafa;
-    min-height: 600px;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.page-container {
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    flex: 1;
-    width: 100%;
-    min-height: 500px;
-    padding: 20px 0;
-    overflow: visible;
-}
-
-/* 自定义滚动条 */
-.pdf-pages::-webkit-scrollbar {
-    width: 8px;
-}
-
-.pdf-pages::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 4px;
-}
-
-.pdf-pages::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 4px;
-}
-
-.pdf-pages::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
-}
-
-/* 页面包装器 */
-.page-wrapper {
-    position: relative;
-    display: inline-block;
-    margin: 0 auto;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    border-radius: 8px;
-    transition: all 0.3s ease;
-    background: white;
-    padding: 8px;
-    width: fit-content;
-    height: fit-content;
-    max-width: calc(100% - 40px);
-    box-sizing: border-box;
-}
-
-.page-wrapper:hover {
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
-    transform: translateY(-2px);
-}
-
-/* PDF层 */
-.pdf-layer {
-    position: relative;
-    z-index: 1;
-}
-
-/* PDF页面样式 */
-.pdf-page {
-    display: block;
-    border-radius: 4px;
-    background: white;
-}
-
-/* 批注交互层 - 直接覆盖在PDF上，考虑page-wrapper的padding */
-.annotation-overlay {
-    position: absolute;
-    top: 8px;
-    left: 8px;
-    right: 8px;
-    bottom: 8px;
-    z-index: 2;
-    pointer-events: auto;
-    cursor: default;
-}
-
-.annotation-overlay.highlight-mode {
-    cursor: crosshair;
-}
-
-.annotation-overlay.note-mode {
-    cursor: text;
-}
-
-.annotation-overlay.draw-mode {
-    cursor: pointer;
-}
-
-.annotation-overlay.eraser-mode {
-    cursor: crosshair;
-}
-
-/* 批注Canvas - 绘制层 */
-.annotation-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: auto;
-    z-index: 1;
-}
-
-/* 高亮层 */
-.highlights-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 2;
-    pointer-events: none;
-}
-
-.highlight-rect {
-    position: absolute;
-    pointer-events: auto;
-    cursor: pointer;
-    transition: opacity 0.2s ease;
-    box-sizing: border-box;
-    border-radius: 2px;
-}
-
-.highlight-rect:hover {
-    opacity: 0.5 !important;
-}
-
-.highlight-rect:hover .highlight-delete-btn {
-    opacity: 1;
-    transform: scale(1);
-}
-
-/* 高亮删除按钮 */
-.highlight-delete-btn {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    width: 16px;
-    height: 16px;
-    background-color: #ff4757;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 10px;
-    cursor: pointer;
-    opacity: 0;
-    transform: scale(0.8);
-    transition: all 0.2s ease;
-    border: 1px solid white;
-    z-index: 12;
-    pointer-events: auto;
-}
-
-.highlight-delete-btn:hover {
-    background-color: #ff3838;
-    transform: scale(1.1);
-}
-
-/* 批注标记层 */
-.annotations-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 3;
-    pointer-events: none;
-}
-
-.annotation-marker {
-    position: absolute;
-    width: 24px;
-    height: 24px;
-    background-color: #409eff;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 12px;
-    cursor: pointer;
-    pointer-events: auto;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-    transform: translateX(-50%) translateY(-50%);
-    border: 2px solid white;
-    z-index: 10;
-}
-
-.annotation-marker:hover {
-    background-color: #337ecc;
-    transform: translateX(-50%) translateY(-50%) scale(1.3);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
-
-
-/* 橡皮擦预览 */
-.eraser-preview {
-    position: absolute;
-    border: 3px solid #888888;
-    border-radius: 50%;
-    background-color: transparent;
-    pointer-events: none;
-    z-index: 15;
-    transition: all 0.1s ease;
-    box-shadow: 0 0 12px rgba(136, 136, 136, 0.4);
-    opacity: 0.8;
-}
-
-.eraser-preview::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 4px;
-    height: 4px;
-    background-color: #666666;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-}
-
-.eraser-preview::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 60%;
-    height: 60%;
-    border: 1px solid #aaaaaa;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    background-color: transparent;
-    opacity: 0.6;
-}
-
-/* 高亮选择预览 */
-.selection-preview {
-    position: absolute;
-    border: 2px dashed #409eff;
-    background-color: rgba(255, 255, 0, 0.2);
-    pointer-events: none;
-    z-index: 15;
-    border-radius: 2px;
-    animation: dash-animation 1s linear infinite;
-    box-shadow: 0 0 8px rgba(64, 158, 255, 0.3);
-}
-
-@keyframes dash-animation {
-    0% {
-        border-color: #409eff;
-        background-color: rgba(255, 255, 0, 0.15);
-    }
-    50% {
-        border-color: #66b3ff;
-        background-color: rgba(255, 255, 0, 0.25);
-    }
-    100% {
-        border-color: #409eff;
-        background-color: rgba(255, 255, 0, 0.15);
-    }
-}
-
-/* 调试信息 */
-.debug-info {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 8px 12px;
-    border-radius: 4px;
-    font-size: 12px;
-    z-index: 20;
-    pointer-events: none;
-}
-
-.debug-info div {
-    margin: 2px 0;
-}
-
-/* 翻页提示 */
-.page-navigation-hints {
-    position: absolute;
-    top: 50%;
-    left: 0;
-    right: 0;
-    transform: translateY(-50%);
-    display: flex;
-    justify-content: space-between;
-    pointer-events: none;
-    z-index: 20;
-}
-
-.nav-hint {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 16px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    opacity: 0;
-    transition: all 0.3s ease;
-    pointer-events: auto;
-    margin: 0 -10px;
-}
-
-.page-wrapper:hover .nav-hint {
-    opacity: 1;
-}
-
-.nav-hint:hover {
-    background: rgba(64, 158, 255, 0.9);
-    transform: scale(1.05);
-}
-
-.nav-hint-left {
-    margin-left: -20px;
-}
-
-.nav-hint-right {
-    margin-right: -20px;
-}
-
-/* 键盘快捷键提示 */
-.keyboard-hints {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    margin: 20px 0;
-    padding: 12px 20px;
-    background: rgba(255, 255, 255, 0.9);
-    border-radius: 20px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-    position: sticky;
-    bottom: 20px;
-    z-index: 5;
-}
-
-.hint-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #666;
-}
-
-.key {
-    background: #f0f0f0;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-family: monospace;
-    font-size: 11px;
-    font-weight: bold;
-    color: #333;
-    min-width: 20px;
-    text-align: center;
-}
-
-.loading-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 400px;
-}
-
-/* 对话框footer样式 */
-.dialog-footer {
-    display: flex;
-    justify-content: space-evenly;
-    align-items: center;
-    width: 100%;
-    gap: 12px;
-}
-
-.dialog-btn {
-    flex: 1;
-    min-width: 80px;
-}
 
 /* 响应式设计 */
-@media (max-width: 1024px) {
-    .toolbar-card {
-        flex-wrap: wrap;
-        gap: 12px;
-        padding: 15px 20px;
-    }
-    
-    .control-group {
-        gap: 10px;
-    }
-}
-
 @media (max-width: 768px) {
     .pdf-reader-container {
         padding: 0 10px;
         margin-top: 80px;
     }
     
-    .toolbar-card {
-        padding: 15px;
-        flex-direction: column;
-        align-items: stretch;
-        gap: 15px;
-    }
-    
-    .toolbar-left,
-    .toolbar-center,
-    .toolbar-right {
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    
-    .pdf-pages {
-        padding: 15px;
+    .pdf-container {
+        gap: 10px;
+        min-height: calc(100vh - 200px);
     }
 }
 </style>
