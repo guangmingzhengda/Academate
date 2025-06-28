@@ -502,7 +502,7 @@ export async function isOutcomeLiked(uid: number, outcomeId: number): Promise<bo
  */
 export async function getOutcomeLikeCount(outcomeId: number): Promise<number> {
   try {
-    const response = await axios.get<LikeCountResponse>('/outcome_like/like_count', {
+    const response = await axios.get<LikeCountResponse>('/outcome_like/like_num', {
       params: { outcomeId }
     });
     
