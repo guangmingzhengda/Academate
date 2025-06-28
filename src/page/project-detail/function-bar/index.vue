@@ -20,6 +20,20 @@
                  src="../assets/inviteList.png" @click="openInviteList" class="image" alt="邀请列表" />
         </el-tooltip>
         
+        <!-- 结束项目按钮：只有creator可见且项目状态不为已完成 -->
+        <el-tooltip content="结束项目" placement="bottom">
+            <img v-if="role === 'creator' && work?.projectDetail?.status !== 'Completed'" 
+                 src="../assets/over.png" @click="handleCompleteProject" class="image" alt="结束项目" 
+            />
+        </el-tooltip>
+        
+        <!-- 删除项目按钮：只有creator可见 -->
+        <el-tooltip content="删除项目" placement="bottom">
+            <img v-if="role === 'creator'" 
+                 src="../assets/delete.png" @click="handleDeleteProject" class="image" alt="删除项目" 
+            />
+        </el-tooltip>
+        
         <!-- 申请加入按钮：对非项目成员可见 -->
         <el-tooltip content="申请加入项目" placement="bottom">
             <img v-if="role !== 'creator' && role !== 'participant'" 
@@ -153,9 +167,11 @@ import {callInfo, callSuccess} from "@/call";
 import store from "@/store";
 import {ElMessage} from "element-plus";
 import { searchUsers } from "@/api/search";
-import { invite, applyJoinProject } from "@/api/project";
+import { invite, applyJoinProject, deleteProject, completeProject } from "@/api/project";
 import { addProjectComment, getProjectInvitations, cancelProjectInvitation } from "@/page/project-detail/api/api";
 import { get_user_detail } from "@/api/profile";
+import { ElMessageBox } from "element-plus";
+import { useRouter } from "vue-router";
 
 export default {
     name: "function-bar",
@@ -205,6 +221,7 @@ export default {
         let inviteListVisible = ref(false);
         let inviteList = ref([]);
         let inviteListLoading = ref(false);
+        const router = useRouter();
         
         function resetSearch() {
             searchParams.value = {
@@ -417,6 +434,74 @@ export default {
             }
         }
         
+        async function handleCompleteProject() {
+            if (!props.work?.projectDetail?.projectId) {
+                ElMessage.error('无法获取项目ID');
+                return;
+            }
+            
+            try {
+                // 显示确认对话框
+                ElMessageBox.confirm(
+                    '确定要结束该项目吗？项目状态将变为"已完成"。',
+                    '结束项目',
+                    {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning',
+                    }
+                ).then(async () => {
+                    const projectId = props.work.projectDetail.projectId;
+                    const success = await completeProject(projectId);
+                    
+                    if (success) {
+                        // 刷新页面以显示更新后的状态
+                        window.location.reload();
+                    }
+                }).catch(() => {
+                    // 用户取消操作
+                    ElMessage.info('已取消操作');
+                });
+            } catch (error) {
+                console.error('结束项目失败:', error);
+                ElMessage.error('结束项目失败');
+            }
+        }
+        
+        async function handleDeleteProject() {
+            if (!props.work?.projectDetail?.projectId) {
+                ElMessage.error('无法获取项目ID');
+                return;
+            }
+            
+            try {
+                // 显示确认对话框
+                ElMessageBox.confirm(
+                    '确定要删除该项目吗？此操作不可逆，项目的所有数据将被永久删除。',
+                    '删除项目',
+                    {
+                        confirmButtonText: '确定删除',
+                        cancelButtonText: '取消',
+                        type: 'danger',
+                    }
+                ).then(async () => {
+                    const projectId = props.work.projectDetail.projectId;
+                    const success = await deleteProject(projectId);
+                    
+                    if (success) {
+                        // 删除成功后跳转到首页
+                        router.push('/');
+                    }
+                }).catch(() => {
+                    // 用户取消操作
+                    ElMessage.info('已取消删除');
+                });
+            } catch (error) {
+                console.error('删除项目失败:', error);
+                ElMessage.error('删除项目失败');
+            }
+        }
+        
         return {
             commitComment,
             handleComment,
@@ -434,7 +519,9 @@ export default {
             inviteList,
             inviteListLoading,
             openInviteList,
-            handleCancelInvite
+            handleCancelInvite,
+            handleCompleteProject,
+            handleDeleteProject
         };
     }
 }

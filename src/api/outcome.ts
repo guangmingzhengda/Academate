@@ -583,3 +583,73 @@ export async function applyForFullText(outcomeId: number): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * 删除成果原文
+ * @param outcomeId 成果ID
+ * @returns 是否删除成功
+ */
+export async function deleteOutcomeFile(outcomeId: number): Promise<boolean> {
+  try {
+    console.log('准备删除成果原文，成果ID:', outcomeId);
+    const response = await axios.post('/research_outcome/delete_pdf', null, {
+      params: { outcomeId }
+    });
+    console.log('删除成果原文响应:', response);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess("成果原文已删除");
+      return true;
+    } else {
+      callError("删除成果原文失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error: any) {
+    console.error('删除成果原文异常:', error);
+    if (error.response) {
+      if (error.response.status === 403) {
+        callError("无权限删除该成果原文");
+      } else {
+        callError("删除成果原文失败: " + (error.response.data?.message || "未知错误"));
+      }
+    } else {
+      callError("删除成果原文失败: " + (error.message || error));
+    }
+    return false;
+  }
+}
+
+/**
+ * 删除成果
+ * @param outcomeId 成果ID
+ * @returns 是否删除成功
+ */
+export async function deleteOutcome(outcomeId: number): Promise<boolean> {
+  try {
+    console.log('准备删除成果，成果ID:', outcomeId);
+    const response = await axios.post('/research_outcome/delete/outcome', null, {
+      params: { outcomeId }
+    });
+    console.log('删除成果响应:', response);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess("成果已删除");
+      return true;
+    } else {
+      callError("删除成果失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error: any) {
+    console.error('删除成果异常:', error);
+    if (error.response) {
+      if (error.response.status === 403) {
+        callError("无权限删除该成果");
+      } else {
+        callError("删除成果失败: " + (error.response.data?.message || "未知错误"));
+      }
+    } else {
+      callError("删除成果失败: " + (error.message || error));
+    }
+    return false;
+  }
+}

@@ -342,39 +342,122 @@ export async function applyJoinProject(params: ProjectApplyRequest): Promise<Bas
   try {
     console.log('申请加入项目请求数据:', params);
     
-    const response = await axios.post('/project/application', params);
+    const response = await axios.post('/project/apply', params);
     
     console.log('申请加入项目响应:', response.data);
     
-    if (response.status === 200) {
-      if (response.data.code === 0) {
-        callSuccess('申请已发送，请等待项目创建者审核');
-        return response.data;
-      } else {
-        callError(response.data.message || '申请加入项目失败');
-        return response.data;
-      }
-    } else {
-      callError('网络错误');
-      return {
-        code: -1,
-        data: null,
-        message: '网络错误'
-      };
-    }
+    return response.data;
   } catch (error: any) {
     console.error('申请加入项目错误:', error);
     if (error.response) {
-      callError(error.response.data?.message || '申请失败');
-    } else if (error.request) {
-      callError('网络连接错误');
+      return error.response.data;
     } else {
-      callError('申请失败，请重试');
+      return {
+        code: -1,
+        data: null,
+        message: '网络错误或服务器异常'
+      };
     }
-    return {
-      code: -1,
-      data: null,
-      message: error.message || '申请加入项目失败'
-    };
+  }
+}
+
+/**
+ * 删除项目
+ * @param projectId 项目ID
+ * @returns Promise<boolean> 是否删除成功
+ */
+export async function deleteProject(projectId: number): Promise<boolean> {
+  try {
+    console.log('删除项目请求，项目ID:', projectId);
+    
+    const response = await axios.post('/project/delete', null, {
+      params: { projectId }
+    });
+    
+    console.log('删除项目响应:', response.data);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess('项目已成功删除');
+      return true;
+    } else {
+      callError('删除项目失败: ' + (response.data.message || '未知错误'));
+      return false;
+    }
+  } catch (error: any) {
+    console.error('删除项目错误:', error);
+    if (error.response) {
+      callError('删除项目失败: ' + (error.response.data?.message || '服务器错误'));
+    } else {
+      callError('删除项目失败: 网络错误或服务器异常');
+    }
+    return false;
+  }
+}
+
+/**
+ * 结束项目
+ * @param projectId 项目ID
+ * @returns Promise<boolean> 是否结束成功
+ */
+export async function completeProject(projectId: number): Promise<boolean> {
+  try {
+    console.log('结束项目请求，项目ID:', projectId);
+    
+    const response = await axios.post('/project/complete', null, {
+      params: { projectId }
+    });
+    
+    console.log('结束项目响应:', response.data);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess('项目已成功结束');
+      return true;
+    } else {
+      callError('结束项目失败: ' + (response.data.message || '未知错误'));
+      return false;
+    }
+  } catch (error: any) {
+    console.error('结束项目错误:', error);
+    if (error.response) {
+      callError('结束项目失败: ' + (error.response.data?.message || '服务器错误'));
+    } else {
+      callError('结束项目失败: 网络错误或服务器异常');
+    }
+    return false;
+  }
+}
+
+/**
+ * 删除项目评论
+ * @param commentId 评论ID
+ * @returns 是否删除成功
+ */
+export async function deleteProjectComment(commentId: number): Promise<boolean> {
+  try {
+    console.log('准备删除项目评论，评论ID:', commentId);
+    const response = await axios.post('/api/project/comment/delete', null, {
+      params: { commentId }
+    });
+    console.log('删除项目评论响应:', response);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess("评论已删除");
+      return true;
+    } else {
+      callError("删除评论失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error: any) {
+    console.error('删除评论异常:', error);
+    if (error.response) {
+      if (error.response.status === 403) {
+        callError("无权限删除他人评论");
+      } else {
+        callError("删除评论失败: " + (error.response.data?.message || "未知错误"));
+      }
+    } else {
+      callError("删除评论失败: " + (error.message || error));
+    }
+    return false;
   }
 }
