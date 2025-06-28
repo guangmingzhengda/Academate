@@ -31,8 +31,20 @@
                     <el-button type="primary" size="small" @click="showEditDialog" style="margin-right: 10px;">
                       ✏️ 编辑
                     </el-button>
-                    <el-button type="success" size="small" @click="showUploadDialog">
+                    <el-button type="danger" size="small" @click="deleteOutcomeMethod" :loading="deletingOutcome" style="margin-right: 10px;">
+                      🗑️ 删除成果
+                    </el-button>
+                    <el-button type="success" size="small" @click="showUploadDialog" style="margin-right: 10px;">
                       📤 上传全文
+                    </el-button>
+                    <el-button 
+                      v-if="outcomeData.url || outcomeData.pdfUrl" 
+                      type="danger" 
+                      size="small" 
+                      @click="deleteOutcomeFileMethod"
+                      :loading="deletingOutcomeFile"
+                    >
+                      🗑️ 删除原文
                     </el-button>
                   </div>
                 </div>
@@ -126,7 +138,7 @@
                       📝 打开阅读器
                     </el-button>
                   </div>
-                  <div v-if="!outcomeData.url && !outcomeData.pdfUrl" class="link-item">
+                  <div v-if="!outcomeData.url && !outcomeData.pdfUrl && !isCurrentUserAuthor" class="link-item">
                     <span class="link-label">全文申请</span>
                     <el-button 
                       type="warning" 
@@ -137,6 +149,17 @@
                       :disabled="hasAppliedFullText"
                     >
                       📄 申请查看全文
+                    </el-button>
+                  </div>
+                  <div v-if="!outcomeData.url && !outcomeData.pdfUrl && isCurrentUserAuthor" class="link-item">
+                    <span class="link-label">全文上传</span>
+                    <el-button 
+                      type="primary" 
+                      size="small" 
+                      @click="showUploadDialog" 
+                      plain
+                    >
+                      📤 上传全文
                     </el-button>
                   </div>
                   <div v-if="outcomeData.arxivId" class="link-item">
@@ -614,8 +637,8 @@
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta, likeOutcome, cancelLikeOutcome, isOutcomeLiked, getOutcomeLikeCount, deleteOutcomeComment, applyForFullText } from '@/api/outcome';
-import { ElMessage } from 'element-plus';
+import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta, likeOutcome, cancelLikeOutcome, isOutcomeLiked, getOutcomeLikeCount, deleteOutcomeComment, applyForFullText, deleteOutcomeFile, deleteOutcome } from '@/api/outcome';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import store from '@/store';
 
 export default defineComponent({
@@ -656,6 +679,39 @@ export default defineComponent({
     // 获取当前用户信息
     const currentUserId = computed(() => store.state.id || null);
     const currentUserAvatar = computed(() => store.state.avatar || '');
+    const currentUserName = computed(() => store.state.name || '');
+    
+    // 判断当前用户是否为作者
+    const isCurrentUserAuthor = computed(() => {
+      console.log('调试信息 - 当前用户ID:', currentUserId.value);
+      
+      // 如果没有当前用户ID或成果数据，则不是作者
+      if (!currentUserId.value || !outcomeData.value) {
+        console.log('调试信息 - 用户ID或成果数据为空，不是作者');
+        return false;
+      }
+      
+      // 1. 如果成果标记为当前用户的成果，直接返回true
+      if (outcomeData.value.isMine) {
+        console.log('调试信息 - 成果被标记为当前用户的成果');
+        return true;
+      }
+      
+      // 2. 检查authorList中是否有当前用户的ID
+      if (outcomeData.value.authorList && outcomeData.value.authorList.length > 0) {
+        const authorIds = outcomeData.value.authorList.map(author => author.id);
+        console.log('调试信息 - 作者ID列表:', authorIds);
+        console.log('调试信息 - 当前用户ID:', currentUserId.value);
+        
+        const isAuthor = authorIds.includes(currentUserId.value);
+        console.log('调试信息 - 用户ID是否在作者列表中:', isAuthor);
+        return isAuthor;
+      }
+      
+      // 如果没有作者列表，则不是作者
+      console.log('调试信息 - 没有作者列表，不是作者');
+      return false;
+    });
     
     // 点赞相关
     const isLiked = ref(false);
@@ -880,15 +936,22 @@ export default defineComponent({
     // 加载研究成果数据
     const loadOutcomeData = async () => {
       loading.value = true;
-      console.log(outcomeId.value);
+      console.log('调试信息 - 开始加载成果数据, 成果ID:', outcomeId.value);
       try {
         if (outcomeId.value) {
           // 有ID，从后端获取数据
           const data = await getResearchOutcomeById(Number(outcomeId.value));
           if (data) {
             outcomeData.value = data;
+            console.log('调试信息 - 成功加载成果数据:', data);
+            console.log('调试信息 - 成果作者:', data.authors);
+            console.log('调试信息 - 成果是否为当前用户的:', data.isMine);
+            if (data.authorList) {
+              console.log('调试信息 - 成果作者列表:', data.authorList);
+            }
           } else {
             outcomeData.value = null;
+            console.log('调试信息 - 成果数据为空');
             ElMessage.error('研究成果不存在或已被删除，3秒后将自动跳转到首页');
             // 设置3秒后自动跳转到首页
             setTimeout(() => {
@@ -898,6 +961,7 @@ export default defineComponent({
         } else {
           // 无ID，提示错误并跳转
           outcomeData.value = null;
+          console.log('调试信息 - 未提供成果ID');
           ElMessage.error('未提供成果ID，3秒后将自动跳转到首页');
           // 设置3秒后自动跳转到首页
           setTimeout(() => {
@@ -905,7 +969,7 @@ export default defineComponent({
           }, 3000);
         }
       } catch (error) {
-        console.error('加载研究成果数据失败:', error);
+        console.error('调试信息 - 加载研究成果数据失败:', error);
         outcomeData.value = null;
         ElMessage.error('获取研究成果信息出错，3秒后将自动跳转到首页');
         // 设置3秒后自动跳转到首页
@@ -1162,8 +1226,95 @@ export default defineComponent({
       }
     };
     
+    // 删除成果原文
+    const deletingOutcomeFile = ref(false);
+    const deleteOutcomeFileMethod = async () => {
+      if (!outcomeData.value || !outcomeData.value.outcomeId) {
+        ElMessage.error('无法获取成果ID，删除失败');
+        return;
+      }
+      
+      // 显示确认对话框
+      try {
+        await ElMessageBox.confirm(
+          '确定要删除该成果的原文吗？此操作不可逆。',
+          '删除原文确认',
+          {
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        );
+        
+        deletingOutcomeFile.value = true;
+        try {
+          const success = await deleteOutcomeFile(outcomeData.value.outcomeId);
+          if (success) {
+            // 重新加载成果信息
+            await loadOutcomeData();
+          }
+        } catch (error) {
+          console.error('删除成果原文失败:', error);
+          ElMessage.error('删除成果原文失败');
+        } finally {
+          deletingOutcomeFile.value = false;
+        }
+      } catch (error) {
+        // 用户取消删除
+        console.log('用户取消删除原文');
+      }
+    };
+    
+    // 删除成果
+    const deletingOutcome = ref(false);
+    const deleteOutcomeMethod = async () => {
+      if (!outcomeData.value || !outcomeData.value.outcomeId) {
+        ElMessage.error('无法获取成果ID，删除失败');
+        return;
+      }
+      
+      // 显示确认对话框
+      try {
+        await ElMessageBox.confirm(
+          '确定要删除该成果吗？此操作不可逆，将永久删除该成果及其所有相关数据。',
+          '删除成果确认',
+          {
+            confirmButtonText: '确定删除',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        );
+        
+        deletingOutcome.value = true;
+        try {
+          const success = await deleteOutcome(outcomeData.value.outcomeId);
+          if (success) {
+            ElMessage.success('成果已成功删除');
+            // 删除成功后返回首页或其他页面
+            router.push('/home');
+          }
+        } catch (error) {
+          console.error('删除成果失败:', error);
+          ElMessage.error('删除成果失败');
+        } finally {
+          deletingOutcome.value = false;
+        }
+      } catch (error) {
+        // 用户取消删除
+        console.log('用户取消删除成果');
+      }
+    };
+    
     // 页面加载时获取数据
     onMounted(() => {
+      console.log('调试信息 - 组件挂载');
+      console.log('调试信息 - 当前用户信息:', {
+        id: store.state.id,
+        name: store.state.name,
+        nickname: store.state.nickname,
+        role: store.state.role
+      });
+      
       loadOutcomeData();
       loadComments();
       checkLikeStatus();
@@ -1232,7 +1383,15 @@ export default defineComponent({
       // 全文申请相关
       applyingFullText,
       hasAppliedFullText,
-      applyForOutcomeFullText
+      applyForOutcomeFullText,
+      // 用户是否为作者
+      isCurrentUserAuthor,
+      // 删除成果原文相关
+      deletingOutcomeFile,
+      deleteOutcomeFileMethod,
+      // 删除成果相关
+      deletingOutcome,
+      deleteOutcomeMethod
     };
   }
 });
