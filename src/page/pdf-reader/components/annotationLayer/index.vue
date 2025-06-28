@@ -97,7 +97,8 @@ export default {
         highlights: Array,
         annotations: Array,
         eraserPreview: Object,
-        selectionPreview: Object
+        selectionPreview: Object,
+        highlightOpacity: Number
     },
     setup(props, { emit }) {
         const getPageHighlights = computed(() => {
@@ -116,7 +117,7 @@ export default {
                 width: highlight.width + 'px',
                 height: highlight.height + 'px',
                 backgroundColor: color,
-                opacity: '0.15',
+                opacity: props.highlightOpacity || 0.15,
                 border: 'none'
             }
         }

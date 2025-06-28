@@ -92,7 +92,7 @@
                 </el-button>
             </el-button-group>
             
-            <!-- 颜色选择器 -->
+            <!-- 颜色和透明度控制器 -->
             <div v-if="pdfDocument && (annotationMode === 'highlight' || annotationMode === 'draw')" class="color-controls">
                 <span class="color-label">颜色:</span>
                 <input 
@@ -101,6 +101,21 @@
                     @change="$emit('update-color', $event)"
                     class="color-picker"
                 />
+                
+                <!-- 高亮透明度控制 -->
+                <div v-if="annotationMode === 'highlight'" class="opacity-controls">
+                    <span class="opacity-label">透明度:</span>
+                    <input 
+                        type="range" 
+                        :value="highlightOpacity"
+                        @input="updateOpacity"
+                        min="0.05"
+                        max="0.8"
+                        step="0.05"
+                        class="opacity-slider"
+                    />
+                    <span class="opacity-value">{{ Math.round(highlightOpacity * 100) }}%</span>
+                </div>
             </div>
         </div>
     </div>
@@ -116,7 +131,7 @@ export default {
     emits: [
         'file-upload', 'zoom-in', 'zoom-out', 'reset-zoom', 
         'prev-page', 'next-page', 'set-annotation-mode',
-        'clear-drawing', 'update-color', 'export-annotations', 'import-annotations'
+        'clear-drawing', 'update-color', 'update-highlight-opacity', 'export-annotations', 'import-annotations'
     ],
     props: {
         pdfDocument: Object,
@@ -126,6 +141,7 @@ export default {
         annotationMode: String,
         highlightColor: String,
         drawColor: String,
+        highlightOpacity: Number,
         showUpload: {
             type: Boolean,
             default: true
@@ -135,9 +151,15 @@ export default {
         const handleFileUpload = (uploadFile, uploadFiles) => {
             emit('file-upload', uploadFile, uploadFiles)
         }
+        
+        const updateOpacity = (event) => {
+            const opacity = parseFloat(event.target.value)
+            emit('update-highlight-opacity', opacity)
+        }
 
         return {
             handleFileUpload,
+            updateOpacity,
             Upload,
             ZoomIn,
             ZoomOut,
@@ -248,18 +270,19 @@ export default {
 .color-controls {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
+    gap: 12px;
+    padding: 8px 16px;
     background: rgba(255, 255, 255, 0.8);
     border-radius: 20px;
     border: 1px solid #e0e0e0;
 }
 
-.color-label {
+.color-label, .opacity-label {
     font-family: 'Meiryo', sans-serif;
     font-size: 12px;
     color: #666;
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .color-picker {
@@ -274,6 +297,64 @@ export default {
 
 .color-picker:hover {
     transform: scale(1.1);
+}
+
+.opacity-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 12px;
+    border-left: 1px solid #e0e0e0;
+}
+
+.opacity-slider {
+    width: 80px;
+    height: 4px;
+    border-radius: 2px;
+    background: #e0e0e0;
+    outline: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    transition: all 0.3s ease;
+}
+
+.opacity-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #409eff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.opacity-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    background: #66b1ff;
+}
+
+.opacity-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #409eff;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.opacity-slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+    background: #66b1ff;
+}
+
+.opacity-value {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 11px;
+    color: #409eff;
+    font-weight: 600;
+    min-width: 35px;
+    text-align: center;
 }
 
 @media (max-width: 1024px) {

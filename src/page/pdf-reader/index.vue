@@ -33,6 +33,7 @@
                 :annotation-mode="annotationMode"
                 :highlight-color="highlightColor"
                 :draw-color="drawColor"
+                :highlight-opacity="highlightOpacity"
                 :show-upload="false"
                 @zoom-in="zoomIn"
                 @zoom-out="zoomOut"
@@ -42,8 +43,8 @@
                 @set-annotation-mode="setAnnotationMode"
                 @clear-drawing="clearDrawing"
                 @update-color="updateColor"
+                @update-highlight-opacity="updateHighlightOpacity"
                 @export-annotations="exportAllAnnotations"
-                @import-annotations="importAnnotationsFromFile"
             />
 
             <!-- PDF显示区域 -->
@@ -66,6 +67,7 @@
                             :annotations="annotations"
                             :eraser-preview="eraserPreview"
                             :selection-preview="selectionPreview"
+                            :highlight-opacity="highlightOpacity"
                             @set-annotation-ref="setAnnotationRef"
                             @select-highlight="selectHighlight"
                             @show-highlight-context-menu="showHighlightContextMenu"
@@ -105,8 +107,12 @@ import PdfToolbar from './components/pdfToolbar/index.vue'
 import PdfViewer from './components/pdfViewer/index.vue'
 import AnnotationLayer from './components/annotationLayer/index.vue'
 import NoteDialog from './components/noteDialog/index.vue'
-// 导入持久化模块
-import createAnnotationPersistence from './utils/annotationPersistence.js'
+// 导入云端持久化模块
+import { 
+    createCloudAnnotationPersistence, 
+    saveAnnotationsToCloud, 
+    getAnnotationsFromCloud
+} from '@/api/pdf'
 // 使用本地的PDF.js
 let pdfjsLib = null
 
@@ -196,15 +202,17 @@ export default {
                 }
                 
                 outcomeInfo.value = outcome
-                console.log('成果信息获取成功:', outcome)
                 
                 // 更新PDF信息
                 currentPdfInfo.value = {
                     fileName: outcome.title + '.pdf',
                     fileSize: 0, // 待下载后更新
                     totalPages: 0, // 待PDF加载后更新
-                    fileHash: persistenceManager.generateFileHash(outcome.title + '.pdf', outcomeId.value)
+                    fileHash: `outcome_${outcomeId.value}_${outcome.title}` // 使用成果ID作为标识
                 }
+                
+                // 设置云端持久化管理器的成果ID
+                cloudPersistenceManager.setOutcomeId(outcomeId.value)
                 
                 // 检查是否有PDF链接
                 if (!outcome.url) {
@@ -227,9 +235,6 @@ export default {
                     proxyUrl = `/postFile/${outcome.url.replace(/^\/+/, '')}`
                 }
                 
-                console.log('原始URL:', outcome.url)
-                console.log('代理URL:', proxyUrl)
-                
                 // 通过代理下载PDF文件
                 const response = await fetch(proxyUrl)
                 if (!response.ok) {
@@ -245,13 +250,10 @@ export default {
                 // 更新文件大小
                 currentPdfInfo.value.fileSize = arrayBuffer.byteLength
                 
-                console.log('PDF下载完成，大小:', arrayBuffer.byteLength, 'bytes')
-                
                 // 加载PDF
                 await loadPDF(typedArray)
                 
                 isLoading.value = false
-                callSuccess('PDF文档加载成功')
                 
             } catch (error) {
                 console.error('加载PDF失败:', error)
@@ -298,36 +300,20 @@ export default {
 
         // 在组件挂载时初始化
         onMounted(async () => {
-            console.log('PDF阅读器组件已挂载')
-            
             // 添加键盘事件监听
             document.addEventListener('keydown', handleKeyPress)
             
-            // 设置定期自动保存（每30秒）
-            const autoSaveInterval = setInterval(() => {
-                quickSaveAnnotations()
-            }, 30000)
-            
-            // 组件销毁时清理定时器
-            onUnmounted(() => {
-                clearInterval(autoSaveInterval)
-            })
-            
             try {
-                console.log('开始加载PDF.js...')
-                
                 // 加载PDF.js
                 const pdfjs = await loadPDFJS()
                 
-                console.log('PDF.js加载成功')
-                console.log('PDF.js配置:', {
-                    version: pdfjs.version || 'unknown',
-                    workerSrc: pdfjs.GlobalWorkerOptions?.workerSrc || pdfjs.workerSrc || 'unknown',
-                    getDocument: typeof pdfjs.getDocument
-                })
-                
                 // 初始化完成后，加载成果信息和PDF
                 await loadOutcomeAndPDF()
+                
+                // 启动云端自动保存（每30秒）
+                cloudPersistenceManager.startAutoSave(() => {
+                    saveAnnotationsToCloudQuiet()
+                })
                 
             } catch (error) {
                 console.error('PDF阅读器初始化失败:', error)
@@ -339,6 +325,8 @@ export default {
         // 在组件卸载时清理事件监听
         onUnmounted(() => {
             document.removeEventListener('keydown', handleKeyPress)
+            // 停止云端自动保存
+            cloudPersistenceManager.stopAutoSave()
         })
         
         // 响应式数据
@@ -349,12 +337,6 @@ export default {
         const totalPages = ref(0)
         const scale = ref(1.3)
         
-        // 调试信息
-        console.log('Vue组件初始化完成，初始状态:', {
-            pdfDocument: pdfDocument.value,
-            totalPages: totalPages.value,
-            currentPage: currentPage.value
-        })
         const pageRefs = ref(new Map())
         const annotationRefs = ref(new Map())
         const drawingCanvases = ref(new Map())
@@ -397,6 +379,7 @@ export default {
         // 颜色设置
         const highlightColor = ref('#ffff00') // 默认黄色
         const drawColor = ref('#ff0000') // 默认红色
+        const highlightOpacity = ref(0.15) // 高亮透明度，默认0.15
         
         // 橡皮擦预览
         const eraserPreview = reactive({
@@ -432,8 +415,8 @@ export default {
         // PDF文字提取存储
         const extractedTexts = ref(new Map()) // pageNum -> 文字内容
 
-        // 持久化管理器
-        const persistenceManager = createAnnotationPersistence()
+        // 云端持久化管理器
+        const cloudPersistenceManager = createCloudAnnotationPersistence()
         
         // 当前PDF信息
         const currentPdfInfo = ref({
@@ -446,16 +429,9 @@ export default {
         // 提取页面文字内容
         const extractPageText = async (page, pageNum) => {
             try {
-                console.log(`🔍 开始提取第${pageNum}页文字...`)
-                
                 // 检查是否已经提取过该页面的文字
                 if (extractedTexts.value.has(pageNum)) {
-                    const cachedText = extractedTexts.value.get(pageNum)
-                    console.log(`📄 第${pageNum}页文字（缓存）:`)
-                    console.log('─'.repeat(50))
-                    console.log(cachedText)
-                    console.log('─'.repeat(50))
-                    return cachedText
+                    return extractedTexts.value.get(pageNum)
                 }
                 
                 // 使用PDF.js提取文字内容
@@ -500,17 +476,6 @@ export default {
                 // 存储提取的文字
                 extractedTexts.value.set(pageNum, pageText)
                 
-                // 在控制台打印提取的文字
-                console.log(`✅ 第${pageNum}页文字提取完成！字符数: ${pageText.length}`)
-                console.log(`📄 第${pageNum}页文字内容:`)
-                console.log('═'.repeat(60))
-                if (pageText.length > 0) {
-                    console.log(pageText)
-                } else {
-                    console.log('该页面没有可提取的文字内容')
-                }
-                console.log('═'.repeat(60))
-                
                 return pageText
                 
             } catch (error) {
@@ -522,36 +487,17 @@ export default {
         // 获取当前页面的文字
         const getCurrentPageText = () => {
             const text = extractedTexts.value.get(currentPage.value)
-            if (text) {
-                console.log(`📖 当前第${currentPage.value}页文字:`)
-                console.log('─'.repeat(50))
-                console.log(text)
-                console.log('─'.repeat(50))
-                return text
-            } else {
-                console.log(`第${currentPage.value}页暂无文字内容或未提取`)
-                return ''
-            }
+            return text || ''
         }
 
         // 获取指定页面的文字
         const getPageText = (pageNum) => {
             if (pageNum < 1 || pageNum > totalPages.value) {
-                console.error(`页面号${pageNum}超出范围 (1-${totalPages.value})`)
                 return ''
             }
             
             const text = extractedTexts.value.get(pageNum)
-            if (text) {
-                console.log(`📖 第${pageNum}页文字:`)
-                console.log('─'.repeat(50))
-                console.log(text)
-                console.log('─'.repeat(50))
-                return text
-            } else {
-                console.log(`第${pageNum}页暂无文字内容或未提取`)
-                return ''
-            }
+            return text || ''
         }
 
         // 获取所有已提取的文字
@@ -561,18 +507,12 @@ export default {
                 allTexts[pageNum] = text
             })
             
-            console.log(`📚 已提取${Object.keys(allTexts).length}页文字:`)
-            Object.entries(allTexts).forEach(([pageNum, text]) => {
-                console.log(`第${pageNum}页 (${text.length}字符): ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`)
-            })
-            
             return allTexts
         }
 
         // 搜索文字内容
         const searchInTexts = (keyword) => {
             if (!keyword || keyword.trim() === '') {
-                console.log('请输入搜索关键词')
                 return []
             }
             
@@ -594,20 +534,97 @@ export default {
                 }
             })
             
-            console.log(`🔍 搜索"${keyword}"找到${results.length}个结果:`)
-            results.forEach((result, index) => {
-                console.log(`${index + 1}. 第${result.page}页第${result.line}行: ${result.content}`)
-            })
-            
             return results
         }
 
-        // ==================== 持久化功能 ====================
+        // ==================== 云端持久化功能 ====================
         
         /**
-         * 导出所有标注数据
+         * 从云端加载批注数据
          */
-        const exportAllAnnotations = () => {
+        const loadCloudAnnotations = async () => {
+            try {
+                if (!outcomeId.value) return
+                
+                const cloudData = await getAnnotationsFromCloud(outcomeId.value)
+                if (!cloudData) {
+                    return // 没有云端数据，正常情况
+                }
+                
+                // 应用云端数据
+                const applyResult = cloudPersistenceManager.applyLoadedData(
+                    cloudData,
+                    highlights.value,
+                    annotations.value,
+                    drawingData.value
+                )
+                
+                if (applyResult.success) {
+                    // 应用设置
+                    if (cloudData.settings) {
+                        if (cloudData.settings.scale) {
+                            scale.value = cloudData.settings.scale
+                        }
+                        if (cloudData.settings.highlightOpacity !== undefined) {
+                            highlightOpacity.value = cloudData.settings.highlightOpacity
+                        }
+                    }
+                    
+                    // 重新渲染当前页面以显示恢复的内容
+                    await nextTick()
+                    await renderCurrentPage()
+                    
+                    // 恢复绘制内容
+                    setTimeout(() => {
+                        restoreDrawingData(currentPage.value)
+                    }, 300)
+                    
+                    callInfo(`已从云端恢复 ${applyResult.counts.highlights} 个高亮、${applyResult.counts.annotations} 个批注、${applyResult.counts.drawings} 页绘制内容`)
+                }
+            } catch (error) {
+                console.error('从云端加载批注失败:', error)
+                callError('从云端加载批注失败')
+            }
+        }
+        
+        /**
+         * 保存批注到云端（静默保存，不显示成功提示）
+         */
+        const saveAnnotationsToCloudQuiet = async () => {
+            try {
+                if (!pdfDocument.value || !outcomeId.value) {
+                    return
+                }
+                
+                // 保存当前页面的绘制内容
+                if (currentPage.value) {
+                    saveFast(currentPage.value)
+                }
+                
+                // 导出数据
+                const exportData = cloudPersistenceManager.exportAnnotations(
+                    currentPdfInfo.value,
+                    scale.value,
+                    highlights.value,
+                    annotations.value,
+                    drawingData.value
+                )
+                
+                // 添加透明度设置
+                exportData.settings.highlightOpacity = highlightOpacity.value
+                
+                // 保存到云端
+                await saveAnnotationsToCloud(outcomeId.value, exportData)
+                
+            } catch (error) {
+                console.error('静默保存到云端失败:', error)
+            }
+        }
+        
+        /**
+         * 手动保存所有标注数据到云端
+         */
+        const exportAllAnnotations = async () => {
             try {
                 if (!pdfDocument.value) {
                     callError('请先加载PDF文件')
@@ -620,7 +637,7 @@ export default {
                 }
                 
                 // 导出数据
-                const exportData = persistenceManager.exportAnnotations(
+                const exportData = cloudPersistenceManager.exportAnnotations(
                     currentPdfInfo.value,
                     scale.value,
                     highlights.value,
@@ -628,182 +645,25 @@ export default {
                     drawingData.value
                 )
                 
-                // 保存到本地文件
-                const result = persistenceManager.saveToLocalFile(exportData)
+                // 添加透明度设置
+                exportData.settings.highlightOpacity = highlightOpacity.value
                 
-                if (result.success) {
-                    callSuccess(`标注数据已保存到 ${result.fileName}`)
-                } else {
-                    callError(`保存失败: ${result.error}`)
+                // 保存到云端
+                const success = await saveAnnotationsToCloud(outcomeId.value, exportData)
+                
+                if (success) {
+                    callSuccess('标注数据已保存到云端')
                 }
                 
-                return result
+                return { success }
             } catch (error) {
-                console.error('导出标注数据失败:', error)
-                callError('导出标注数据失败')
+                console.error('保存标注数据到云端失败:', error)
+                callError('保存标注数据失败')
                 return { success: false, error: error.message }
             }
         }
 
-        /**
-         * 从文件加载标注数据
-         */
-        const importAnnotationsFromFile = () => {
-            // 创建文件选择器
-            const input = document.createElement('input')
-            input.type = 'file'
-            input.accept = '.txt,.json'
-            input.style.display = 'none'
-            
-            input.onchange = async (event) => {
-                const file = event.target.files[0]
-                if (!file) return
-                
-                try {
-                    callInfo('正在加载标注数据...')
-                    
-                    // 读取文件内容
-                    const reader = new FileReader()
-                    reader.onload = async (e) => {
-                        try {
-                            const fileContent = e.target.result
-                            
-                            // 解析标注数据
-                            const loadResult = persistenceManager.loadFromFileContent(fileContent)
-                            if (!loadResult.success) {
-                                callError(`加载失败: ${loadResult.error}`)
-                                return
-                            }
-                            
-                            const loadedData = loadResult.data
-                            
-                            // 验证PDF匹配性
-                            const matchResult = persistenceManager.validatePDFMatch(loadedData, currentPdfInfo.value)
-                            if (!matchResult.isMatch) {
-                                const continueImport = confirm(
-                                    `检测到PDF不匹配:\n${matchResult.warnings.join('\n')}\n\n是否继续导入？`
-                                )
-                                if (!continueImport) {
-                                    callInfo('已取消导入')
-                                    return
-                                }
-                            }
-                            
-                            // 应用标注数据
-                            const applyResult = persistenceManager.applyLoadedData(
-                                loadedData,
-                                highlights.value,
-                                annotations.value,
-                                drawingData.value
-                            )
-                            
-                            if (applyResult.success) {
-                                // 应用缩放设置
-                                if (loadedData.settings && loadedData.settings.scale) {
-                                    scale.value = loadedData.settings.scale
-                                }
-                                
-                                // 重新渲染当前页面以显示恢复的内容
-                                await nextTick()
-                                await renderCurrentPage()
-                                
-                                // 恢复绘制内容
-                                setTimeout(() => {
-                                    restoreDrawingData(currentPage.value)
-                                }, 300)
-                                
-                                callSuccess(`标注数据导入成功！恢复了 ${applyResult.counts.highlights} 个高亮、${applyResult.counts.annotations} 个批注、${applyResult.counts.drawings} 页绘制内容`)
-                            } else {
-                                callError(`应用数据失败: ${applyResult.error}`)
-                            }
-                            
-                        } catch (error) {
-                            console.error('处理标注数据失败:', error)
-                            callError('处理标注数据失败')
-                        }
-                    }
-                    
-                    reader.onerror = () => {
-                        callError('读取文件失败')
-                    }
-                    
-                    reader.readAsText(file)
-                    
-                } catch (error) {
-                    console.error('加载标注数据失败:', error)
-                    callError('加载标注数据失败')
-                }
-            }
-            
-            // 触发文件选择
-            document.body.appendChild(input)
-            input.click()
-            document.body.removeChild(input)
-        }
 
-        /**
-         * 快速保存当前工作（防止数据丢失）
-         */
-        const quickSaveAnnotations = () => {
-            try {
-                if (!pdfDocument.value) {
-                    console.log('没有PDF文档，跳过快速保存')
-                    return
-                }
-                
-                const exportData = persistenceManager.exportAnnotations(
-                    currentPdfInfo.value,
-                    scale.value,
-                    highlights.value,
-                    annotations.value,
-                    drawingData.value
-                )
-                
-                // 保存到localStorage作为临时备份
-                const backupKey = `pdf_annotations_backup_${currentPdfInfo.value.fileHash}`
-                localStorage.setItem(backupKey, JSON.stringify(exportData))
-                
-                console.log('✅ 标注数据已自动备份到本地存储')
-            } catch (error) {
-                console.error('快速保存失败:', error)
-            }
-        }
-
-        /**
-         * 恢复自动备份的数据
-         */
-        const restoreAutoBackup = () => {
-            try {
-                const backupKey = `pdf_annotations_backup_${currentPdfInfo.value.fileHash}`
-                const backupData = localStorage.getItem(backupKey)
-                
-                if (backupData) {
-                    const hasAnnotations = highlights.value.length > 0 || 
-                                         annotations.value.length > 0 || 
-                                         drawingData.value.size > 0
-                    
-                    if (hasAnnotations) {
-                        const restoreBackup = confirm('检测到自动备份的标注数据，是否恢复？')
-                        if (!restoreBackup) return
-                    }
-                    
-                    const loadResult = persistenceManager.loadFromFileContent(backupData)
-                    if (loadResult.success) {
-                        persistenceManager.applyLoadedData(
-                            loadResult.data,
-                            highlights.value,
-                            annotations.value,
-                            drawingData.value
-                        )
-                        
-                        console.log('✅ 已恢复自动备份的标注数据')
-                        callInfo('已恢复自动备份的标注数据')
-                    }
-                }
-            } catch (error) {
-                console.error('恢复自动备份失败:', error)
-            }
-        }
 
         // 空间索引优化 - 新增
         const spatialIndex = ref({
@@ -915,7 +775,6 @@ export default {
                 try {
                     initDrawingEvents(el, pageNum)
                     drawingCanvases.value.set(pageNum, el)
-                    console.log(`第${pageNum}页的绘制画布初始化完成`)
                 } catch (error) {
                     console.error(`第${pageNum}页绘制画布初始化失败:`, error)
                 }
@@ -947,8 +806,7 @@ export default {
                 ctx.lineWidth = 3
                 ctx.lineCap = 'round'
                 ctx.lineJoin = 'round'
-                
-                // console.log(`开始绘制 - 页面:${pageNum}`) // 减少日志提升性能
+
             }
             
             // 鼠标移动事件 - 加入性能优化
@@ -989,7 +847,6 @@ export default {
             const handleMouseUp = () => {
                 if (isDrawing && pageNum === currentPage.value) {
                     isDrawing = false
-                    // console.log(`结束绘制 - 页面:${pageNum}`) // 减少日志
                     
                     // 延迟保存，避免频繁保存
                     debouncedSaveDrawing(pageNum)
@@ -1000,7 +857,6 @@ export default {
             const handleMouseLeave = () => {
                 if (isDrawing && pageNum === currentPage.value) {
                     isDrawing = false
-                    console.log(`绘制中断 - 页面:${pageNum}`)
                     
                     // 延迟保存
                     debouncedSaveDrawing(pageNum)
@@ -1023,8 +879,6 @@ export default {
         // 加载PDF
         const loadPDF = async (data) => {
             try {
-                console.log('开始使用PDF.js解析文档')
-                
                 // 清理之前的数据
                 pageRefs.value.clear()
                 annotationRefs.value.clear()
@@ -1033,13 +887,8 @@ export default {
                 annotations.value.length = 0  // 清空数组
                 extractedTexts.value.clear() // 清理文字提取缓存
                 
-                console.log('已清理之前的PDF数据和文字提取缓存')
-                
                 // 确保PDF.js已加载
                 const pdfjs = await loadPDFJS()
-                
-                console.log('PDF.js版本:', pdfjs.version || 'unknown')
-                console.log('getDocument类型:', typeof pdfjs.getDocument)
                 
                 // 1.6版本的getDocument调用方式
                 let loadingTask
@@ -1051,8 +900,6 @@ export default {
                     loadingTask = window.PDFJS.getDocument(data)
                 }
                 
-                console.log('PDF加载任务创建完成，类型:', typeof loadingTask)
-                
                 let pdf
                 if (loadingTask && loadingTask.promise) {
                     pdf = await loadingTask.promise
@@ -1063,56 +910,24 @@ export default {
                     throw new Error('无法创建PDF加载任务')
                 }
                 
-                console.log('PDF文档加载成功，页数:', pdf.numPages)
-                
                 // 先设置页数信息
                 totalPages.value = pdf.numPages
                 currentPage.value = 1
                 
                 // 更新PDF信息
                 currentPdfInfo.value.totalPages = pdf.numPages
-                currentPdfInfo.value.fileHash = persistenceManager.generateFileHash(
-                    currentPdfInfo.value.fileName, 
-                    currentPdfInfo.value.fileSize
-                )
-                
-                console.log('准备设置PDF文档对象...')
+                currentPdfInfo.value.fileHash = `outcome_${outcomeId.value}_${currentPdfInfo.value.fileName}`
                 
                 // 设置PDF文档对象（不使用nextTick，避免卡死）
                 pdfDocument.value = pdf
-                
-                console.log('PDF文档对象设置完成')
-                
-                console.log('PDF状态更新完成:', {
-                    totalPages: totalPages.value,
-                    currentPage: currentPage.value,
-                    pdfDocument: !!pdfDocument.value
-                })
                 
                 // 等待DOM更新后渲染第一页
                 await nextTick()
                 await renderCurrentPage()
                 
-                // 输出功能使用提示
+                // 从云端加载批注数据
                 setTimeout(() => {
-                    console.log('🎉 PDF阅读器功能已全部启用！')
-                    console.log('')
-                    console.log('📚 文字提取功能:')
-                    console.log('  getCurrentPageText() - 获取当前页面文字')
-                    console.log('  getPageText(页码) - 获取指定页面文字')
-                    console.log('  getAllExtractedTexts() - 获取所有已提取的文字')
-                    console.log('  searchInTexts("关键词") - 在文字中搜索')
-                    console.log('')
-                    console.log('💾 标注持久化功能:')
-                    console.log('  - 工具栏中的"保存标注"按钮可导出所有标注到txt文件')
-                    console.log('  - "加载标注"按钮可从txt文件恢复标注')
-                    console.log('  - 系统每30秒自动备份到浏览器本地存储')
-                    console.log('  - 重新打开同一PDF会提示恢复自动备份')
-                    console.log('')
-                    console.log('✨ 支持的标注类型: 高亮、批注、手绘，包含缩放比、坐标、颜色等完整信息')
-                    
-                    // 检查自动备份
-                    restoreAutoBackup()
+                    loadCloudAnnotations()
                 }, 1000)
             } catch (error) {
                 console.error('loadPDF错误详情:', error)
@@ -1122,9 +937,7 @@ export default {
 
         // 渲染当前页面
         const renderCurrentPage = async () => {
-            console.log('renderCurrentPage开始，当前页:', currentPage.value)
             await renderPage(currentPage.value)
-            console.log('当前页面渲染完成')
         }
 
         // 渲染单个页面
@@ -1138,7 +951,6 @@ export default {
                     await nextTick()
                     finalCanvas = pageRefs.value.get(pageNum)
                     if (!finalCanvas) {
-                        console.log(`无法找到第${pageNum}页的canvas元素`)
                         return
                     }
                 }
@@ -1192,8 +1004,6 @@ export default {
                     ctx.lineWidth = 3
                     ctx.lineCap = 'round'
                     ctx.lineJoin = 'round'
-                    
-                    console.log(`第${pageNum}页annotation canvas尺寸和绘制样式已更新`)
                 }
 
                 const renderContext = {
@@ -1202,7 +1012,6 @@ export default {
                 }
 
                 await page.render(renderContext).promise
-                console.log(`第${pageNum}页渲染完成，尺寸: ${width}x${height}`)
                 
                 // 提取页面文字内容
                 await extractPageText(page, pageNum)
@@ -1291,7 +1100,6 @@ export default {
 
         // 批注模式设置
         const setAnnotationMode = async (mode) => {
-            console.log('设置批注模式:', mode)
             annotationMode.value = mode
             
             // 隐藏橡皮擦预览（切换到其他模式时）
@@ -1310,13 +1118,10 @@ export default {
                     overlay.classList.add(mode + '-mode')
                 }
             })
-            
-            console.log('批注模式设置完成:', mode, '当前值:', annotationMode.value)
         }
 
         // 统一的overlay事件处理
         const handleOverlayMouseDown = (event) => {
-            console.log('Overlay mousedown, mode:', annotationMode.value)
             if (annotationMode.value === 'draw') {
                 // 绘制模式由Canvas事件处理
                 return
@@ -1376,25 +1181,9 @@ export default {
             // 获取annotation-overlay相对于视口的位置
             const overlayRect = event.currentTarget.getBoundingClientRect()
             
-            console.log('坐标计算详情:', {
-                eventClient: { x: event.clientX, y: event.clientY },
-                overlayRect: {
-                    left: overlayRect.left,
-                    top: overlayRect.top,
-                    width: overlayRect.width,
-                    height: overlayRect.height
-                }
-            })
-            
             // 计算相对于annotation-overlay的坐标
             const relativeX = event.clientX - overlayRect.left
             const relativeY = event.clientY - overlayRect.top
-            
-            console.log('计算结果:', {
-                relativeX,
-                relativeY,
-                calculation: `${event.clientX} - ${overlayRect.left} = ${relativeX}`
-            })
             
             startPoint.value = {
                 x: relativeX,
@@ -1417,24 +1206,6 @@ export default {
                     height: 0
                 }
             }
-            
-            console.log('开始批注', {
-                mode: annotationMode.value,
-                startPos: startPoint.value,
-                clickPos: clickPosition.value,
-                overlayRect: {
-                    left: overlayRect.left,
-                    top: overlayRect.top,
-                    width: overlayRect.width,
-                    height: overlayRect.height
-                },
-                clientX: event.clientX,
-                clientY: event.clientY,
-                viewportOffset: {
-                    x: event.clientX - overlayRect.left,
-                    y: event.clientY - overlayRect.top
-                }
-            })
         }
 
         const updateAnnotation = (event) => {
@@ -1493,26 +1264,10 @@ export default {
                 height: Math.abs(endPos.y - startPoint.value.y)
             }
             
-            console.log('结束批注', {
-                mode: annotationMode.value,
-                selection,
-                isClick: selection.width < 10 && selection.height < 10
-            })
-            
             // 检查是否是点击（没有拖拽）
             if (selection.width < 10 && selection.height < 10) {
                 // 单纯点击，直接在点击位置创建批注
                 if (annotationMode.value === 'note') {
-                    console.log('检测到点击模式，设置currentSelection:', {
-                        clickPosition: clickPosition.value,
-                        calculatedSelection: {
-                            x: clickPosition.value.x - 10,
-                            y: clickPosition.value.y - 10,
-                            width: 20,
-                            height: 20
-                        }
-                    })
-                    
                     // 创建一个小的虚拟选择区域用于数据存储
                     currentSelection.value = {
                         x: clickPosition.value.x - 10,
@@ -1521,7 +1276,6 @@ export default {
                         height: 20
                     }
                     
-                    console.log('设置currentSelection后的值:', currentSelection.value)
                     noteDialogVisible.value = true
                 }
                 return
@@ -1562,7 +1316,8 @@ export default {
             // 添加到空间索引
             addToSpatialIndex(highlight, 'highlights', currentPage.value)
             
-            console.log(`高亮已添加并索引: ID=${highlight.id}, 页面=${currentPage.value}`)
+            // 标记数据已修改，触发云端保存
+            cloudPersistenceManager.markDirty()
         }
 
         const getPageHighlights = (pageNum) => {
@@ -1577,14 +1332,13 @@ export default {
                 width: highlight.width + 'px',
                 height: highlight.height + 'px',
                 backgroundColor: color,
-                opacity: '0.15',
+                opacity: highlightOpacity.value,
                 border: 'none'
             }
         }
 
         const selectHighlight = (highlight) => {
             // 可以实现高亮选择和编辑功能
-            console.log('选中高亮:', highlight)
         }
 
         // 删除高亮（优化版，维护空间索引）
@@ -1599,14 +1353,14 @@ export default {
                 // 从主数组中移除
                 highlights.value.splice(index, 1)
                 
-                console.log(`删除了高亮 ID: ${highlightId}，页面: ${highlight.page}`)
+                // 标记数据已修改，触发云端保存
+                cloudPersistenceManager.markDirty()
             }
         }
 
         // 显示高亮右键菜单
         const showHighlightContextMenu = (event, highlight) => {
             // 可以在这里添加右键菜单功能
-            console.log('高亮右键菜单:', highlight)
             // 简单实现：直接删除
             if (confirm('确定要删除这个高亮吗？')) {
                 deleteHighlight(highlight.id)
@@ -1615,24 +1369,15 @@ export default {
 
         // 批注功能（优化版，维护空间索引）
         const addAnnotation = (selection, content, clickPosition = null) => {
-            console.log('addAnnotation被调用:', {
-                selection,
-                content,
-                clickPosition,
-                hasClickPosition: !!clickPosition
-            })
-            
             // 简化逻辑：如果有点击位置，直接使用；否则使用选择区域中心
             let finalX, finalY
             
             if (clickPosition && clickPosition.x !== undefined && clickPosition.y !== undefined) {
                 finalX = clickPosition.x
                 finalY = clickPosition.y
-                console.log('使用点击位置:', { x: finalX, y: finalY })
             } else {
                 finalX = selection.x + selection.width / 2
                 finalY = selection.y
-                console.log('使用选择区域中心:', { x: finalX, y: finalY })
             }
             
             const annotation = {
@@ -1652,12 +1397,12 @@ export default {
             // 添加到空间索引
             addToSpatialIndex(annotation, 'annotations', currentPage.value)
             
-            console.log('批注已添加并索引:', annotation)
+            // 标记数据已修改，触发云端保存
+            cloudPersistenceManager.markDirty()
         }
 
         const getPageAnnotations = (pageNum) => {
             const pageAnnotations = annotations.value.filter(a => a.page === pageNum)
-            console.log(`第${pageNum}页的批注:`, pageAnnotations)
             return pageAnnotations
         }
 
@@ -1671,7 +1416,6 @@ export default {
         }
 
         const showAnnotationDialog = (annotation) => {
-            console.log('显示批注对话框:', annotation)
             currentNoteContent.value = annotation.content
             currentEditingAnnotation.value = annotation
             currentSelection.value = {
@@ -1695,14 +1439,14 @@ export default {
                 // 从主数组中移除
                 annotations.value.splice(index, 1)
                 
-                console.log(`删除了批注 ID: ${annotationId}，页面: ${annotation.page}`)
+                // 标记数据已修改，触发云端保存
+                cloudPersistenceManager.markDirty()
             }
         }
 
         // 显示批注右键菜单
         const showAnnotationContextMenu = (event, annotation) => {
             // 可以在这里添加右键菜单功能
-            console.log('批注右键菜单:', annotation)
             // 简单实现：直接删除
             if (confirm('确定要删除这个批注吗？')) {
                 deleteAnnotation(annotation.id)
@@ -1722,14 +1466,6 @@ export default {
 
 
         const saveCurrentNote = () => {
-            console.log('保存批注被调用', {
-                content: currentNoteContent.value,
-                selection: currentSelection.value,
-                clickPosition: clickPosition.value,
-                currentPage: currentPage.value,
-                isEditing: !!currentEditingAnnotation.value
-            })
-            
             if (!currentNoteContent.value.trim()) {
                 return
             }
@@ -1740,16 +1476,12 @@ export default {
                 if (annotationIndex > -1) {
                     annotations.value[annotationIndex].content = currentNoteContent.value
                     annotations.value[annotationIndex].timestamp = new Date().toLocaleString()
-                    
-
-                    
-                    console.log('批注已更新:', annotations.value[annotationIndex])
+                    // 编辑批注也要标记数据已修改
+                    cloudPersistenceManager.markDirty()
                 }
             } else {
                 // 新增批注的逻辑保持不变
                 if (clickPosition.value && clickPosition.value.x !== undefined && clickPosition.value.y !== undefined) {
-                    console.log('使用点击位置保存批注:', clickPosition.value)
-                    
                     const virtualSelection = {
                         x: clickPosition.value.x - 10,
                         y: clickPosition.value.y - 10,
@@ -1759,12 +1491,8 @@ export default {
                     
                     addAnnotation(virtualSelection, currentNoteContent.value, clickPosition.value)
                 } else if (currentSelection.value) {
-                    console.log('使用选择区域保存批注:', currentSelection.value)
-                    
                     addAnnotation(currentSelection.value, currentNoteContent.value, null)
                 } else {
-                    console.log('没有点击位置和选择区域，使用默认位置')
-                    
                     const defaultSelection = {
                         x: 50,
                         y: 50,
@@ -1786,8 +1514,6 @@ export default {
             currentNoteContent.value = ''
             currentEditingAnnotation.value = null
             noteDialogVisible.value = false
-            
-            console.log('批注保存完成')
         }
         
         const cancelNote = () => {
@@ -1833,7 +1559,8 @@ export default {
                     }
                 })
                 
-                console.log(`批量保存${pagesToSave.length}个页面完成`)
+                // 标记数据已修改，触发云端保存
+                cloudPersistenceManager.markDirty()
             }, optimizedDrawingState.value.saveDelay)
         }
         
@@ -1861,11 +1588,9 @@ export default {
                     // 有内容才保存
                     const base64Data = canvas.toDataURL('image/png', 0.7) // 降低质量提升速度
                     drawingData.value.set(pageNum, base64Data)
-                    console.log(`页面${pageNum}快速保存完成`)
                 } else {
                     // 没有内容，删除存储
                     drawingData.value.delete(pageNum)
-                    console.log(`页面${pageNum}无内容，清理存储`)
                 }
             } catch (error) {
                 console.error(`页面${pageNum}保存失败:`, error)
@@ -1914,14 +1639,11 @@ export default {
                 img.onload = () => {
                     ctx.clearRect(0, 0, canvas.width, canvas.height)
                     ctx.drawImage(img, 0, 0)
-                    console.log(`页面${pageNum}绘制内容恢复完成`)
                 }
                 img.onerror = () => {
                     console.error(`页面${pageNum}绘制内容恢复失败`)
                 }
                 img.src = savedData
-            } else {
-                console.log(`页面${pageNum}无绘制内容需要恢复`)
             }
         }
 
@@ -1939,20 +1661,18 @@ export default {
             // 清除存储数据
             drawingData.value.delete(pageNum)
             
-            console.log(`页面${pageNum}的所有绘制内容已清除`)
+            // 标记数据已修改，触发云端保存
+            cloudPersistenceManager.markDirty()
         }
 
         // 更新颜色
         const updateColor = (event) => {
             const newColor = event.target.value
-            console.log('更新颜色:', newColor, '模式:', annotationMode.value)
             
             if (annotationMode.value === 'highlight') {
                 highlightColor.value = newColor
-                console.log('高亮颜色已更新为:', newColor)
             } else if (annotationMode.value === 'draw') {
                 drawColor.value = newColor
-                console.log('绘制颜色已更新为:', newColor)
                 
                 // 更新所有annotation canvas的绘制样式（绘制是在annotation canvas上进行的）
                 annotationRefs.value.forEach((canvas, pageNum) => {
@@ -1962,10 +1682,16 @@ export default {
                         ctx.lineWidth = 3
                         ctx.lineCap = 'round'
                         ctx.lineJoin = 'round'
-                        console.log(`第${pageNum}页canvas绘制样式已更新`)
                     }
                 })
             }
+        }
+        
+        // 更新高亮透明度
+        const updateHighlightOpacity = (opacity) => {
+            highlightOpacity.value = opacity
+            // 标记数据已修改，触发云端保存
+            cloudPersistenceManager.markDirty()
         }
 
         // 橡皮擦功能
@@ -1984,7 +1710,7 @@ export default {
             // 立即开始清除
             performErase(currentPos)
             
-            console.log('开始橡皮擦', startPoint.value)
+
         }
 
         const updateErasing = (event) => {
@@ -2055,10 +1781,6 @@ export default {
             highlights.value = highlights.value.filter(h => h.page !== currentPage.value).concat(remainingHighlights)
             
             const removed = before - remainingHighlights.length
-            // 减少日志频率
-            if (removed > 0 && Math.random() < 0.1) {
-                console.log(`快速删除${removed}个高亮`)
-            }
         }
         
         // 快速批注删除 - 简化算法
@@ -2080,10 +1802,6 @@ export default {
             annotations.value = annotations.value.filter(a => a.page !== currentPage.value).concat(remainingAnnotations)
             
             const removed = before - remainingAnnotations.length
-            // 减少日志频率
-            if (removed > 0 && Math.random() < 0.1) {
-                console.log(`快速删除${removed}个批注`)
-            }
         }
         
         // 简单的矩形重叠检测
@@ -2173,7 +1891,8 @@ export default {
             event.preventDefault()
             event.stopPropagation()
             
-            console.log('橡皮擦操作结束')
+            // 橡皮擦操作完成，标记数据已修改
+            cloudPersistenceManager.markDirty()
         }
 
         const cancelErasing = () => {
@@ -2413,6 +2132,7 @@ export default {
             annotations,
             highlightColor,
             drawColor,
+            highlightOpacity,
             clickPosition,
             eraserPreview,
             selectionPreview,
@@ -2440,6 +2160,7 @@ export default {
             cancelNote,
             clearDrawing,
             updateColor,
+            updateHighlightOpacity,
             startErasing,
             updateErasing,
             finishErasing,
@@ -2476,12 +2197,11 @@ export default {
             getAllExtractedTexts,
             searchInTexts,
 
-            // 持久化功能
+            // 云端持久化功能
             currentPdfInfo,
             exportAllAnnotations,
-            importAnnotationsFromFile,
-            quickSaveAnnotations,
-            restoreAutoBackup,
+            loadCloudAnnotations,
+            saveAnnotationsToCloudQuiet,
             
             // 空间索引系统
             eraseHighlightsBySpatialIndex,
