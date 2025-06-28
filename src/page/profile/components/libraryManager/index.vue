@@ -1,137 +1,173 @@
 <template>
     <div class="library-manager">
         <div class="section-card">
-            <!-- 收藏夹视图 -->
-            <div v-if="currentView === 'folders'" class="folders-view">
-                <div class="card-header">
-                    <h3>文献库</h3>
-                    <el-button type="primary" @click="openCreateFolderDialog">
-                        <el-icon><Plus /></el-icon>
-                        新建收藏夹
-                    </el-button>
-                </div>
-                
-                <div class="card-content">
-                    <div v-if="folders.length === 0" class="empty-state">
-                        暂无收藏夹，点击右上角按钮创建收藏夹
-                    </div>
-                    
-                    <div v-else class="folders-grid">
-                        <div 
-                            v-for="folder in currentPageFolders" 
-                            :key="folder.id" 
-                            class="folder-item"
-                            @click="openFolder(folder)"
-                        >
-                            <div class="folder-icon">
-                                <el-icon><Folder /></el-icon>
-                            </div>
-                            <div class="folder-info">
-                                <div class="folder-name">{{ folder.name }}</div>
-                                <div class="folder-desc">{{ folder.description }}</div>
-                                <div class="folder-stats">
-                                    <span class="paper-count">{{ folder.papers.length }} 篇文献</span>
-                                    <span class="create-time">{{ folder.createTime }}</span>
-                                </div>
-                            </div>
-                            <div class="folder-actions" @click.stop>
-                                <el-dropdown trigger="click">
-                                    <el-button type="text" size="small">
-                                        <el-icon><MoreFilled /></el-icon>
-                                    </el-button>
-                                    <template #dropdown>
-                                        <el-dropdown-menu>
-                                            <el-dropdown-item @click="editFolder(folder)">
-                                                <el-icon><Edit /></el-icon>
-                                                编辑
-                                            </el-dropdown-item>
-                                            <el-dropdown-item @click="deleteFolder(folder.id)" divided>
-                                                <el-icon><Delete /></el-icon>
-                                                删除
-                                            </el-dropdown-item>
-                                        </el-dropdown-menu>
-                                    </template>
-                                </el-dropdown>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- 收藏夹分页 -->
-                    <el-pagination
-                        v-if="folders.length > folderPageSize"
-                        v-model:current-page="folderCurrentPage"
-                        :page-size="folderPageSize"
-                        :total="folders.length"
-                        layout="prev, pager, next"
-                        class="pagination"
-                        small
-                        @current-change="handleFolderPageChange"
-                    />
-                </div>
-            </div>
-
-            <!-- 文献列表视图 -->
-            <div v-else class="papers-view">
+            <div class="folders-view">
                 <div class="card-header">
                     <div class="header-left">
-                        <el-button type="text" @click="backToFolders" class="back-button">
-                            <el-icon><ArrowLeft /></el-icon>
-                            返回收藏夹
-                        </el-button>
-                        <h3>{{ currentFolder.name }}</h3>
+                        <h3 style="text-align: left;">文献库</h3>
                     </div>
-                    <el-button type="primary" @click="openAddPaperDialog">
-                        <el-icon><Plus /></el-icon>
-                        添加文献
-                    </el-button>
+                    <div class="header-actions">
+                        <!-- 返回上一级按钮 -->
+                        <el-button 
+                            v-if="currentParentId !== 0" 
+                            type="text" 
+                            @click="backToParentFolder"
+                            class="back-button"
+                        >
+                            <el-icon><ArrowLeft /></el-icon>
+                            返回上一级
+                        </el-button>
+                        <el-button type="primary" @click="openCreateFolderDialog">
+                            <el-icon><Plus /></el-icon>
+                            新建收藏夹
+                        </el-button>
+                    </div>
+                </div>
+                
+                <!-- 面包屑导航 -->
+                <div v-if="breadcrumbList.length > 1" class="breadcrumb-container">
+                    <el-breadcrumb separator="/" class="breadcrumb">
+                        <el-breadcrumb-item 
+                            v-for="(item, index) in breadcrumbList" 
+                            :key="item.favoriteId"
+                            @click="navigateToBreadcrumb(index)"
+                            :class="{ 'clickable': index < breadcrumbList.length - 1 }"
+                        >
+                            {{ item.name }}
+                        </el-breadcrumb-item>
+                    </el-breadcrumb>
                 </div>
                 
                 <div class="card-content">
-                    <div v-if="currentFolder.papers.length === 0" class="empty-state">
-                        该收藏夹暂无文献，点击右上角按钮添加文献
+                    <div v-if="loading" class="loading-state">
+                        <el-icon class="is-loading"><Loading /></el-icon>
+                        加载中...
                     </div>
                     
-                    <div v-else class="papers-list">
-                        <div 
-                            v-for="paper in currentPagePapers" 
-                            :key="paper.id" 
-                            class="paper-item"
-                        >
-                            <div class="paper-info">
-                                <div class="paper-title">{{ paper.title }}</div>
-                                <div class="paper-authors">{{ paper.authors }}</div>
-                                <div class="paper-meta">
-                                    <span class="paper-journal">{{ paper.journal }}</span>
-                                    <span class="paper-year">{{ paper.year }}</span>
-                                    <span v-if="paper.doi" class="paper-doi">DOI: {{ paper.doi }}</span>
-                                </div>
-                                <div class="paper-tags">
-                                    <span v-for="tag in paper.tags" :key="tag" class="paper-tag">
-                                        {{ tag }}
-                                    </span>
+                    <div v-else-if="folders.length === 0 && outcomes.length === 0" class="empty-state">
+                        {{ currentParentId === 0 ? '暂无收藏夹，点击右上角按钮创建收藏夹' : '该收藏夹下暂无内容' }}
+                    </div>
+                    
+                    <div v-else>
+                        <!-- 收藏夹列表 -->
+                        <div v-if="folders.length > 0" class="folders-section">
+                            <div class="section-title">收藏夹</div>
+                            <div class="folders-grid">
+                                <div 
+                                    v-for="folder in currentPageFolders" 
+                                    :key="folder.favoriteId" 
+                                    class="folder-item"
+                                    @click="openFolder(folder)"
+                                >
+                                    <div class="folder-icon">
+                                        <el-icon><Folder /></el-icon>
+                                    </div>
+                                    <div class="folder-info">
+                                        <div class="folder-name">{{ folder.name }}</div>
+                                        <div class="folder-desc">收藏夹</div>
+                                        <div class="folder-stats">
+                                            <span class="paper-count">点击查看内容</span>
+                                        </div>
+                                    </div>
+                                    <div class="folder-actions" @click.stop>
+                                        <el-dropdown trigger="click">
+                                            <el-button type="text" size="small">
+                                                <el-icon><MoreFilled /></el-icon>
+                                            </el-button>
+                                            <template #dropdown>
+                                                <el-dropdown-menu>
+                                                    <el-dropdown-item @click="editFolder(folder)">
+                                                        <el-icon><Edit /></el-icon>
+                                                        重命名
+                                                    </el-dropdown-item>
+                                                    <el-dropdown-item @click="deleteFolder(folder.favoriteId)" divided>
+                                                        <el-icon><Delete /></el-icon>
+                                                        删除
+                                                    </el-dropdown-item>
+                                                </el-dropdown-menu>
+                                            </template>
+                                        </el-dropdown>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="paper-actions">
-                                <el-button type="primary" plain size="small" @click="viewPaper(paper)">
-                                    查看详情
-                                </el-button>
-                                <el-button type="danger" plain size="small" @click="removePaper(paper.id)">
-                                    移除
-                                </el-button>
+                            
+                            <!-- 收藏夹分页 -->
+                            <el-pagination
+                                v-if="total > folderPageSize"
+                                v-model:current-page="folderCurrentPage"
+                                :page-size="folderPageSize"
+                                :total="total"
+                                layout="prev, pager, next"
+                                class="pagination"
+                                small
+                                @current-change="handleFolderPageChange"
+                            />
+                        </div>
+
+                        <!-- 文献列表 -->
+                        <div v-if="outcomes.length > 0" class="outcomes-section">
+                            <div class="section-title">文献</div>
+                            <div class="outcomes-grid">
+                                <div 
+                                    v-for="outcome in currentPageOutcomes" 
+                                    :key="outcome.outcomeId" 
+                                    class="outcome-item"
+                                    @click="goToOutcomeDetail(outcome.outcomeId)"
+                                >
+                                    <div class="outcome-icon">
+                                        <el-icon><Document /></el-icon>
+                                    </div>
+                                    <div class="outcome-info">
+                                        <div class="outcome-title">{{ outcome.title }}</div>
+                                        <div class="outcome-authors">{{ outcome.authors }}</div>
+                                        <div class="outcome-meta">
+                                            <span class="outcome-type">{{ formatType(outcome.type) }}</span>
+                                            <span v-if="outcome.journal" class="outcome-journal">{{ outcome.journal }}</span>
+                                            <span v-if="outcome.publishDate" class="outcome-date">{{ formatDate(outcome.publishDate) }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="outcome-actions" @click.stop>
+                                        <el-dropdown trigger="click">
+                                            <el-button type="text" size="small">
+                                                <el-icon><MoreFilled /></el-icon>
+                                            </el-button>
+                                            <template #dropdown>
+                                                <el-dropdown-menu>
+                                                    <el-dropdown-item @click="removeOutcome(outcome.outcomeId)">
+                                                        <el-icon><Delete /></el-icon>
+                                                        从收藏夹移除
+                                                    </el-dropdown-item>
+                                                </el-dropdown-menu>
+                                            </template>
+                                        </el-dropdown>
+                                    </div>
+                                </div>
                             </div>
+                            
+                            <!-- 文献分页 -->
+                            <el-pagination
+                                v-if="outcomesTotal > outcomePageSize"
+                                v-model:current-page="outcomeCurrentPage"
+                                :page-size="outcomePageSize"
+                                :total="outcomesTotal"
+                                layout="prev, pager, next"
+                                class="pagination"
+                                small
+                                @current-change="handleOutcomePageChange"
+                            />
                         </div>
                     </div>
                     
-                    <!-- 文献分页 -->
+                    <!-- 分页 -->
                     <el-pagination
-                        v-if="currentFolder.papers && currentFolder.papers.length > paperPageSize"
-                        v-model:current-page="paperCurrentPage"
-                        :page-size="paperPageSize"
-                        :total="currentFolder.papers.length"
+                        v-if="total > pageSize || outcomesTotal > pageSize"
+                        v-model:current-page="currentPage"
+                        :page-size="pageSize"
+                        :total="total + outcomesTotal"
                         layout="prev, pager, next"
                         class="pagination"
                         small
-                        @current-change="handlePaperPageChange"
+                        @current-change="handlePageChange"
                     />
                 </div>
             </div>
@@ -145,14 +181,11 @@
         >
             <el-form :model="folderForm" :rules="folderRules" ref="folderFormRef" label-width="80px">
                 <el-form-item label="名称" prop="name">
-                    <el-input v-model="folderForm.name" placeholder="请输入收藏夹名称" />
-                </el-form-item>
-                <el-form-item label="描述" prop="description">
                     <el-input 
-                        v-model="folderForm.description" 
-                        type="textarea" 
-                        :rows="3"
-                        placeholder="请输入收藏夹描述"
+                        v-model="folderForm.name" 
+                        placeholder="请输入收藏夹名称（最多50个字符）" 
+                        :maxlength="50"
+                        show-word-limit
                     />
                 </el-form-item>
             </el-form>
@@ -164,196 +197,217 @@
                 </div>
             </template>
         </el-dialog>
-
-        <!-- 添加文献对话框 -->
-        <el-dialog 
-            v-model="paperDialogVisible" 
-            title=""
-            width="600px"
-        >
-            <el-form :model="paperForm" :rules="paperRules" ref="paperFormRef" label-width="80px">
-                <el-form-item label="标题" prop="title">
-                    <el-input v-model="paperForm.title" placeholder="请输入文献标题" />
-                </el-form-item>
-                <el-form-item label="作者" prop="authors">
-                    <el-input v-model="paperForm.authors" placeholder="请输入作者，多个作者用逗号分隔" />
-                </el-form-item>
-                <el-form-item label="期刊" prop="journal">
-                    <el-input v-model="paperForm.journal" placeholder="请输入期刊名称" />
-                </el-form-item>
-                <el-form-item label="年份" prop="year">
-                    <el-input v-model="paperForm.year" placeholder="请输入发表年份" />
-                </el-form-item>
-                <el-form-item label="DOI" prop="doi">
-                    <el-input v-model="paperForm.doi" placeholder="请输入DOI（可选）" />
-                </el-form-item>
-                <el-form-item label="标签" prop="tags">
-                    <el-input v-model="paperForm.tagsInput" placeholder="请输入标签，多个标签用逗号分隔" />
-                </el-form-item>
-            </el-form>
-            
-            <template #footer>
-                <div class="dialog-footer">
-                    <el-button @click="closePaperDialog">取消</el-button>
-                    <el-button type="primary" @click="savePaper">保存</el-button>
-                </div>
-            </template>
-        </el-dialog>
     </div>
 </template>
 
 <script>
-import { ref, computed } from 'vue'
-import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft } from '@element-plus/icons-vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft, Document } from '@element-plus/icons-vue'
 import { callSuccess, callInfo, callWarning } from '@/call'
 import { ElMessageBox } from 'element-plus'
+import { getFavoritePage, createFavorite, deleteFavorite, updateFavorite, getFavoriteOutcomePage, removeOutcomeFromFavorite } from '@/api/favorite'
 
 export default {
     name: 'libraryManager',
     setup() {
-        // 视图状态
-        const currentView = ref('folders') // 'folders' 或 'papers'
-        const currentFolder = ref({})
+        const router = useRouter()
         
-        // 分页相关
+        // 当前父级收藏夹ID
+        const currentParentId = ref(0)
+        
+        // 面包屑导航数据
+        const breadcrumbList = ref([
+            { favoriteId: 0, name: '文献库' }
+        ])
+        
+        // 收藏夹分页相关
         const folderCurrentPage = ref(1)
         const folderPageSize = ref(6)
-        const paperCurrentPage = ref(1)
-        const paperPageSize = ref(5)
         
         // 收藏夹数据
-        const folders = ref([
-            {
-                id: 1,
-                name: '机器学习',
-                description: '收集机器学习相关的经典论文和最新研究',
-                createTime: '2023-01-15',
-                papers: [
-                    {
-                        id: 1,
-                        title: 'Attention Is All You Need',
-                        authors: 'Vaswani, A., Shazeer, N., Parmar, N., et al.',
-                        journal: 'Advances in Neural Information Processing Systems',
-                        year: '2017',
-                        doi: '10.48550/arXiv.1706.03762',
-                        tags: ['Transformer', 'Attention', 'NLP']
-                    },
-                    {
-                        id: 2,
-                        title: 'Deep Residual Learning for Image Recognition',
-                        authors: 'He, K., Zhang, X., Ren, S., Sun, J.',
-                        journal: 'Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition',
-                        year: '2016',
-                        doi: '10.1109/CVPR.2016.90',
-                        tags: ['ResNet', 'CNN', 'Computer Vision']
-                    }
-                ]
-            },
-            {
-                id: 2,
-                name: '计算机视觉',
-                description: '计算机视觉领域的重要论文集合',
-                createTime: '2023-02-20',
-                papers: [
-                    {
-                        id: 3,
-                        title: 'You Only Look Once: Unified, Real-Time Object Detection',
-                        authors: 'Redmon, J., Divvala, S., Girshick, R., Farhadi, A.',
-                        journal: 'Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition',
-                        year: '2016',
-                        doi: '10.1109/CVPR.2016.91',
-                        tags: ['YOLO', 'Object Detection', 'Real-time']
-                    }
-                ]
-            },
-            {
-                id: 3,
-                name: '自然语言处理',
-                description: 'NLP领域的前沿研究论文',
-                createTime: '2023-03-10',
-                papers: []
-            },
-            {
-                id: 4,
-                name: '深度学习理论',
-                description: '深度学习理论基础相关文献',
-                createTime: '2023-04-05',
-                papers: [
-                    {
-                        id: 4,
-                        title: 'Deep Learning',
-                        authors: 'Goodfellow, I., Bengio, Y., Courville, A.',
-                        journal: 'MIT Press',
-                        year: '2016',
-                        doi: '',
-                        tags: ['Deep Learning', 'Theory', 'Book']
-                    }
-                ]
-            }
-        ])
+        const folders = ref([])
+        const total = ref(0)
+        const loading = ref(false)
+        
+        // 文献分页相关
+        const outcomeCurrentPage = ref(1)
+        const outcomePageSize = ref(6)
+        
+        // 文献数据
+        const outcomes = ref([])
+        const outcomesTotal = ref(0)
+        const loadingOutcomes = ref(false)
         
         // 对话框状态
         const folderDialogVisible = ref(false)
-        const paperDialogVisible = ref(false)
         const isEditFolder = ref(false)
         const editingFolderId = ref(null)
         
         // 表单数据
         const folderFormRef = ref()
-        const paperFormRef = ref()
         const folderForm = ref({
-            name: '',
-            description: ''
-        })
-        const paperForm = ref({
-            title: '',
-            authors: '',
-            journal: '',
-            year: '',
-            doi: '',
-            tagsInput: ''
+            name: ''
         })
         
         // 表单验证规则
         const folderRules = {
             name: [
-                { required: true, message: '请输入收藏夹名称', trigger: 'blur' }
-            ]
-        }
-        const paperRules = {
-            title: [
-                { required: true, message: '请输入文献标题', trigger: 'blur' }
-            ],
-            authors: [
-                { required: true, message: '请输入作者', trigger: 'blur' }
+                { required: true, message: '请输入收藏夹名称', trigger: 'blur' },
+                { max: 50, message: '收藏夹名称不能超过50个字符', trigger: 'blur' }
             ]
         }
         
         // 计算属性
         const currentPageFolders = computed(() => {
-            const start = (folderCurrentPage.value - 1) * folderPageSize.value
-            const end = start + folderPageSize.value
-            return folders.value.slice(start, end)
+            return folders.value
         })
         
-        const currentPagePapers = computed(() => {
-            if (!currentFolder.value.papers) return []
-            const start = (paperCurrentPage.value - 1) * paperPageSize.value
-            const end = start + paperPageSize.value
-            return currentFolder.value.papers.slice(start, end)
+        const currentPageOutcomes = computed(() => {
+            return outcomes.value
         })
+        
+        // 格式化成果类型
+        const formatType = (type) => {
+            const typeMap = {
+                'article': '论文',
+                'journal': '期刊',
+                'conference': '会议',
+                'patent': '专利',
+                'book': '书籍',
+                'chapter': '章节'
+            }
+            return typeMap[type] || type
+        }
+        
+        // 格式化日期
+        const formatDate = (timestamp) => {
+            if (!timestamp) return ''
+            const date = new Date(timestamp)
+            return date.getFullYear()
+        }
+        
+        // 加载收藏夹数据
+        const loadFolders = async (parentId = 0) => {
+            loading.value = true
+            try {
+                const result = await getFavoritePage({
+                    pageSize: folderPageSize.value,
+                    pageNum: folderCurrentPage.value,
+                    parentId: parentId
+                })
+                
+                if (result) {
+                    folders.value = result.list
+                    total.value = result.total
+                } else {
+                    folders.value = []
+                    total.value = 0
+                }
+            } catch (error) {
+                console.error('加载收藏夹失败:', error)
+                folders.value = []
+                total.value = 0
+            } finally {
+                loading.value = false
+            }
+        }
+        
+        // 加载文献数据
+        const loadOutcomes = async (favoriteId) => {
+            loadingOutcomes.value = true
+            try {
+                const result = await getFavoriteOutcomePage({
+                    pageSize: outcomePageSize.value,
+                    pageNum: outcomeCurrentPage.value,
+                    favoriteId: favoriteId
+                })
+                
+                if (result) {
+                    outcomes.value = result.list
+                    outcomesTotal.value = result.total
+                } else {
+                    outcomes.value = []
+                    outcomesTotal.value = 0
+                }
+            } catch (error) {
+                console.error('加载文献失败:', error)
+                outcomes.value = []
+                outcomesTotal.value = 0
+            } finally {
+                loadingOutcomes.value = false
+            }
+        }
+        
+        // 加载当前层级的所有数据
+        const loadCurrentLevelData = async (parentId = 0) => {
+            await Promise.all([
+                loadFolders(parentId),
+                loadOutcomes(parentId)
+            ])
+        }
+        
+        // 面包屑导航点击
+        const navigateToBreadcrumb = async (index) => {
+            if (index < breadcrumbList.value.length - 1) {
+                const targetItem = breadcrumbList.value[index]
+                currentParentId.value = targetItem.favoriteId
+                
+                // 更新面包屑列表
+                breadcrumbList.value = breadcrumbList.value.slice(0, index + 1)
+                
+                // 重置分页并加载对应层级的数据
+                folderCurrentPage.value = 1
+                outcomeCurrentPage.value = 1
+                await loadCurrentLevelData(targetItem.favoriteId)
+            }
+        }
+        
+        // 返回上一级收藏夹
+        const backToParentFolder = async () => {
+            if (breadcrumbList.value.length > 1) {
+                // 移除当前层级
+                breadcrumbList.value.pop()
+                
+                // 获取新的当前父级ID
+                const newCurrentItem = breadcrumbList.value[breadcrumbList.value.length - 1]
+                currentParentId.value = newCurrentItem.favoriteId
+                
+                // 重置分页并加载上一级数据
+                folderCurrentPage.value = 1
+                outcomeCurrentPage.value = 1
+                await loadCurrentLevelData(newCurrentItem.favoriteId)
+            }
+        }
+        
+        // 打开收藏夹
+        const openFolder = async (folder) => {
+            // 更新面包屑
+            breadcrumbList.value.push({
+                favoriteId: folder.favoriteId,
+                name: folder.name
+            })
+            
+            // 更新当前父级ID
+            currentParentId.value = folder.favoriteId
+            
+            // 重置分页并加载子数据
+            folderCurrentPage.value = 1
+            outcomeCurrentPage.value = 1
+            await loadCurrentLevelData(folder.favoriteId)
+        }
         
         // 收藏夹操作
         const openCreateFolderDialog = () => {
             isEditFolder.value = false
-            folderForm.value = { name: '', description: '' }
+            folderForm.value = { name: '' }
             folderDialogVisible.value = true
         }
         
         const editFolder = (folder) => {
             isEditFolder.value = true
-            editingFolderId.value = folder.id
-            folderForm.value = { ...folder }
+            editingFolderId.value = folder.favoriteId
+            folderForm.value = { name: folder.name }
             folderDialogVisible.value = true
         }
         
@@ -368,29 +422,41 @@ export default {
                 
                 if (isEditFolder.value) {
                     // 编辑收藏夹
-                    const index = folders.value.findIndex(f => f.id === editingFolderId.value)
-                    if (index > -1) {
-                        folders.value[index] = {
-                            ...folders.value[index],
-                            ...folderForm.value
-                        }
-                        callSuccess('收藏夹更新成功')
+                    const success = await updateFavorite({
+                        favoriteId: editingFolderId.value,
+                        name: folderForm.value.name
+                    })
+                    
+                    if (success) {
+                        callSuccess('收藏夹重命名成功')
+                        closeFolderDialog()
+                        // 重置分页并重新加载数据
+                        folderCurrentPage.value = 1
+                        outcomeCurrentPage.value = 1
+                        await loadCurrentLevelData(currentParentId.value)
                     }
                 } else {
                     // 创建收藏夹
-                    const newFolder = {
-                        ...folderForm.value,
-                        id: Date.now(),
-                        createTime: new Date().toISOString().split('T')[0],
-                        papers: []
+                    const result = await createFavorite({
+                        name: folderForm.value.name,
+                        parentId: currentParentId.value
+                    })
+                    
+                    if (result) {
+                        callSuccess('收藏夹创建成功')
+                        closeFolderDialog()
+                        // 重置分页并重新加载数据
+                        folderCurrentPage.value = 1
+                        outcomeCurrentPage.value = 1
+                        await loadCurrentLevelData(currentParentId.value)
+                    } else {
+                        callWarning('创建收藏夹失败')
                     }
-                    folders.value.unshift(newFolder)
-                    callSuccess('收藏夹创建成功')
                 }
-                
-                closeFolderDialog()
-            } catch {
-                callWarning('请填写完整信息')
+            } catch (error) {
+                if (error) {
+                    callWarning('请填写完整信息')
+                }
             }
         }
         
@@ -402,128 +468,106 @@ export default {
                     type: 'warning'
                 })
                 
-                const index = folders.value.findIndex(f => f.id === folderId)
-                if (index > -1) {
-                    folders.value.splice(index, 1)
+                const success = await deleteFavorite(folderId)
+                if (success) {
                     callSuccess('收藏夹删除成功')
+                    // 重置分页并重新加载数据
+                    folderCurrentPage.value = 1
+                    outcomeCurrentPage.value = 1
+                    await loadCurrentLevelData(currentParentId.value)
                 }
             } catch {
                 callInfo('已取消删除')
             }
         }
         
-        const openFolder = (folder) => {
-            currentFolder.value = folder
-            currentView.value = 'papers'
-            paperCurrentPage.value = 1
+        // 分页处理
+        const handlePageChange = async (page) => {
+            folderCurrentPage.value = page
+            await loadCurrentLevelData(currentParentId.value)
         }
         
-        const backToFolders = () => {
-            currentView.value = 'folders'
-            currentFolder.value = {}
+        // 收藏夹分页处理
+        const handleFolderPageChange = async (page) => {
+            folderCurrentPage.value = page
+            await loadFolders(currentParentId.value)
         }
         
-        // 文献操作
-        const openAddPaperDialog = () => {
-            paperForm.value = {
-                title: '',
-                authors: '',
-                journal: '',
-                year: '',
-                doi: '',
-                tagsInput: ''
-            }
-            paperDialogVisible.value = true
+        // 文献分页处理
+        const handleOutcomePageChange = async (page) => {
+            outcomeCurrentPage.value = page
+            await loadOutcomes(currentParentId.value)
         }
         
-        const closePaperDialog = () => {
-            paperDialogVisible.value = false
-            paperFormRef.value?.clearValidate()
+        // 跳转到成果详情页
+        const goToOutcomeDetail = (outcomeId) => {
+            router.push(`/outcome-detail/${outcomeId}`)
         }
         
-        const savePaper = async () => {
+        // 移除文献
+        const removeOutcome = async (outcomeId) => {
             try {
-                await paperFormRef.value.validate()
-                
-                const newPaper = {
-                    ...paperForm.value,
-                    id: Date.now(),
-                    tags: paperForm.value.tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag)
-                }
-                delete newPaper.tagsInput
-                
-                currentFolder.value.papers.unshift(newPaper)
-                callSuccess('文献添加成功')
-                closePaperDialog()
-            } catch {
-                callWarning('请填写完整信息')
-            }
-        }
-        
-        const removePaper = async (paperId) => {
-            try {
-                await ElMessageBox.confirm('确定要从收藏夹中移除这篇文献吗？', '确认移除', {
+                await ElMessageBox.confirm('确定要从收藏夹中移除这个文献吗？', '确认移除', {
                     confirmButtonText: '确定',
                     cancelButtonText: '取消',
                     type: 'warning'
                 })
                 
-                const index = currentFolder.value.papers.findIndex(p => p.id === paperId)
-                if (index > -1) {
-                    currentFolder.value.papers.splice(index, 1)
+                const success = await removeOutcomeFromFavorite({
+                    favoriteId: currentParentId.value,
+                    outcomeId: outcomeId
+                })
+                
+                if (success) {
                     callSuccess('文献移除成功')
+                    // 重新加载数据
+                    await loadOutcomes(currentParentId.value)
                 }
             } catch {
                 callInfo('已取消移除')
             }
         }
         
-        const viewPaper = (paper) => {
-            callInfo(`查看文献：${paper.title}`)
-        }
-        
-        // 分页处理
-        const handleFolderPageChange = (page) => {
-            folderCurrentPage.value = page
-        }
-        
-        const handlePaperPageChange = (page) => {
-            paperCurrentPage.value = page
-        }
+        // 组件挂载时加载数据
+        onMounted(() => {
+            loadCurrentLevelData(0)
+        })
         
         return {
-            currentView,
-            currentFolder,
+            currentParentId,
+            breadcrumbList,
             folderCurrentPage,
             folderPageSize,
-            paperCurrentPage,
-            paperPageSize,
             folders,
+            total,
+            loading,
             currentPageFolders,
-            currentPagePapers,
             folderDialogVisible,
-            paperDialogVisible,
             isEditFolder,
             folderFormRef,
-            paperFormRef,
             folderForm,
-            paperForm,
             folderRules,
-            paperRules,
+            navigateToBreadcrumb,
+            backToParentFolder,
+            openFolder,
             openCreateFolderDialog,
             editFolder,
             closeFolderDialog,
             saveFolder,
             deleteFolder,
-            openFolder,
-            backToFolders,
-            openAddPaperDialog,
-            closePaperDialog,
-            savePaper,
-            removePaper,
-            viewPaper,
             handleFolderPageChange,
-            handlePaperPageChange
+            outcomes,
+            outcomesTotal,
+            loadingOutcomes,
+            currentPageOutcomes,
+            outcomeCurrentPage,
+            outcomePageSize,
+            formatType,
+            formatDate,
+            loadOutcomes,
+            removeOutcome,
+            handleOutcomePageChange,
+            goToOutcomeDetail
         }
     }
 }
@@ -544,13 +588,19 @@ export default {
 .card-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 25px;
+    align-items: flex-start;
+    margin-bottom: 10px;
     padding-bottom: 15px;
     border-bottom: 2px solid #f0f2f5;
 }
 
 .header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.header-actions {
     display: flex;
     align-items: center;
     gap: 15px;
@@ -574,6 +624,37 @@ export default {
     margin: 0;
 }
 
+.breadcrumb-container {
+    margin-bottom: 15px;
+    padding: 10px 0;
+}
+
+.breadcrumb {
+    font-family: 'Meiryo', sans-serif;
+    line-height: 1.5;
+}
+
+.breadcrumb .clickable {
+    cursor: pointer;
+    color: #409eff;
+}
+
+.breadcrumb .clickable:hover {
+    color: #66b1ff;
+}
+
+.loading-state {
+    text-align: center;
+    color: #999;
+    padding: 40px;
+    font-size: 14px;
+}
+
+.loading-state .el-icon {
+    margin-right: 8px;
+    font-size: 16px;
+}
+
 .empty-state {
     text-align: center;
     color: #999;
@@ -588,12 +669,112 @@ export default {
     gap: 0px;
 }
 
+/* 文献网格布局 */
+.outcomes-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0px;
+}
+
+/* 文献卡片样式 */
+.outcome-item {
+    display: flex;
+    align-items: center;
+    padding: 20px;
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.outcome-item:hover {
+    border-color: #409eff;
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.outcome-icon {
+    margin-right: 15px;
+    color: #409eff;
+    font-size: 24px;
+}
+
+.outcome-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.outcome-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.outcome-authors {
+    font-size: 14px;
+    color: #606266;
+    margin-bottom: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.outcome-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 12px;
+    color: #909399;
+}
+
+.outcome-type {
+    background-color: #ecf5ff;
+    color: #409eff;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.outcome-journal {
+    font-style: italic;
+}
+
+.outcome-actions {
+    margin-left: 15px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.outcome-item:hover .outcome-actions {
+    opacity: 1;
+}
+
+/* 查看文献按钮样式 */
+.view-outcomes-btn {
+    font-family: 'Meiryo', sans-serif;
+    padding: 8px 12px;
+}
+
+.view-outcomes-btn:hover {
+    background-color: rgba(103, 194, 58, 0.1);
+}
+
+/* 收藏夹卡片样式 */
 .folder-item {
     display: flex;
     align-items: center;
     padding: 20px;
     background-color: #f8f9fa;
     border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 15px;
     cursor: pointer;
     transition: all 0.3s ease;
     position: relative;
@@ -602,6 +783,8 @@ export default {
 .folder-item:hover {
     background-color: #e3f2fd;
     border-color: #409eff;
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+    transform: translateY(-2px);
 }
 
 .folder-icon {
@@ -612,6 +795,7 @@ export default {
 
 .folder-info {
     flex: 1;
+    min-width: 0;
 }
 
 .folder-name {
@@ -643,89 +827,12 @@ export default {
     position: absolute;
     top: 10px;
     right: 10px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
 }
 
-/* 文献列表样式 */
-.papers-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0px;
-}
-
-.paper-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: 20px;
-    background-color: #f8f9fa;
-    border: 1px solid #e9ecef;
-    transition: all 0.3s ease;
-}
-
-.paper-item:hover {
-    background-color: #e3f2fd;
-    border-color: #409eff;
-}
-
-.paper-info {
-    flex: 1;
-    margin-right: 20px;
-}
-
-.paper-title {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 16px;
-    font-weight: bold;
-    color: #2c3e50;
-    margin-bottom: 6px;
-    text-align: left;
-    line-height: 1.3;
-}
-
-.paper-authors {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 6px;
-    text-align: left;
-}
-
-.paper-meta {
-    display: flex;
-    gap: 15px;
-    margin-bottom: 8px;
-    flex-wrap: wrap;
-}
-
-.paper-journal,
-.paper-year,
-.paper-doi {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 12px;
-    color: #8e8e8e;
-}
-
-.paper-tags {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.paper-tag {
-    background-color: rgba(64, 158, 255, 0.1);
-    color: #409eff;
-    padding: 3px 8px;
-    border-radius: 12px;
-    font-size: 11px;
-    font-weight: 500;
-    border: 1px solid rgba(64, 158, 255, 0.3);
-}
-
-.paper-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-end;
+.folder-item:hover .folder-actions {
+    opacity: 1;
 }
 
 /* 分页样式 */
@@ -742,18 +849,33 @@ export default {
     gap: 10px;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-    .paper-item {
-        flex-direction: column;
-        gap: 15px;
-        align-items: flex-start;
-    }
-    
-    .paper-actions {
-        width: 100%;
-        flex-direction: row;
-        align-items: flex-start;
-    }
+/* 分区域样式 */
+.folders-section, .outcomes-section {
+    margin-bottom: 30px;
+}
+
+.section-title {
+    font-family: 'Meiryo', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #f0f2f5;
+    position: relative;
+}
+
+.section-title::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 60px;
+    height: 2px;
+    background-color: #409eff;
+}
+
+.outcomes-section .section-title::after {
+    background-color: #67c23a;
 }
 </style> 
