@@ -72,6 +72,13 @@
                   </el-button>
                 </div>
               </div>
+              <div v-else class="error-container">
+                <el-empty description="研究成果不存在或已被删除"></el-empty>
+                <div class="error-actions">
+                  <p>将在3秒后自动跳转到首页...</p>
+                  <el-button type="primary" @click="goToHome">立即返回首页</el-button>
+                </div>
+              </div>
             </div>
             
             <!-- 摘要卡片 -->
@@ -101,7 +108,7 @@
             </div>
             
             <!-- 链接卡片 -->
-            <div class="section-card links-card" v-if="outcomeData && (outcomeData.url || outcomeData.pdfUrl || outcomeData.arxivId)">
+            <div class="section-card links-card" v-if="outcomeData">
               <div class="card-header">
                 <h3>相关链接</h3>
               </div>
@@ -113,10 +120,23 @@
                       🔗 访问原文
                     </el-button>
                   </div>
-                  <div v-if="outcomeData.pdfUrl" class="link-item">
-                    <span class="link-label">PDF全文</span>
-                    <el-button type="danger" size="small" @click="openUrl(outcomeData.pdfUrl)" plain>
-                      📄 下载原文
+                  <div v-if="outcomeData.url" class="link-item">
+                    <span class="link-label">批注阅读</span>
+                    <el-button type="primary" size="small" @click="goToPdfReader(outcomeData.outcomeId)" plain>
+                      📝 打开阅读器
+                    </el-button>
+                  </div>
+                  <div v-if="!outcomeData.url && !outcomeData.pdfUrl" class="link-item">
+                    <span class="link-label">全文申请</span>
+                    <el-button 
+                      type="warning" 
+                      size="small" 
+                      @click="applyForOutcomeFullText" 
+                      plain
+                      :loading="applyingFullText"
+                      :disabled="hasAppliedFullText"
+                    >
+                      📄 申请查看全文
                     </el-button>
                   </div>
                   <div v-if="outcomeData.arxivId" class="link-item">
@@ -130,7 +150,7 @@
             </div>
             
             <!-- 评论区卡片 -->
-            <div class="section-card comments-card">
+            <div class="section-card comments-card" v-if="outcomeData">
               <div class="card-header">
                 <h3>评论区</h3>
                 <span class="comment-count">({{ totalComments }})</span>
@@ -189,6 +209,17 @@
                           >
                             回复
                           </el-button>
+                          <!-- 删除按钮，只有当评论是用户自己的评论时才显示 -->
+                          <el-button
+                            v-if="currentUserId && comment.userId === currentUserId"
+                            type="text"
+                            @click="deleteComment(comment.commentId)"
+                            size="small"
+                            :loading="deletingCommentId === comment.commentId"
+                            style="color: #F56C6C;"
+                          >
+                            删除
+                          </el-button>
                         </div>
                       </div>
                       <div class="comment-content">
@@ -229,6 +260,18 @@
                                 <div class="comment-time">{{ formatCommentTime(reply.commentedAt) }}</div>
                               </div>
                             </div>
+                            <!-- 二级评论删除按钮 -->
+                            <div class="reply-actions" v-if="currentUserId && reply.userId === currentUserId">
+                              <el-button
+                                type="text"
+                                @click="deleteComment(reply.commentId)"
+                                size="small"
+                                :loading="deletingCommentId === reply.commentId"
+                                style="color: #F56C6C;"
+                              >
+                                删除
+                              </el-button>
+                            </div>
                           </div>
                           <div class="reply-content">
                             {{ reply.comment }}
@@ -256,7 +299,7 @@
           </div>
           
           <!-- 右侧侧边栏 -->
-          <div class="content-right">
+          <div class="content-right" v-if="outcomeData">
             <!-- 成果信息卡片 -->
             <div class="section-card info-sidebar-card">
               <div class="card-header">
@@ -366,8 +409,7 @@
                 <!-- 无作者列表时使用静态数据 -->
                 <div v-else class="authors-list">
                   <div class="author-item">
-                    <div class="author-name">张三</div>
-                    <div class="author-info">北京大学计算机科学与技术学院</div>
+                    <div class="author-name">暂无作者</div>
                   </div>
                 </div>
               </div>
@@ -449,34 +491,121 @@
     <template #footer>
       <span class="dialog-footer">
         <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitEdit" :loading="submittingEdit">保存</el-button>
+        <el-button type="primary" @click="submitEdit" :loading="submittingEdit">
+          保存
+        </el-button>
       </span>
     </template>
   </el-dialog>
   
   <!-- 上传文件对话框 -->
-  <el-dialog title="上传成果全文" v-model="uploadDialogVisible" width="500px">
-    <div class="upload-dialog-content">
-      <el-upload
-        class="upload-demo"
-        drag
-        action="#"
-        :auto-upload="false"
-        :on-change="handleFileChange"
-        :file-list="fileList"
-        accept=".pdf"
-      >
-        <div style="font-size: 48px; margin-bottom: 16px;">📤</div>
-        <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
-        <template #tip>
-          <div class="el-upload__tip">只能上传PDF文件</div>
-        </template>
-      </el-upload>
+  <el-dialog
+    v-model="uploadDialogVisible"
+    title="上传研究成果全文"
+    width="650px"
+    :close-on-click-modal="false"
+  >
+    <div class="upload-form">
+      <el-tabs v-model="uploadActiveTab" :before-change="handleTabChange">
+        <el-tab-pane label="版权与隐私确认" name="terms" class="terms-tab-pane">
+          <div class="terms-container">
+            <h3>版权声明与隐私确认</h3>
+            
+            <div class="terms-section">
+              <h4><i class="el-icon-document"></i> 版权确认条款</h4>
+              <div class="terms-quote">
+                "我确认我有权利公开分享此文档，我理解并同意本网站的上传条件。我保证上传的内容不侵犯任何第三方的版权或其他知识产权。如果我上传的内容包含他人的受版权保护的材料，我已获得必要的许可。"
+              </div>
+            </div>
+            
+            <div class="terms-section">
+              <h4><i class="el-icon-lock"></i> 隐私保护</h4>
+              <ul>
+                <li>用户需确认上传内容不包含任何个人隐私信息或敏感数据</li>
+                <li>对于涉及人类受试者的研究，需确认已获得必要的伦理审查和参与者同意</li>
+              </ul>
+            </div>
+            
+            <div class="terms-section">
+              <h4><i class="el-icon-refresh"></i> 回溯确认</h4>
+              <ul>
+                <li>对于本政策实施前已上传的全文，系统将通知相关用户在30天内完成版权确认</li>
+                <li>未在规定时间内确认的全文将被转为"仅元数据"可见状态</li>
+              </ul>
+            </div>
+            
+            <div class="terms-section">
+              <h4><i class="el-icon-s-claim"></i> 权利与责任</h4>
+              <div class="terms-subsection">
+                <h5>用户权利</h5>
+                <ul>
+                  <li>随时可以撤回已上传的全文（元数据将保留）</li>
+                  <li>可以更新或更正已上传成果的信息</li>
+                </ul>
+              </div>
+              <div class="terms-subsection">
+                <h5>网站权利</h5>
+                <ul>
+                  <li>有权移除任何涉嫌侵权或不符合政策的内容</li>
+                  <li>保留展示成果元数据的权利，即使全文被撤回</li>
+                </ul>
+              </div>
+              <div class="terms-subsection">
+                <h5>免责声明</h5>
+                <ul>
+                  <li>网站不承担用户上传内容引发的版权纠纷责任</li>
+                  <li>用户需自行确保上传内容的合法性和适当性</li>
+                </ul>
+              </div>
+            </div>
+            
+            <div class="terms-section">
+              <h4><i class="el-icon-s-operation"></i> 实施条款</h4>
+              <ol>
+                <li>本条件自发布之日起生效</li>
+                <li>所有用户上传行为视为已阅读并同意本条件</li>
+                <li>网站保留修改本条件的权利，修改后将通过公告通知用户</li>
+              </ol>
+            </div>
+            
+            <div class="terms-agreement">
+              <el-checkbox v-model="termsAgreed">我已阅读并同意上述版权声明与隐私确认条款</el-checkbox>
+            </div>
+          </div>
+        </el-tab-pane>
+        <el-tab-pane label="上传文件" name="upload" :disabled="!termsAgreed">
+          <el-upload
+            class="upload-demo"
+            drag
+            action="#"
+            :auto-upload="false"
+            :limit="1"
+            :file-list="fileList"
+            :on-change="handleFileChange"
+            accept=".pdf"
+          >
+            <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+            <div class="el-upload__text">
+              拖拽文件到此处或 <em>点击上传</em>
+            </div>
+            <template #tip>
+              <div class="el-upload__tip">
+                只能上传PDF文件，且不超过10MB
+              </div>
+            </template>
+          </el-upload>
+        </el-tab-pane>
+      </el-tabs>
     </div>
     <template #footer>
       <span class="dialog-footer">
         <el-button @click="uploadDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="uploadFile" :loading="uploading">上传</el-button>
+        <el-button v-if="uploadActiveTab === 'terms'" type="primary" @click="proceedToUpload" :disabled="!termsAgreed">
+          继续
+        </el-button>
+        <el-button v-else type="primary" @click="uploadFile" :loading="uploading" :disabled="!selectedFile">
+          上传
+        </el-button>
       </span>
     </template>
   </el-dialog>
@@ -484,8 +613,8 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
-import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta, likeOutcome, cancelLikeOutcome, isOutcomeLiked, getOutcomeLikeCount } from '@/api/outcome';
+import { useRoute, useRouter } from 'vue-router';
+import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta, likeOutcome, cancelLikeOutcome, isOutcomeLiked, getOutcomeLikeCount, deleteOutcomeComment, applyForFullText } from '@/api/outcome';
 import { ElMessage } from 'element-plus';
 import store from '@/store';
 
@@ -494,6 +623,7 @@ export default defineComponent({
   
   setup() {
     const route = useRoute();
+    const router = useRouter();
     const loading = ref(true);
     const outcomeData = ref<ResearchOutcomeVO | null>(null);
     
@@ -502,6 +632,8 @@ export default defineComponent({
     const fileList = ref<any[]>([]);
     const selectedFile = ref<File | null>(null);
     const uploading = ref(false);
+    const uploadActiveTab = ref('upload');
+    const termsAgreed = ref(false);
     
     // 编辑成果相关
     const editDialogVisible = ref(false);
@@ -519,6 +651,7 @@ export default defineComponent({
     const currentPage = ref(1);
     const pageSize = ref(10);
     const totalComments = ref(0);
+    const deletingCommentId = ref<number | null>(null); // 正在删除的评论ID
     
     // 获取当前用户信息
     const currentUserId = computed(() => store.state.id || null);
@@ -528,6 +661,10 @@ export default defineComponent({
     const isLiked = ref(false);
     const likingInProgress = ref(false);
     const likeCount = ref(0);
+    
+    // 全文申请相关
+    const applyingFullText = ref(false);
+    const hasAppliedFullText = ref(false);
     
     // 从路由参数获取ID
     const outcomeId = computed(() => {
@@ -751,45 +888,70 @@ export default defineComponent({
           if (data) {
             outcomeData.value = data;
           } else {
-            ElMessage.error('获取研究成果信息失败');
+            outcomeData.value = null;
+            ElMessage.error('研究成果不存在或已被删除，3秒后将自动跳转到首页');
+            // 设置3秒后自动跳转到首页
+            setTimeout(() => {
+              goToHome();
+            }, 3000);
           }
         } else {
-          // 无ID，使用静态数据
-          outcomeData.value = {
-            outcomeId: 1,
-            type: 'article',
-            title: '人工智能在医疗健康领域的应用与挑战',
-            authors: '张三, 李四, 王五',
-            journal: '中国医学科学杂志',
-            volume: 42,
-            issue: 3,
-            pages: 156,
-            publishDate: '2023-05-15',
-            doi: '10.1234/cmj.2023.03.042',
-            url: 'https://example.com/article/42/3/156',
-            patentNumber: '',
-            arxivId: '2305.12345',
-            abstractContent: '本文综述了人工智能技术在医疗健康领域的最新应用进展，分析了面临的挑战与机遇，并对未来发展趋势进行了展望。重点讨论了深度学习、自然语言处理、计算机视觉等技术在疾病诊断、医学影像分析、药物研发、健康管理等方面的应用案例与效果评估。',
-            category: '人工智能、医疗健康',
-            pdfUrl: '',
-            status: '已发表',
-            createTime: '2023-04-10T10:00:00',
-            updateTime: '2023-05-20T14:30:00'
-          };
+          // 无ID，提示错误并跳转
+          outcomeData.value = null;
+          ElMessage.error('未提供成果ID，3秒后将自动跳转到首页');
+          // 设置3秒后自动跳转到首页
+          setTimeout(() => {
+            goToHome();
+          }, 3000);
         }
       } catch (error) {
         console.error('加载研究成果数据失败:', error);
-        ElMessage.error('加载研究成果数据失败');
+        outcomeData.value = null;
+        ElMessage.error('获取研究成果信息出错，3秒后将自动跳转到首页');
+        // 设置3秒后自动跳转到首页
+        setTimeout(() => {
+          goToHome();
+        }, 3000);
       } finally {
         loading.value = false;
       }
     };
     
+    // 跳转到首页
+    const goToHome = () => {
+      router.push('/');
+    };
+    
+    // 跳转到PDF阅读器页面
+    const goToPdfReader = (outcomeId: number) => {
+      router.push(`/pdf-reader/${outcomeId}`);
+    };
+    
     // 显示上传对话框
     const showUploadDialog = () => {
       uploadDialogVisible.value = true;
+      uploadActiveTab.value = 'terms';
       fileList.value = [];
       selectedFile.value = null;
+      termsAgreed.value = false;
+    };
+    
+    // 处理标签页切换
+    const handleTabChange = (activeName: string, oldActiveName: string) => {
+      if (activeName === 'upload' && !termsAgreed.value) {
+        ElMessage.warning('请先阅读并同意版权声明与隐私确认条款');
+        return false;
+      }
+      return true;
+    };
+    
+    // 处理继续按钮
+    const proceedToUpload = () => {
+      if (!termsAgreed.value) {
+        ElMessage.warning('请先阅读并同意版权声明与隐私确认条款');
+        return;
+      }
+      uploadActiveTab.value = 'upload';
     };
     
     // 处理文件选择变化
@@ -952,6 +1114,54 @@ export default defineComponent({
       }
     };
     
+    // 删除评论
+    const deleteComment = async (commentId: number) => {
+      if (!currentUserId.value) {
+        ElMessage.warning('请先登录');
+        return;
+      }
+      
+      deletingCommentId.value = commentId;
+      try {
+        const success = await deleteOutcomeComment(commentId);
+        if (success) {
+          ElMessage.success('评论删除成功');
+          await loadComments();
+        }
+      } catch (error) {
+        console.error('删除评论失败:', error);
+        ElMessage.error('删除评论失败');
+      } finally {
+        deletingCommentId.value = null;
+      }
+    };
+    
+    // 申请查看全文
+    const applyForOutcomeFullText = async () => {
+      if (!currentUserId.value) {
+        ElMessage.warning('请先登录');
+        return;
+      }
+      
+      if (!outcomeData.value || !outcomeData.value.outcomeId) {
+        ElMessage.error('无法获取成果ID，申请失败');
+        return;
+      }
+      
+      applyingFullText.value = true;
+      try {
+        const success = await applyForFullText(outcomeData.value.outcomeId);
+        if (success) {
+          hasAppliedFullText.value = true;
+        }
+      } catch (error) {
+        console.error('申请全文失败:', error);
+        ElMessage.error('申请全文失败');
+      } finally {
+        applyingFullText.value = false;
+      }
+    };
+    
     // 页面加载时获取数据
     onMounted(() => {
       loadOutcomeData();
@@ -974,9 +1184,13 @@ export default defineComponent({
       fileList,
       selectedFile,
       uploading,
+      uploadActiveTab,
+      termsAgreed,
       showUploadDialog,
       handleFileChange,
       uploadFile,
+      handleTabChange,
+      proceedToUpload,
       // 评论相关
       comments,
       loadingComments,
@@ -989,6 +1203,7 @@ export default defineComponent({
       pageSize,
       totalComments,
       currentUserAvatar,
+      currentUserId,
       formatCommentTime,
       submitComment,
       replyToComment,
@@ -1007,7 +1222,17 @@ export default defineComponent({
       likeCount,
       toggleLike,
       checkLikeStatus,
-      loadLikeCount
+      loadLikeCount,
+      // 导航相关
+      goToHome,
+      goToPdfReader,
+      // 删除评论相关
+      deletingCommentId,
+      deleteComment,
+      // 全文申请相关
+      applyingFullText,
+      hasAppliedFullText,
+      applyForOutcomeFullText
     };
   }
 });
@@ -1115,6 +1340,24 @@ export default defineComponent({
 /* 标题卡片特殊样式 */
 .title-card .card-content {
   padding: 32px 24px 24px;
+}
+
+.error-container {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.error-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.error-actions p {
+  color: #606266;
+  font-size: 14px;
 }
 
 .outcome-header {
@@ -1260,6 +1503,11 @@ export default defineComponent({
   font-weight: 500;
   color: #666;
   font-size: 14px;
+}
+
+.link-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 /* 评论区样式 */
@@ -1411,6 +1659,7 @@ export default defineComponent({
 .reply-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 8px;
 }
 
@@ -1421,10 +1670,12 @@ export default defineComponent({
 }
 
 .reply-content {
-  font-size: 13px;
-  line-height: 1.5;
+  margin-left: 40px;
+  padding: 8px 12px;
+  background: #f9f9f9;
+  border-radius: 4px;
+  font-size: 14px;
   color: #333;
-  text-align: left;
 }
 
 .pagination-container {
@@ -1603,6 +1854,145 @@ export default defineComponent({
   padding: 20px 0;
 }
 
+/* 版权条款样式 */
+.terms-container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0 10px;
+  background-color: #ffffff;
+  border-radius: 6px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.terms-container h3 {
+  font-size: 20px;
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+  border-bottom: 1px solid #eaeaea;
+  padding-bottom: 12px;
+  font-weight: 600;
+  position: relative;
+}
+
+.terms-container h3:after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 3px;
+  background: linear-gradient(90deg, #409eff, #67c23a);
+}
+
+.terms-section {
+  margin-bottom: 25px;
+  text-align: left;
+  padding: 0 5px;
+}
+
+.terms-section h4 {
+  font-size: 16px;
+  color: #409eff;
+  margin-bottom: 12px;
+  font-weight: 600;
+  border-left: 4px solid #409eff;
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.terms-section h4 i {
+  margin-right: 8px;
+  font-size: 18px;
+}
+
+.terms-subsection h5 {
+  font-size: 14px;
+  color: #606266;
+  margin: 12px 0 8px;
+  font-weight: 600;
+  border-left: 3px solid #67c23a;
+  padding-left: 8px;
+}
+
+.terms-quote {
+  background-color: #f8f9fa;
+  border-left: 4px solid #409eff;
+  padding: 12px;
+  margin: 10px 0;
+  font-style: italic;
+  color: #606266;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.terms-container ul, .terms-container ol {
+  padding-left: 20px;
+  margin: 10px 0;
+  line-height: 1.6;
+}
+
+.terms-container li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+  color: #606266;
+  position: relative;
+}
+
+.terms-container ul li {
+  list-style-type: none;
+  padding-left: 5px;
+}
+
+.terms-container ul li:before {
+  content: "•";
+  color: #409eff;
+  font-weight: bold;
+  display: inline-block;
+  width: 1em;
+  margin-left: -1em;
+  font-size: 16px;
+}
+
+.terms-container ol li {
+  list-style-type: decimal;
+  padding-left: 5px;
+}
+
+.terms-agreement {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
+  border: 1px dashed #dcdfe6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.terms-agreement:hover {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+}
+
+.terms-agreement .el-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.terms-agreement .el-checkbox__label {
+  font-weight: 500;
+}
+
+.terms-tab-pane {
+  padding: 5px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .main-content {
@@ -1633,5 +2023,23 @@ export default defineComponent({
   .reply-list {
     margin-left: 0;
   }
+}
+
+/* 评论操作样式 */
+.comment-actions, .reply-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.comment-actions .el-button, .reply-actions .el-button {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* 删除按钮悬停效果 */
+.comment-actions .el-button[style*="color: #F56C6C"]:hover,
+.reply-actions .el-button[style*="color: #F56C6C"]:hover {
+  color: #ff4d4f !important;
+  background-color: #fff1f0;
 }
 </style> 

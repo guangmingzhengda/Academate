@@ -34,21 +34,9 @@
                                         {{project.projectDetail.status}}
                                     </span>
                                 </div>
-                                <div class="detail-info">
+                                <div class="detail-info" v-if="project.projectDetail.collaborationRequirement">
                                     <span class="info-label">合作条件：</span>
-                                    <span>{{project.projectDetail.collaborationRequirement || "暂无"}}</span>
-                                </div>
-                                <div class="detail-info" v-if="project.projectDetail.endDate">
-                                    <span class="info-label">结束日期：</span>
-                                    <span>{{formatDate(project.projectDetail.endDate)}}</span>
-                                </div>
-                                <div class="detail-info" v-if="project.projectDetail.budget">
-                                    <span class="info-label">项目预算：</span>
-                                    <span>{{project.projectDetail.budget}}</span>
-                                </div>
-                                <div class="detail-info" v-if="project.projectDetail.institution && project.projectDetail.institution.name">
-                                    <span class="info-label">所属机构：</span>
-                                    <span>{{project.projectDetail.institution.name}}</span>
+                                    <span>{{project.projectDetail.collaborationRequirement}}</span>
                                 </div>
                                 <div class="detail-info" v-if="project.subfield">
                                     <span class="info-label">研究领域：</span>
@@ -66,6 +54,19 @@
                                     {{project.projectDetail.description === "" ? "该项目暂无详细描述" : project.projectDetail.description}}
                                 </div>
                             </div>
+                            <div v-if="project.researchOutcomes && project.researchOutcomes.length > 0" class="info-card">
+                                <div class="info-card-title">研究成果</div>
+                                <div class="info-card-content">
+                                    <div v-for="(outcome, index) in project.researchOutcomes" :key="index" class="outcome-item">
+                                        <div class="outcome-title">{{outcome.title}}</div>
+                                        <div class="outcome-info">
+                                            <span class="outcome-type">{{outcome.type}}</span>
+                                            <span v-if="outcome.authors" class="outcome-authors">作者: {{outcome.authors}}</span>
+                                            <span v-if="outcome.publishDate" class="outcome-date">发布日期: {{formatDate(outcome.publishDate)}}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="info-card">
                                 <div class="info-card-title">评论</div>
                                 <div class="info-card-content">
@@ -81,7 +82,11 @@
                         </div>
                     </div>
                     <div v-else class="error-container">
-                        <el-empty description="未找到该项目或加载失败"></el-empty>
+                        <el-empty description="项目不存在或已被删除"></el-empty>
+                        <div class="error-actions">
+                            <p>将在3秒后自动跳转到首页...</p>
+                            <el-button type="primary" @click="goToHome">立即返回首页</el-button>
+                        </div>
                     </div>
                 </div>
             </el-col>
@@ -111,6 +116,7 @@ import {callInfo, callSuccess, callError} from "@/call";
 import store from "@/store";
 import NavButton from "@/nav/navButton/index.vue";
 import homeBottom from "@/page/home/component/homeBottom/index.vue";
+import {applyJoinProject} from "@/api/project";
 
 export default {
     name: "project-detail",
@@ -119,43 +125,8 @@ export default {
         return {
             userId: 0,
             loading: true,
-            project: {
-                projectDetail: {
-                    projectId: 1,
-                    title: "人工智能在医疗诊断中的应用研究",
-                    description: "本项目旨在研究人工智能技术在医疗诊断领域的应用，通过深度学习算法提高疾病诊断的准确性和效率。项目将收集大量医疗影像数据，训练AI模型，并验证其在临床实践中的有效性。",
-                    startDate: "2024-01-01",
-                    status: "进行中"
-                },
-                researcherList: [
-                    {
-                        id: 1,
-                        name: "张三",
-                        role: "项目负责人",
-                        institution: "清华大学医学院"
-                    },
-                    {
-                        id: 2,
-                        name: "李四",
-                        role: "技术专家",
-                        institution: "清华大学计算机系"
-                    },
-                    {
-                        id: 3,
-                        name: "王五",
-                        role: "临床专家",
-                        institution: "北京协和医院"
-                    }
-                ],
-                subfield: "人工智能与医疗健康",
-                stats: {
-                    visitCount: 156,
-                    comments: 10,
-                    favorites: 5,
-                    memberCount: 15
-                }
-            },
-            role: "creator", // 设置默认值，避免空值
+            project: null,  // 初始化为null，不再设置默认值
+            role: "visitor", // 设置默认值为visitor
         };
     },
     mounted() {
@@ -188,11 +159,8 @@ export default {
                                 title: projectData.title || "未命名项目",
                                 description: projectData.description || "",
                                 startDate: projectData.startDate || "",
-                                endDate: projectData.endDate || "",
-                                collaborationRequirement: projectData.collaborationRequirement || "",
                                 status: projectData.status || "未知",
-                                budget: projectData.budget || "",
-                                institution: projectData.institution || { name: "" }
+                                collaborationRequirement: projectData.collaborationRequirement || "",
                             },
                             userDetail: projectData.userDetail || null,
                             researcherList: Array.isArray(projectData.researcherList) ? projectData.researcherList : [],
@@ -208,27 +176,68 @@ export default {
                         
                         console.log("处理后的项目数据:", JSON.stringify(this.project));
                     } else {
-                        callInfo("获取项目信息失败，将显示默认数据");
+                        this.project = null; // 确保项目数据为null
+                        callError("项目不存在或已被删除，3秒后将自动跳转到首页");
                         console.warn("API响应无效:", res);
+                        // 设置3秒后自动跳转到首页
+                        setTimeout(() => {
+                            this.goToHome();
+                        }, 3000);
                     }
                 } else {
+                    this.project = null; // 确保项目数据为null
                     console.warn("未提供项目ID");
+                    callError("未提供项目ID，3秒后将自动跳转到首页");
+                    // 设置3秒后自动跳转到首页
+                    setTimeout(() => {
+                        this.goToHome();
+                    }, 3000);
                 }
             } catch (error) {
+                this.project = null; // 确保项目数据为null
                 console.error("获取项目详情出错:", error);
-                callError("获取项目信息出错，将显示默认数据");
+                callError("获取项目信息出错，3秒后将自动跳转到首页");
+                // 设置3秒后自动跳转到首页
+                setTimeout(() => {
+                    this.goToHome();
+                }, 3000);
             } finally {
                 this.loading = false;
                 console.log("项目详情页面初始化完成");
             }
         },
-        applyToJoin() {
-            // 在实际场景中，这里会触发API调用
-            callSuccess('您的加入申请已发送，请等待项目创建者批准。');
+        async applyToJoin() {
+            try {
+                const projectId = this.$route.params.id;
+                const userId = this.userId;
+                const projectTitle = this.project?.projectDetail?.title || "未命名项目";
+                console.log(projectId, userId, projectTitle);
+                if (!projectId || !userId) {
+                    callError('申请失败：缺少项目ID或用户ID');
+                    return;
+                }
+                
+                const result = await applyJoinProject({
+                    applicant: userId,
+                    projectId: Number(projectId),
+                    title: projectTitle
+                });
+                
+                if (result && result.code === 0) {
+                    // 申请成功的消息已在API中显示
+                    console.log('申请加入项目成功');
+                }
+            } catch (error) {
+                console.error('申请加入项目出错:', error);
+                callError('申请加入项目失败，请稍后重试');
+            }
         },
         pullProjectData() {
             console.log("调用getProjectDetail API");
             return getProjectDetail(this.$route.params.id);
+        },
+        goToHome() {
+            this.$router.push('/');
         },
     },
     setup() {
@@ -322,6 +331,17 @@ export default {
 .error-container {
     padding: 40px 0;
     text-align: center;
+}
+.error-actions {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+.error-actions p {
+    color: #606266;
+    font-size: 14px;
 }
 .header-container {
     background: #fff;
@@ -521,6 +541,46 @@ export default {
     font-size: 1rem;
     color: #495057;
     line-height: 1.5;
+}
+
+.outcome-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #fafafa;
+    transition: box-shadow 0.3s ease;
+}
+
+.outcome-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.outcome-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #343a40;
+    margin-bottom: 5px;
+}
+
+.outcome-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.outcome-type {
+    background-color: #e3f2fd;
+    color: #1976d2;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.outcome-authors {
+    font-style: italic;
 }
 
 .info-card {

@@ -55,39 +55,23 @@
                                 <!-- 机构名称 -->
                                 <div class="filter-item">
                                     <label class="filter-label">所在机构</label>
-                                    <el-select
+                                    <el-input
                                         v-model="searchFilters.institution"
-                                        placeholder="选择或输入机构名称"
-                                        filterable
+                                        placeholder="请输入机构名称"
                                         clearable
-                                        @change="searchResearchers"
-                                    >
-                                        <el-option
-                                            v-for="org in organizations.slice(0, 5)"
-                                            :key="org"
-                                            :label="org"
-                                            :value="org"
-                                        />
-                                    </el-select>
+                                        @input="searchResearchers"
+                                    />
                                 </div>
 
                                 <!-- 研究领域 -->
                                 <div class="filter-item">
                                     <label class="filter-label">研究领域</label>
-                                    <el-select
+                                    <el-input
                                         v-model="searchFilters.field"
-                                        placeholder="选择或输入研究领域"
+                                        placeholder="请输入研究领域"
                                         clearable
-                                        filterable
-                                        @change="searchResearchers"
-                                    >
-                                        <el-option
-                                            v-for="field in researchFields.slice(0, 5)"
-                                            :key="field"
-                                            :label="field"
-                                            :value="field"
-                                        />
-                                    </el-select>
+                                        @input="searchResearchers"
+                                    />
                                 </div>
 
 
@@ -308,10 +292,6 @@ export default {
         const selectedResearcher = ref(null)
         const messageContent = ref('')
 
-        // 筛选选项数据 - 从搜索结果中动态获取
-        const organizations = ref([])
-        const researchFields = ref([])
-
         // 科研人员数据
         const researchers = ref([])
         const loading = ref(false)
@@ -358,7 +338,6 @@ export default {
                         isFollowing: followedUserIds.value.has(user.id)
                     }))
                     total.value = result.total
-                    updateFilterOptions(result.list)
                 } else {
                     researchers.value = []
                     total.value = 0
@@ -371,27 +350,6 @@ export default {
             } finally {
                 loading.value = false
             }
-        }
-
-        // 更新筛选选项
-        const updateFilterOptions = (researcherList) => {
-            // 提取机构列表
-            const orgSet = new Set()
-            researcherList.forEach(researcher => {
-                if (researcher.institution) {
-                    orgSet.add(researcher.institution)
-                }
-            })
-            organizations.value = Array.from(orgSet).sort()
-
-            // 提取研究领域列表
-            const fieldSet = new Set()
-            researcherList.forEach(researcher => {
-                if (researcher.field) {
-                    fieldSet.add(researcher.field)
-                }
-            })
-            researchFields.value = Array.from(fieldSet).sort()
         }
 
         // 搜索科研人员
@@ -489,8 +447,6 @@ export default {
             messageDialogVisible,
             selectedResearcher,
             messageContent,
-            organizations,
-            researchFields,
             researchers,
             loading,
             searchResearchers,

@@ -202,6 +202,11 @@
                             <div v-if="activeTab === 'library'" class="tab-panel">
                                 <library-manager />
                             </div>
+                            
+                            <!-- 技术趋势报告 -->
+                            <div v-if="activeTab === 'reports'" class="tab-panel">
+                                <report-manager />
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -316,6 +321,7 @@ import projectManager from './components/projectManager/index.vue'
 import achievementManager from './components/achievementManager/index.vue'
 import followManager from './components/followManager/index.vue'
 import libraryManager from './components/libraryManager/index.vue'
+import reportManager from './components/reportManager/index.vue'
 import { callSuccess, callInfo, callError } from '@/call'
 import { ElMessage } from 'element-plus'
 import { get_user_detail, upload_user_avatar, update_user_info, get_user_projects } from '@/api/profile'
@@ -329,7 +335,8 @@ export default {
         projectManager,
         achievementManager,
         followManager,
-        libraryManager
+        libraryManager,
+        reportManager
     },
     setup() {
         const route = useRoute();
@@ -522,7 +529,8 @@ export default {
             { key: 'projects', label: '项目/学术成果' },
             { key: 'following', label: '关注列表' },
             { key: 'followers', label: '被关注列表' },
-            { key: 'library', label: '文献库' }
+            { key: 'library', label: '文献库' },
+            { key: 'reports', label: '技术趋势报告' }
         ]
 
         // 头像错误处理
