@@ -288,7 +288,11 @@
                                 </el-dialog>
                             </div>
                             <div v-else class="error-container">
-                                <el-empty description="未找到该问题或加载失败"></el-empty>
+                                <el-empty description="问题不存在或已被删除"></el-empty>
+                                <div class="error-actions">
+                                    <p>将在3秒后自动跳转到首页...</p>
+                                    <el-button type="primary" @click="goToHome">立即返回首页</el-button>
+                                </div>
                             </div>
                         </div>
                     </el-col>
@@ -374,89 +378,48 @@ export default defineComponent({
             try {
                 if (questionId.value) {
                     const data = await getQuestionDetail(questionId.value);
-                                    if (data) {
-                    // 为每个回答添加点赞加载状态属性
-                    const processAnswers = (answers) => {
-                        if (!answers) return [];
-                        return answers.map(answer => {
-                            const processed = { ...answer, likeLoading: false };
-                            if (processed.children && processed.children.length > 0) {
-                                processed.children = processAnswers(processed.children);
-                            }
-                            return processed;
-                        });
-                    };
-                    
-                    data.answers = processAnswers(data.answers);
-                    questionData.value = data;
-                    
-                    // 加载问题点赞状态
-                    await loadQuestionLikeStatus();
-                } else {
-                        ElMessage.error('获取问题详情失败');
+                    if (data) {
+                        // 为每个回答添加点赞加载状态属性
+                        const processAnswers = (answers) => {
+                            if (!answers) return [];
+                            return answers.map(answer => {
+                                const processed = { ...answer, likeLoading: false };
+                                if (processed.children && processed.children.length > 0) {
+                                    processed.children = processAnswers(processed.children);
+                                }
+                                return processed;
+                            });
+                        };
+                        
+                        data.answers = processAnswers(data.answers);
+                        questionData.value = data;
+                        
+                        // 加载问题点赞状态
+                        await loadQuestionLikeStatus();
+                    } else {
+                        questionData.value = null;
+                        // 不再显示弹窗提示，只保留页面内的提示
+                        // 设置3秒后自动跳转到首页
+                        setTimeout(() => {
+                            goToHome();
+                        }, 3000);
                     }
                 } else {
-                    // 没有问题ID时使用静态数据
-                    questionData.value = {
-                                                                questionId: 1,
-                                        questionTitle: "前端开发中如何优化性能？",
-                                        questionDescription: "我正在开发一个复杂的单页应用，随着功能增加，页面加载变得越来越慢。请问有哪些有效的前端性能优化策略？",
-                                        askedAt: "2024-07-02T15:30:00",
-                                        userId: 10,
-                                        userName: "技术爱好者",
-                                        userAvatar: null,
-                                        answers: [
-                                            {
-                                                answerId: 101,
-                                                questionId: 1,
-                                                answerText: "优化资源加载是关键，可以使用懒加载、代码分割、图片压缩等技术。此外，减少DOM操作、避免重排重绘也很重要。",
-                                                answeredAt: "2024-07-02T16:15:00",
-                                                userId: 15,
-                                                userName: "前端专家",
-                                                userAvatar: null,
-                                                layer: 1,
-                                                parentAnswer: null,
-                                                likeCount: 12,
-                                                isLiked: false,
-                                                likeLoading: false
-                                            },
-                            {
-                                answerId: 102,
-                                questionId: 1,
-                                answerText: "可以考虑使用Web Workers处理复杂计算，防止主线程阻塞。合理使用缓存策略也能大幅提升性能。",
-                                answeredAt: "2024-07-02T17:20:00",
-                                userId: 22,
-                                userName: "性能优化达人",
-                                userAvatar: null,
-                                layer: 1,
-                                                                                parentAnswer: null,
-                                                likeCount: 8,
-                                                isLiked: false,
-                                                likeLoading: false
-                            },
-                            {
-                                answerId: 103,
-                                questionId: 1,
-                                answerText: "完全同意，另外也可以考虑使用SSR或预渲染技术。",
-                                answeredAt: "2024-07-02T18:05:00",
-                                userId: 18,
-                                userName: "Vue爱好者",
-                                userAvatar: null,
-                                layer: 2,
-                                                                                parentAnswer: 101,
-                                                likeCount: 5,
-                                                isLiked: false,
-                                                likeLoading: false
-                            }
-                        ],
-                        answerCount: 3,
-                        likeCount: 15,
-                        isLiked: false
-                    };
+                    questionData.value = null;
+                    // 不再显示弹窗提示，只保留页面内的提示
+                    // 设置3秒后自动跳转到首页
+                    setTimeout(() => {
+                        goToHome();
+                    }, 3000);
                 }
             } catch (error) {
                 console.error('获取问题详情失败:', error);
-                ElMessage.error('获取问题详情失败');
+                questionData.value = null;
+                // 不再显示弹窗提示，只保留页面内的提示
+                // 设置3秒后自动跳转到首页
+                setTimeout(() => {
+                    goToHome();
+                }, 3000);
             } finally {
                 loading.value = false;
             }
@@ -731,6 +694,11 @@ export default defineComponent({
             }
         };
         
+        // 跳转到首页
+        const goToHome = () => {
+            router.push('/');
+        };
+        
         return {
             questionId,
             questionData,
@@ -760,7 +728,9 @@ export default defineComponent({
             questionLiked,
             questionLikeCount,
             questionLikeLoading,
-            handleQuestionLike
+            handleQuestionLike,
+            // 新增
+            goToHome
         };
     }
 })
@@ -1067,6 +1037,19 @@ export default defineComponent({
 .error-container {
     padding: 40px 0;
     text-align: center;
+}
+
+.error-actions {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+}
+
+.error-actions p {
+    color: #606266;
+    font-size: 14px;
 }
 
 /* 采纳标识样式 */

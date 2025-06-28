@@ -304,3 +304,76 @@ export async function get_all_projects(data: {
         return null;
     }
 }
+
+// 项目申请请求接口
+export interface ProjectApplyRequest {
+  /* 申请人ID */
+  applicant?: number;
+  
+  /* 项目ID */
+  projectId?: number;
+  
+  /* 项目标题 */
+  title?: string;
+}
+
+// 基础响应接口
+export interface BaseResponse {
+  /* 响应码 */
+  code: number;
+  
+  /* 响应数据 */
+  data: any;
+  
+  /* 响应消息 */
+  message: string;
+}
+
+/**
+ * 申请加入项目
+ * @param {object} params ProjectApplyRequest
+ * @param {number} params.applicant 申请人ID
+ * @param {number} params.projectId 项目ID
+ * @param {string} params.title 项目标题
+ * @returns Promise<BaseResponse> 申请结果
+ */
+export async function applyJoinProject(params: ProjectApplyRequest): Promise<BaseResponse> {
+  try {
+    console.log('申请加入项目请求数据:', params);
+    
+    const response = await axios.post('/project/application', params);
+    
+    console.log('申请加入项目响应:', response.data);
+    
+    if (response.status === 200) {
+      if (response.data.code === 0) {
+        callSuccess('申请已发送，请等待项目创建者审核');
+        return response.data;
+      } else {
+        callError(response.data.message || '申请加入项目失败');
+        return response.data;
+      }
+    } else {
+      callError('网络错误');
+      return {
+        code: -1,
+        data: null,
+        message: '网络错误'
+      };
+    }
+  } catch (error: any) {
+    console.error('申请加入项目错误:', error);
+    if (error.response) {
+      callError(error.response.data?.message || '申请失败');
+    } else if (error.request) {
+      callError('网络连接错误');
+    } else {
+      callError('申请失败，请重试');
+    }
+    return {
+      code: -1,
+      data: null,
+      message: error.message || '申请加入项目失败'
+    };
+  }
+}

@@ -153,7 +153,7 @@ import {callInfo, callSuccess} from "@/call";
 import store from "@/store";
 import {ElMessage} from "element-plus";
 import { searchUsers } from "@/api/search";
-import { invite } from "@/api/project";
+import { invite, applyJoinProject } from "@/api/project";
 import { addProjectComment, getProjectInvitations, cancelProjectInvitation } from "@/page/project-detail/api/api";
 import { get_user_detail } from "@/api/profile";
 
@@ -345,9 +345,39 @@ export default {
             }
         }
         
-        function applyJoin() {
-            callSuccess("成功发送申请，请等待项目负责人审核");
-            loginVisible.value = false;
+        async function applyJoin() {
+            try {
+                const userId = store.getters.getId;
+                if (!userId) {
+                    ElMessage.error("请先登录");
+                    return;
+                }
+                
+                const projectId = props.work?.projectDetail?.projectId || props.work?.projectDetail?.id;
+                if (!projectId) {
+                    ElMessage.error("项目ID不存在");
+                    return;
+                }
+                
+                const title = props.work?.projectDetail?.title || '';
+                
+                console.log(projectId, userId, title);
+                
+                const result = await applyJoinProject({
+                    applicant: userId,
+                    projectId: Number(projectId),
+                    title: title
+                });
+                
+                if (result && result.code === 0) {
+                    // 申请成功的消息已在API中显示
+                    console.log('申请加入项目成功');
+                    loginVisible.value = false;
+                }
+            } catch (error) {
+                console.error('申请加入项目出错:', error);
+                ElMessage.error('申请加入项目失败，请稍后重试');
+            }
         }
         
         async function openInviteList() {
