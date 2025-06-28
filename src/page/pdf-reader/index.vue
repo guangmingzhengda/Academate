@@ -1,7 +1,27 @@
 <template>
     <div class="bg-container"/>
     
-    <div class="pdf-reader-container">
+    <!-- 成果标题区域 -->
+    <div class="outcome-header" v-if="outcomeInfo">
+        <div class="outcome-title">
+            <h2>{{ outcomeInfo.title }}</h2>
+            <div class="outcome-meta">
+                <span class="outcome-authors">作者：{{ outcomeInfo.authors }}</span>
+                <span class="outcome-date" v-if="outcomeInfo.publishDate">发布时间：{{ outcomeInfo.publishDate }}</span>
+                <span class="outcome-journal" v-if="outcomeInfo.journal">期刊：{{ outcomeInfo.journal }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 加载动画 -->
+    <div class="loading-container" v-if="isLoading">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p class="loading-text">{{ loadingText }}</p>
+        </div>
+    </div>
+    
+    <div class="pdf-reader-container" v-show="!isLoading">
         <!-- 主要内容区域 -->
         <div class="main-content">
             <!-- 工具栏组件 -->
@@ -13,7 +33,7 @@
                 :annotation-mode="annotationMode"
                 :highlight-color="highlightColor"
                 :draw-color="drawColor"
-                @file-upload="handleFileUpload"
+                :show-upload="false"
                 @zoom-in="zoomIn"
                 @zoom-out="zoomOut"
                 @reset-zoom="resetZoom"
@@ -59,7 +79,7 @@
                         />
                     </template>
                 </pdf-viewer>
-                                    </div>
+            </div>
                                     
             <!-- 批注对话框组件 -->
             <note-dialog
@@ -76,7 +96,10 @@
 
 <script>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { callSuccess, callError, callInfo } from '@/call'
+// 导入成果API
+import { getResearchOutcomeById } from '@/api/outcome'
 // 导入组件
 import PdfToolbar from './components/pdfToolbar/index.vue'
 import PdfViewer from './components/pdfViewer/index.vue'
@@ -131,8 +154,6 @@ const loadPDFJS = async () => {
     return pdfjsLib
 }
 
-
-
 export default {
     name: 'PdfReader',
     components: {
@@ -142,6 +163,103 @@ export default {
         NoteDialog
     },
     setup() {
+        const route = useRoute()
+        
+        // 加载状态
+        const isLoading = ref(true)
+        const loadingText = ref('正在加载PDF阅读器...')
+        
+        // 成果信息
+        const outcomeInfo = ref(null)
+        const outcomeId = ref(null)
+
+        // 从路由获取PDF并加载成果信息
+        const loadOutcomeAndPDF = async () => {
+            try {
+                // 从路由参数获取ID
+                const id = route.params.id
+                if (!id) {
+                    callError('缺少成果ID参数')
+                    isLoading.value = false
+                    return
+                }
+                
+                outcomeId.value = Number(id)
+                loadingText.value = '正在获取成果信息...'
+                
+                // 获取成果信息
+                const outcome = await getResearchOutcomeById(outcomeId.value)
+                if (!outcome) {
+                    callError('无法获取成果信息')
+                    isLoading.value = false
+                    return
+                }
+                
+                outcomeInfo.value = outcome
+                console.log('成果信息获取成功:', outcome)
+                
+                // 更新PDF信息
+                currentPdfInfo.value = {
+                    fileName: outcome.title + '.pdf',
+                    fileSize: 0, // 待下载后更新
+                    totalPages: 0, // 待PDF加载后更新
+                    fileHash: persistenceManager.generateFileHash(outcome.title + '.pdf', outcomeId.value)
+                }
+                
+                // 检查是否有PDF链接
+                if (!outcome.url) {
+                    callError('该成果暂无PDF文件')
+                    isLoading.value = false
+                    return
+                }
+                
+                loadingText.value = '正在下载PDF文件...'
+                
+                // 构建代理URL，避免CORS问题
+                let proxyUrl = outcome.url
+                
+                // 如果是阿里云OSS的完整URL，转换为代理路径
+                if (outcome.url.includes('chkbigevent.oss-cn-beijing.aliyuncs.com')) {
+                    const urlPath = outcome.url.replace('https://chkbigevent.oss-cn-beijing.aliyuncs.com', '')
+                    proxyUrl = `/postFile${urlPath}`
+                } else if (!outcome.url.startsWith('/postFile')) {
+                    // 如果是相对路径，添加代理前缀
+                    proxyUrl = `/postFile/${outcome.url.replace(/^\/+/, '')}`
+                }
+                
+                console.log('原始URL:', outcome.url)
+                console.log('代理URL:', proxyUrl)
+                
+                // 通过代理下载PDF文件
+                const response = await fetch(proxyUrl)
+                if (!response.ok) {
+                    throw new Error(`PDF下载失败: ${response.status} ${response.statusText}`)
+                }
+                
+                loadingText.value = '正在解析PDF文件...'
+                
+                // 获取PDF数据
+                const arrayBuffer = await response.arrayBuffer()
+                const typedArray = new Uint8Array(arrayBuffer)
+                
+                // 更新文件大小
+                currentPdfInfo.value.fileSize = arrayBuffer.byteLength
+                
+                console.log('PDF下载完成，大小:', arrayBuffer.byteLength, 'bytes')
+                
+                // 加载PDF
+                await loadPDF(typedArray)
+                
+                isLoading.value = false
+                callSuccess('PDF文档加载成功')
+                
+            } catch (error) {
+                console.error('加载PDF失败:', error)
+                callError('PDF文档加载失败: ' + error.message)
+                isLoading.value = false
+            }
+        }
+
         // 键盘快捷键处理
         const handleKeyPress = (event) => {
             if (pdfDocument.value) {
@@ -181,16 +299,6 @@ export default {
         // 在组件挂载时初始化
         onMounted(async () => {
             console.log('PDF阅读器组件已挂载')
-            console.log('页面可见性检查:', {
-                document: !!document,
-                body: !!document.body,
-                windowInnerHeight: window.innerHeight,
-                windowInnerWidth: window.innerWidth
-            })
-            console.log('DOM元素检查:', {
-                pdfContainer: !!pdfContainer.value,
-                uploadRef: !!uploadRef.value
-            })
             
             // 添加键盘事件监听
             document.addEventListener('keydown', handleKeyPress)
@@ -205,17 +313,6 @@ export default {
                 clearInterval(autoSaveInterval)
             })
             
-            // 检查组件是否在DOM中
-            setTimeout(() => {
-                const container = document.querySelector('.pdf-reader-container')
-                console.log('容器元素检查:', {
-                    container: !!container,
-                    offsetHeight: container?.offsetHeight || 'not found',
-                    offsetWidth: container?.offsetWidth || 'not found',
-                    computedStyle: container ? window.getComputedStyle(container).display : 'not found'
-                })
-            }, 100)
-            
             try {
                 console.log('开始加载PDF.js...')
                 
@@ -229,16 +326,13 @@ export default {
                     getDocument: typeof pdfjs.getDocument
                 })
                 
-                // 显示加载成功消息
-                callSuccess('PDF阅读器初始化完成，请上传PDF文件')
+                // 初始化完成后，加载成果信息和PDF
+                await loadOutcomeAndPDF()
                 
-                // 添加功能说明（方便用户使用）
-                setTimeout(() => {
-                    callInfo('使用说明：上传PDF后，点击工具栏的"高亮"、"批注"、"绘制"按钮进行标注')
-                }, 3000)
             } catch (error) {
-                console.error('PDF.js加载失败:', error)
-                callError('PDF.js加载失败: ' + error.message)
+                console.error('PDF阅读器初始化失败:', error)
+                callError('PDF阅读器初始化失败: ' + error.message)
+                isLoading.value = false
             }
         })
         
@@ -924,57 +1018,7 @@ export default {
         
 
 
-        // 文件上传处理
-        const handleFileUpload = (uploadFile, uploadFiles) => {
-            console.log('开始处理文件:', uploadFile)
-            console.log('文件信息:', {
-                name: uploadFile.name,
-                size: uploadFile.size,
-                type: uploadFile.raw?.type
-            })
-            
-            const file = uploadFile.raw
-            if (!file) {
-                callError('无法获取文件数据')
-                return
-            }
-            
-            if (file.type !== 'application/pdf') {
-                callError('请选择PDF文件')
-                return
-            }
-            
-            // 更新PDF信息
-            currentPdfInfo.value = {
-                fileName: file.name,
-                fileSize: file.size,
-                totalPages: 0, // 稍后在PDF加载成功后更新
-                fileHash: ''   // 稍后生成
-            }
-            
-            callInfo('正在加载PDF文件...')
-            
-            const reader = new FileReader()
-            reader.onload = async (e) => {
-                try {
-                    console.log('文件读取完成，开始解析PDF')
-                    const typedArray = new Uint8Array(e.target.result)
-                    console.log('PDF数据大小:', typedArray.length)
-                    await loadPDF(typedArray)
-                    callSuccess('PDF文件加载成功')
-                } catch (error) {
-                    console.error('PDF加载失败:', error)
-                    callError('PDF文件加载失败: ' + error.message)
-                }
-            }
-            
-            reader.onerror = (error) => {
-                console.error('文件读取失败:', error)
-                callError('文件读取失败')
-            }
-            
-            reader.readAsArrayBuffer(file)
-        }
+
 
         // 加载PDF
         const loadPDF = async (data) => {
@@ -1533,7 +1577,7 @@ export default {
                 width: highlight.width + 'px',
                 height: highlight.height + 'px',
                 backgroundColor: color,
-                opacity: '0.3',
+                opacity: '0.15',
                 border: 'none'
             }
         }
@@ -2349,6 +2393,14 @@ export default {
             uploadRef,
             pdfContainer,
             
+            // 加载状态
+            isLoading,
+            loadingText,
+            
+            // 成果数据
+            outcomeInfo,
+            outcomeId,
+            
             // 数据
             pdfDocument,
             currentPage,
@@ -2367,7 +2419,7 @@ export default {
             currentEditingAnnotation,
             
             // 方法
-            handleFileUpload,
+            loadOutcomeAndPDF,
             zoomIn,
             zoomOut,
             resetZoom,
@@ -2464,9 +2516,93 @@ export default {
     background-size: cover;
 }
 
+/* 成果标题区域 */
+.outcome-header {
+    margin-top: 100px;
+    padding: 20px 15px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.outcome-title h2 {
+    margin: 0 0 12px 0;
+    color: #2c3e50;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.outcome-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 20px;
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.outcome-meta span {
+    display: flex;
+    align-items: center;
+}
+
+/* 加载动画容器 */
+.loading-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 40px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    max-width: 300px;
+}
+
+/* 旋转动画 */
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #e3f2fd;
+    border-top: 4px solid #2196f3;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 16px;
+    font-weight: 500;
+}
+
 .pdf-reader-container {
     min-height: 100vh;
-    margin-top: 100px;
+    margin-top: 20px;
     display: flex;
     justify-content: center;
     width: 100%;
@@ -2481,7 +2617,7 @@ export default {
     width: 100%;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 0;
     min-height: calc(100vh - 120px);
 }
 
@@ -2492,20 +2628,55 @@ export default {
     display: flex;
     gap: 15px;
     min-height: calc(100vh - 300px);
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    margin-top: 0;
 }
-
-
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+    .outcome-header {
+        margin-top: 80px;
+        padding: 15px 10px;
+        margin-bottom: 15px;
+    }
+    
+    .outcome-title h2 {
+        font-size: 20px;
+    }
+    
+    .outcome-meta {
+        gap: 12px;
+        font-size: 13px;
+        flex-direction: column;
+    }
+    
     .pdf-reader-container {
         padding: 0 10px;
-        margin-top: 80px;
+        margin-top: 15px;
     }
     
     .pdf-container {
         gap: 10px;
         min-height: calc(100vh - 200px);
+        padding: 15px;
+    }
+    
+    .loading-spinner {
+        padding: 30px 20px;
+        max-width: 280px;
+    }
+    
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border-width: 3px;
+    }
+    
+    .loading-text {
+        font-size: 14px;
     }
 }
 </style>

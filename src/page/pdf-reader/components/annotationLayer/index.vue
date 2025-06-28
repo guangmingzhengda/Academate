@@ -116,7 +116,7 @@ export default {
                 width: highlight.width + 'px',
                 height: highlight.height + 'px',
                 backgroundColor: color,
-                opacity: '0.3',
+                opacity: '0.15',
                 border: 'none'
             }
         }

@@ -1,6 +1,6 @@
 <template>
     <div class="toolbar-card">
-        <div class="toolbar-left">
+        <div class="toolbar-left" v-if="showUpload">
             <el-upload
                 ref="uploadRef"
                 :show-file-list="false"
@@ -125,7 +125,11 @@ export default {
         scale: Number,
         annotationMode: String,
         highlightColor: String,
-        drawColor: String
+        drawColor: String,
+        showUpload: {
+            type: Boolean,
+            default: true
+        }
     },
     setup(props, { emit }) {
         const handleFileUpload = (uploadFile, uploadFiles) => {
@@ -149,18 +153,13 @@ export default {
 <style scoped>
 .toolbar-card {
     background-color: rgba(255, 255, 255, 0.95);
-    border-radius: 0;
+    border-radius: 12px 12px 0 0;
     padding: 20px 30px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.toolbar-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    margin-bottom: 0;
 }
 
 .toolbar-left,
@@ -282,6 +281,7 @@ export default {
         flex-wrap: wrap;
         gap: 12px;
         padding: 15px 20px;
+        border-radius: 12px 12px 0 0;
     }
     
     .control-group {
@@ -295,6 +295,7 @@ export default {
         flex-direction: column;
         align-items: stretch;
         gap: 15px;
+        border-radius: 12px 12px 0 0;
     }
     
     .toolbar-left,

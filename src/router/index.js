@@ -105,7 +105,7 @@ const router = createRouter({
 
         // PDF阅读器
         {
-            path: '/pdf-reader',
+            path: '/pdf-reader/:id?',
             name: 'pdf-reader',
             component: defineAsyncComponent(() => import(`../page/pdf-reader/index.vue`)),
             meta: {
