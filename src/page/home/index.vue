@@ -79,6 +79,19 @@
                     <div class="section-card">
                         <div class="card-header">
                             <h3>文献阅读</h3>
+                            <div class="search-controls">
+                                <el-input
+                                    v-model="achievementSearchKeyword"
+                                    placeholder="搜索标题、作者或期刊..."
+                                    style="width: 300px;"
+                                    clearable
+                                    @input="handleAchievementSearch"
+                                >
+                                    <template #prefix>
+                                        <el-icon><Search /></el-icon>
+                                    </template>
+                                </el-input>
+                            </div>
                         </div>
                         
                         <div class="card-content">
@@ -160,12 +173,14 @@
 
 import {onMounted, ref, computed} from "vue";
 import { useRouter } from 'vue-router';
+import { Search } from '@element-plus/icons-vue';
 import fadeBox from "@/page/home/component/fadeBox/index.vue";
 import logo from "@/page/home/component/logo/index.vue"
 import homeBottom from "@/page/home/component/homeBottom/index.vue"
 import leftPin from "@/page/home/component/leftPin/index.vue";
 import { getAllOutcomes, ResourceOutcomeSearchVO } from "@/api/home";
 import { get_all_projects } from "@/api/project";
+import { researchOutcomeLibrarySearch } from "@/api/search";
 
 
 export default {
@@ -187,6 +202,9 @@ export default {
         const achievements = ref([]);
         const achievementTotal = ref(0);
         const achievementLoading = ref(false);
+
+        // 学术成果搜索相关数据
+        const achievementSearchKeyword = ref('');
 
         // 成果类型标签
         const typeLabels = {
@@ -257,9 +275,15 @@ export default {
         const loadAchievements = async () => {
             achievementLoading.value = true;
             try {
-                const result = await getAllOutcomes(achievementCurrentPage.value, achievementPageSize.value);
-                if (result) {
-                    achievements.value = result.list.map(item => ({
+                // 使用新的搜索API，notMine为false，pageSize为5
+                const result = await researchOutcomeLibrarySearch({
+                    key: achievementSearchKeyword.value.trim(),
+                    notMine: false,
+                    pageSize: achievementPageSize.value,
+                    pageNum: achievementCurrentPage.value
+                });
+                if (result && result.data) {
+                    achievements.value = result.data.list.map(item => ({
                         id: item.outcomeId,
                         type: item.type,
                         title: item.title,
@@ -267,7 +291,7 @@ export default {
                         journal: item.journal,
                         publishDate: item.publishDate ? formatTimestamp(item.publishDate) : null
                     }));
-                    achievementTotal.value = result.total;
+                    achievementTotal.value = result.data.total;
                     console.log(`成功加载 ${achievements.value.length} 条成果数据，总计 ${achievementTotal.value} 条`);
                 } else {
                     achievements.value = [];
@@ -280,6 +304,12 @@ export default {
             } finally {
                 achievementLoading.value = false;
             }
+        };
+
+        // 学术成果搜索处理
+        const handleAchievementSearch = () => {
+            achievementCurrentPage.value = 1;
+            loadAchievements();
         };
 
         // 时间戳格式化函数
@@ -346,6 +376,10 @@ export default {
             typeLabels,
             handleAchievementPageChange,
             loadAchievements,
+            
+            // 学术成果搜索相关
+            achievementSearchKeyword,
+            handleAchievementSearch,
             
             // 工具函数
             getRandomIcon,
@@ -452,6 +486,12 @@ export default {
     font-weight: bold;
     color: #2c3e50;
     margin: 0;
+}
+
+.search-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .empty-state {
