@@ -502,15 +502,12 @@ export async function isOutcomeLiked(uid: number, outcomeId: number): Promise<bo
  */
 export async function getOutcomeLikeCount(outcomeId: number): Promise<number> {
   try {
-    const response = await axios.get<LikeCountResponse>('/outcome_like/like_num', {
-      params: {
-        outcomeId: outcomeId
-      }
+    const response = await axios.get<LikeCountResponse>('/outcome_like/like_count', {
+      params: { outcomeId }
     });
     
     if (response.status === 200 && response.data.code === 0) {
-      console.log(`成果${outcomeId}的点赞数量:`, response.data.data);
-      return response.data.data || 0;
+      return response.data.data;
     } else {
       console.error("获取点赞数量失败: " + (response.data.message || "未知错误"));
       return 0;
@@ -518,5 +515,71 @@ export async function getOutcomeLikeCount(outcomeId: number): Promise<number> {
   } catch (error) {
     console.error("获取点赞数量失败: " + error);
     return 0;
+  }
+}
+
+/**
+ * 删除成果评论
+ * @param commentId 评论ID
+ * @returns 是否删除成功
+ */
+export async function deleteOutcomeComment(commentId: number): Promise<boolean> {
+  try {
+    console.log('准备删除评论，评论ID:', commentId);
+    const response = await axios.post('/outcome/comment/delete', null, {
+      params: { commentId }
+    });
+    console.log('删除评论响应:', response);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess("评论已删除");
+      return true;
+    } else {
+      callError("删除评论失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error: any) {
+    console.error('删除评论异常:', error);
+    if (error.response) {
+      if (error.response.status === 403) {
+        callError("无权限删除他人评论");
+      } else {
+        callError("删除评论失败: " + (error.response.data?.message || "未知错误"));
+      }
+    } else {
+      callError("删除评论失败: " + (error.message || error));
+    }
+    return false;
+  }
+}
+
+/**
+ * 申请研究成果全文
+ * @param outcomeId 成果ID
+ * @returns 是否申请成功
+ */
+export async function applyForFullText(outcomeId: number): Promise<boolean> {
+  try {
+    console.log('准备申请全文，成果ID:', outcomeId);
+    const response = await axios.post('/research_outcome/full_text_apply', null, {
+      params: { outcomeId }
+    });
+    console.log('申请全文响应:', response);
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess("全文申请已提交，请等待审核");
+      return true;
+    } else {
+      callError("申请全文失败: " + (response.data.message || "未知错误"));
+      return false;
+    }
+  } catch (error: any) {
+    console.error('申请全文异常:', error);
+    if (error.response) {
+      callError("申请全文失败: " + (error.response.data?.message || "未知错误"));
+    } else {
+      callError("申请全文失败: " + (error.message || error));
+    }
+    return false;
   }
 }
