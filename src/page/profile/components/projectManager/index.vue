@@ -33,6 +33,11 @@
                                 <div class="meta-row">
                                     <span class="meta-item">身份：{{ roleMap[project.leader] || project.leader }}</span>
                                     <span v-if="project.endDate" class="meta-item">结束时间：{{ project.endDate }}</span>
+                                    <span class="meta-item">
+                                        <el-tag :type="project.isPublic ? 'success' : 'warning'" size="small">
+                                            {{ project.isPublic ? '公开' : '私密' }}
+                                        </el-tag>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -81,6 +86,15 @@
                     <div style="text-align:right;color:#999;font-size:12px;">
                         {{ descWordCount }} / 200 字/单词
                     </div>
+                </el-form-item>
+                <el-form-item label="私密设置" prop="isPublic">
+                    <el-switch
+                        v-model="formData.isPublic"
+                        active-text="公开"
+                        inactive-text="私密"
+                        :active-value="true"
+                        :inactive-value="false"
+                    />
                 </el-form-item>
             </el-form>
             
@@ -138,7 +152,8 @@ export default {
                 endDate: item.endDate,
                 status: item.status,
                 leader: item.role,
-                joinedAt: item.joinedAt
+                joinedAt: item.joinedAt,
+                isPublic: item.isPublic !== undefined ? item.isPublic : true
             }));
         }
 
@@ -158,7 +173,8 @@ export default {
             startDate: '',
             endDate: '',
             status: '',
-            leader: ''
+            leader: '',
+            isPublic: true
         })
 
         // 表单验证规则
@@ -221,7 +237,8 @@ export default {
             isEdit.value = false
             formData.value = {
                 name: '',
-                description: ''
+                description: '',
+                isPublic: true
             }
             dialogVisible.value = true
         }
@@ -230,7 +247,7 @@ export default {
         const editProject = (project) => {
             isEdit.value = true
             editingId.value = project.id
-            formData.value = { ...project }
+            formData.value = { ...project, isPublic: project.isPublic }
             dialogVisible.value = true
         }
 
@@ -277,18 +294,15 @@ export default {
                     const projectData = {
                         title: formData.value.name,
                         description: formData.value.description,
-                        creatorId: userId
+                        creatorId: userId,
+                        isPublic: formData.value.isPublic
                     }
                     
                     const success = await create_project(projectData)
                     
                     if (success) {
-                        // API调用成功，将项目添加到本地列表
-                        const newProject = {
-                            ...formData.value,
-                            id: Date.now() // 临时ID，实际应该用后端返回的ID
-                        }
-                        projects.value.unshift(newProject)
+                        // API调用成功，重新获取项目列表以确保数据一致性
+                        await fetchProjects()
                         callSuccess('项目创建成功')
                     } else {
                         callWarning('项目创建失败，请重试')

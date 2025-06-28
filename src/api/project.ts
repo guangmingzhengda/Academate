@@ -4,7 +4,8 @@ import {callSuccess, callError, callInfo, callWarning} from "@/call";
 export async function create_project(data : {
     title: string,
     description: string,
-    creatorId: number
+    creatorId: number,
+    isPublic: boolean
 }) :Promise<boolean> {
     try {
         // console.log(data);
