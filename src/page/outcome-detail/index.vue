@@ -72,6 +72,13 @@
                   </el-button>
                 </div>
               </div>
+              <div v-else class="error-container">
+                <el-empty description="研究成果不存在或已被删除"></el-empty>
+                <div class="error-actions">
+                  <p>将在3秒后自动跳转到首页...</p>
+                  <el-button type="primary" @click="goToHome">立即返回首页</el-button>
+                </div>
+              </div>
             </div>
             
             <!-- 摘要卡片 -->
@@ -130,7 +137,7 @@
             </div>
             
             <!-- 评论区卡片 -->
-            <div class="section-card comments-card">
+            <div class="section-card comments-card" v-if="outcomeData">
               <div class="card-header">
                 <h3>评论区</h3>
                 <span class="comment-count">({{ totalComments }})</span>
@@ -256,7 +263,7 @@
           </div>
           
           <!-- 右侧侧边栏 -->
-          <div class="content-right">
+          <div class="content-right" v-if="outcomeData">
             <!-- 成果信息卡片 -->
             <div class="section-card info-sidebar-card">
               <div class="card-header">
@@ -449,34 +456,48 @@
     <template #footer>
       <span class="dialog-footer">
         <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitEdit" :loading="submittingEdit">保存</el-button>
+        <el-button type="primary" @click="submitEdit" :loading="submittingEdit">
+          保存
+        </el-button>
       </span>
     </template>
   </el-dialog>
   
   <!-- 上传文件对话框 -->
-  <el-dialog title="上传成果全文" v-model="uploadDialogVisible" width="500px">
-    <div class="upload-dialog-content">
+  <el-dialog
+    v-model="uploadDialogVisible"
+    title="上传研究成果全文"
+    width="500px"
+    :close-on-click-modal="false"
+  >
+    <div class="upload-form">
       <el-upload
         class="upload-demo"
         drag
         action="#"
         :auto-upload="false"
-        :on-change="handleFileChange"
+        :limit="1"
         :file-list="fileList"
+        :on-change="handleFileChange"
         accept=".pdf"
       >
-        <div style="font-size: 48px; margin-bottom: 16px;">📤</div>
-        <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
+        <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+        <div class="el-upload__text">
+          拖拽文件到此处或 <em>点击上传</em>
+        </div>
         <template #tip>
-          <div class="el-upload__tip">只能上传PDF文件</div>
+          <div class="el-upload__tip">
+            只能上传PDF文件，且不超过10MB
+          </div>
         </template>
       </el-upload>
     </div>
     <template #footer>
       <span class="dialog-footer">
         <el-button @click="uploadDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="uploadFile" :loading="uploading">上传</el-button>
+        <el-button type="primary" @click="uploadFile" :loading="uploading">
+          上传
+        </el-button>
       </span>
     </template>
   </el-dialog>
@@ -484,7 +505,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta, likeOutcome, cancelLikeOutcome, isOutcomeLiked, getOutcomeLikeCount } from '@/api/outcome';
 import { ElMessage } from 'element-plus';
 import store from '@/store';
@@ -494,6 +515,7 @@ export default defineComponent({
   
   setup() {
     const route = useRoute();
+    const router = useRouter();
     const loading = ref(true);
     const outcomeData = ref<ResearchOutcomeVO | null>(null);
     
@@ -751,38 +773,38 @@ export default defineComponent({
           if (data) {
             outcomeData.value = data;
           } else {
-            ElMessage.error('获取研究成果信息失败');
+            outcomeData.value = null;
+            ElMessage.error('研究成果不存在或已被删除，3秒后将自动跳转到首页');
+            // 设置3秒后自动跳转到首页
+            setTimeout(() => {
+              goToHome();
+            }, 3000);
           }
         } else {
-          // 无ID，使用静态数据
-          outcomeData.value = {
-            outcomeId: 1,
-            type: 'article',
-            title: '人工智能在医疗健康领域的应用与挑战',
-            authors: '张三, 李四, 王五',
-            journal: '中国医学科学杂志',
-            volume: 42,
-            issue: 3,
-            pages: 156,
-            publishDate: '2023-05-15',
-            doi: '10.1234/cmj.2023.03.042',
-            url: 'https://example.com/article/42/3/156',
-            patentNumber: '',
-            arxivId: '2305.12345',
-            abstractContent: '本文综述了人工智能技术在医疗健康领域的最新应用进展，分析了面临的挑战与机遇，并对未来发展趋势进行了展望。重点讨论了深度学习、自然语言处理、计算机视觉等技术在疾病诊断、医学影像分析、药物研发、健康管理等方面的应用案例与效果评估。',
-            category: '人工智能、医疗健康',
-            pdfUrl: '',
-            status: '已发表',
-            createTime: '2023-04-10T10:00:00',
-            updateTime: '2023-05-20T14:30:00'
-          };
+          // 无ID，提示错误并跳转
+          outcomeData.value = null;
+          ElMessage.error('未提供成果ID，3秒后将自动跳转到首页');
+          // 设置3秒后自动跳转到首页
+          setTimeout(() => {
+            goToHome();
+          }, 3000);
         }
       } catch (error) {
         console.error('加载研究成果数据失败:', error);
-        ElMessage.error('加载研究成果数据失败');
+        outcomeData.value = null;
+        ElMessage.error('获取研究成果信息出错，3秒后将自动跳转到首页');
+        // 设置3秒后自动跳转到首页
+        setTimeout(() => {
+          goToHome();
+        }, 3000);
       } finally {
         loading.value = false;
       }
+    };
+    
+    // 跳转到首页
+    const goToHome = () => {
+      router.push('/');
     };
     
     // 显示上传对话框
@@ -1007,7 +1029,9 @@ export default defineComponent({
       likeCount,
       toggleLike,
       checkLikeStatus,
-      loadLikeCount
+      loadLikeCount,
+      // 导航相关
+      goToHome
     };
   }
 });
@@ -1115,6 +1139,24 @@ export default defineComponent({
 /* 标题卡片特殊样式 */
 .title-card .card-content {
   padding: 32px 24px 24px;
+}
+
+.error-container {
+  padding: 40px 0;
+  text-align: center;
+}
+
+.error-actions {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.error-actions p {
+  color: #606266;
+  font-size: 14px;
 }
 
 .outcome-header {

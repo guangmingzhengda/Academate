@@ -5,7 +5,7 @@
         </div>
         <div class="card-body">
             <div class="owner-profile">
-                <img :src="owner.avatar || '../assets/default_avatar.png'" alt="owner avatar" class="avatar" @click="viewProfile" style="cursor:pointer;">
+                <img :src="owner.avatar || '../assets/default_avatar.png'" alt="" class="avatar" @click="viewProfile" style="cursor:pointer;">
                 <div class="owner-details">
                     <div class="owner-name" @click="viewProfile" style="cursor:pointer;">{{ owner.name }}</div>
                     <div class="owner-institution">工作单位：{{ owner.institution }}</div>
