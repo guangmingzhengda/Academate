@@ -1327,6 +1327,10 @@ export default {
     
     .left-sidebar {
         width: 100%;
+        position: static; /* 取消sticky定位 */
+        top: auto;
+        max-height: none; /* 取消最大高度限制 */
+        overflow-y: visible; /* 取消滚动 */
     }
     
     .right-content {
