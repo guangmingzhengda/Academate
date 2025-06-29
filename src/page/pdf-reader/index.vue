@@ -2,7 +2,7 @@
     <div class="bg-container"/>
     
     <!-- 成果标题区域 -->
-    <div class="outcome-header" v-if="outcomeInfo">
+    <div class="outcome-header" :class="{ 'outcome-header-with-sidebar': aiSidebarVisible }" v-if="outcomeInfo">
         <div class="outcome-title">
             <h2>{{ outcomeInfo.title }}</h2>
             <div class="outcome-meta">
@@ -20,10 +20,25 @@
             <p class="loading-text">{{ loadingText }}</p>
         </div>
     </div>
-    
+
     <div class="pdf-reader-container" v-show="!isLoading">
+        <!-- AI助手组件 -->
+        <ai-assistant
+            :visible="aiSidebarVisible"
+            :pdf-ready="!!pdfDocument"
+            :current-page-text="getCurrentPageText()"
+            :all-texts="getAllExtractedTexts()"
+            :document-info="outcomeInfo"
+            :current-page="currentPage"
+            :total-pages="totalPages"
+            @toggle="toggleAiSidebar"
+            @close="toggleAiSidebar"
+            @error="callError"
+            @info="callInfo"
+        />
+
         <!-- 主要内容区域 -->
-        <div class="main-content">
+        <div class="main-content" :class="{ 'main-content-with-sidebar': aiSidebarVisible }">
             <!-- 工具栏组件 -->
             <pdf-toolbar
                 :pdf-document="pdfDocument"
@@ -107,6 +122,7 @@ import PdfToolbar from './components/pdfToolbar/index.vue'
 import PdfViewer from './components/pdfViewer/index.vue'
 import AnnotationLayer from './components/annotationLayer/index.vue'
 import NoteDialog from './components/noteDialog/index.vue'
+import AiAssistant from '@/components/AiAssistant.vue'
 // 导入云端持久化模块
 import { 
     createCloudAnnotationPersistence, 
@@ -166,7 +182,8 @@ export default {
         PdfToolbar,
         PdfViewer,
         AnnotationLayer,
-        NoteDialog
+        NoteDialog,
+        AiAssistant
     },
     setup() {
         const route = useRoute()
@@ -425,6 +442,16 @@ export default {
             fileSize: 0,
             fileHash: ''
         })
+
+        // ==================== AI 对话功能 ====================
+        
+        // AI侧边栏状态
+        const aiSidebarVisible = ref(false)
+        
+        // 切换AI侧边栏显示/隐藏
+        const toggleAiSidebar = () => {
+            aiSidebarVisible.value = !aiSidebarVisible.value
+        }
 
         // 提取页面文字内容
         const extractPageText = async (page, pageNum) => {
@@ -2212,7 +2239,11 @@ export default {
             queryFromSpatialIndex,
             
             // 调试和状态查询
-            getDrawingStats
+            getDrawingStats,
+
+            // AI对话功能
+            aiSidebarVisible,
+            toggleAiSidebar
         }
     }
 }
@@ -2248,6 +2279,8 @@ export default {
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
+    transform: translateX(0);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .outcome-title h2 {
@@ -2339,6 +2372,7 @@ export default {
     flex-direction: column;
     gap: 0;
     min-height: calc(100vh - 120px);
+    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 工具栏和PDF容器布局样式 */
@@ -2398,5 +2432,23 @@ export default {
     .loading-text {
         font-size: 14px;
     }
+    
+    .main-content-with-sidebar {
+        margin-left: 0 !important;
+    }
+    
+    .outcome-header-with-sidebar {
+        margin-left: 0 !important;
+    }
+}
+
+/* 主内容区域适配 */
+.main-content-with-sidebar {
+    margin-left: 380px;
+}
+
+/* 标题区域适配 */
+.outcome-header-with-sidebar {
+    transform: translateX(190px);
 }
 </style>
