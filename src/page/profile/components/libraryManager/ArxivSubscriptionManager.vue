@@ -67,8 +67,15 @@
               />
             </el-form-item>
             
-            <el-form-item label="收藏夹" prop="favoriteId">
+            <el-form-item label="绑定收藏夹" prop="favoriteId">
+              <div v-if="loadingFolders" class="folder-loading">
+                <el-icon class="loading-icon" :size="16">
+                  <Loading />
+                </el-icon>
+                <span class="loading-text">正在加载收藏夹...</span>
+              </div>
               <el-tree-select
+                v-else
                 v-model="newSubscriptionForm.favoriteId"
                 :data="folderTreeData"
                 placeholder="请选择收藏夹"
@@ -101,63 +108,84 @@
         <div class="current-subscriptions-section">
           <h4>当前订阅</h4>
           
-          <!-- 关键词订阅列表 -->
-          <div v-if="keywordSubscriptions.length > 0" class="subscription-list">
-            <h5>关键词订阅</h5>
-            <div class="subscription-items">
-              <div 
-                v-for="subscription in keywordSubscriptions" 
-                :key="subscription.keyword"
-                class="subscription-item"
-              >
-                <div class="subscription-info">
-                  <div class="subscription-keyword">
-                    <span class="keyword-code">{{ subscription.keyword }}</span>
-                    <span class="keyword-name">{{ getKeywordDisplayName(subscription.keyword) }}</span>
-                  </div>
-                </div>
-                <el-button 
-                  type="danger" 
-                  size="small" 
-                  @click="removeKeywordSubscription(subscription.keyword)"
-                  :loading="removingKeyword === subscription.keyword"
-                >
-                  删除
-                </el-button>
-              </div>
+          <!-- 加载中页面 -->
+          <div v-if="loadingSubscriptions" class="loading-container">
+            <div class="loading-content">
+              <el-icon class="loading-icon" :size="32">
+                <Loading />
+              </el-icon>
+              <p class="loading-text">正在加载订阅信息...</p>
             </div>
           </div>
           
-          <!-- 作者订阅列表 -->
-          <div v-if="authorSubscriptions.length > 0" class="subscription-list">
-            <h5>科研人员订阅</h5>
-            <div class="subscription-items">
-              <div 
-                v-for="subscription in authorSubscriptions" 
-                :key="subscription.author"
-                class="subscription-item"
-              >
-                <div class="subscription-info">
-                  <div class="subscription-author">
-                    <span class="author-icon">👤</span>
-                    <span class="author-name">{{ subscription.author }}</span>
-                  </div>
-                </div>
-                <el-button 
-                  type="danger" 
-                  size="small" 
-                  @click="removeAuthorSubscription(subscription.author)"
-                  :loading="removingAuthor === subscription.author"
+          <!-- 实际订阅内容 -->
+          <div v-else>
+            <!-- 关键词订阅列表 -->
+            <div v-if="keywordSubscriptions.length > 0" class="subscription-list">
+              <h5>关键词订阅</h5>
+              <div class="subscription-items">
+                <div 
+                  v-for="subscription in keywordSubscriptions" 
+                  :key="subscription.keyword"
+                  class="subscription-item"
                 >
-                  删除
-                </el-button>
+                  <div class="subscription-info">
+                    <div class="subscription-keyword">
+                      <span class="keyword-code">{{ subscription.keyword }}</span>
+                      <span class="keyword-name">{{ getKeywordDisplayName(subscription.keyword) }}</span>
+                    </div>
+                  </div>
+                  <div class="subscription-folder">
+                    <span class="folder-icon">📁</span>
+                    <span class="folder-name">订阅收藏夹：{{ subscription.favoriteName }}</span>
+                  </div>
+                  <el-button 
+                    type="danger" 
+                    size="small" 
+                    @click="removeKeywordSubscription(subscription.keyword)"
+                    :loading="removingKeyword === subscription.keyword"
+                  >
+                    取消订阅
+                  </el-button>
+                </div>
               </div>
             </div>
-          </div>
-          
-          <!-- 无订阅提示 -->
-          <div v-if="keywordSubscriptions.length === 0 && authorSubscriptions.length === 0" class="no-subscriptions">
-            <el-empty description="暂无订阅" :image-size="60"></el-empty>
+            
+            <!-- 作者订阅列表 -->
+            <div v-if="authorSubscriptions.length > 0" class="subscription-list">
+              <h5>科研人员订阅</h5>
+              <div class="subscription-items">
+                <div 
+                  v-for="subscription in authorSubscriptions" 
+                  :key="subscription.author"
+                  class="subscription-item"
+                >
+                  <div class="subscription-info">
+                    <div class="subscription-author">
+                      <span class="author-icon">👤</span>
+                      <span class="author-name">{{ subscription.author }}</span>
+                    </div>
+                  </div>
+                  <div class="subscription-folder">
+                    <span class="folder-icon">📁</span>
+                    <span class="folder-name">订阅收藏夹：{{ subscription.favoriteName }}</span>
+                  </div>
+                  <el-button 
+                    type="danger" 
+                    size="small" 
+                    @click="removeAuthorSubscription(subscription.author)"
+                    :loading="removingAuthor === subscription.author"
+                  >
+                    取消订阅
+                  </el-button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 无订阅提示 -->
+            <div v-if="keywordSubscriptions.length === 0 && authorSubscriptions.length === 0" class="no-subscriptions">
+              <el-empty description="暂无订阅" :image-size="60"></el-empty>
+            </div>
           </div>
         </div>
       </div>
@@ -167,7 +195,7 @@
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted, watch } from 'vue';
-import { Setting } from '@element-plus/icons-vue';
+import { Setting, Loading } from '@element-plus/icons-vue';
 import { 
   subscribeArxivKeyword, 
   subscribeArxivAuthor,
@@ -246,6 +274,8 @@ export default defineComponent({
     const addingSubscription = ref(false);
     const removingKeyword = ref<string | null>(null);
     const removingAuthor = ref<string | null>(null);
+    const loadingSubscriptions = ref(false);
+    const loadingFolders = ref(false);
     
     // 计算属性
     const canAddSubscription = computed(() => {
@@ -266,12 +296,15 @@ export default defineComponent({
     
     // 构建树形收藏夹数据
     const loadFolderTree = async () => {
+      loadingFolders.value = true;
       try {
         const allFolders = await getAllFolders();
         const treeData = buildFolderTree(allFolders);
         folderTreeData.value = treeData;
       } catch (error) {
         console.error('加载收藏夹树失败:', error);
+      } finally {
+        loadingFolders.value = false;
       }
     };
     
@@ -348,6 +381,7 @@ export default defineComponent({
     
     // 加载订阅列表
     const loadSubscriptions = async () => {
+      loadingSubscriptions.value = true;
       try {
         // 加载关键词订阅
         const keywords = await getArxivSubscriptionList();
@@ -362,6 +396,8 @@ export default defineComponent({
         }
       } catch (error) {
         console.error('加载订阅列表失败:', error);
+      } finally {
+        loadingSubscriptions.value = false;
       }
     };
     
@@ -705,6 +741,8 @@ export default defineComponent({
       addingSubscription,
       removingKeyword,
       removingAuthor,
+      loadingSubscriptions,
+      loadingFolders,
       
       // 计算属性
       canAddSubscription,
@@ -753,14 +791,14 @@ export default defineComponent({
 .add-subscription-section h4 {
   margin: 0 0 20px 0;
   color: #333;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
 }
 
 .current-subscriptions-section h4 {
   margin: 0 0 20px 0;
   color: #333;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
 }
 
@@ -789,12 +827,13 @@ export default defineComponent({
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 5px 20px;
+  padding: 8px 20px;
   background-color: #fff;
   border: 1px solid #e9ecef;
   border-radius: 6px;
   transition: all 0.3s ease;
   min-height: 40px;
+  gap: 12px;
 }
 
 .subscription-item:hover {
@@ -814,7 +853,6 @@ export default defineComponent({
   font-size: 14px;
   font-weight: 500;
   color: #333;
-  margin-bottom: 2px;
 }
 
 .keyword-code {
@@ -839,7 +877,6 @@ export default defineComponent({
   font-size: 14px;
   font-weight: 500;
   color: #333;
-  margin-bottom: 2px;
 }
 
 .author-icon {
@@ -851,10 +888,65 @@ export default defineComponent({
   font-weight: 500;
 }
 
+.subscription-folder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+  min-width: fit-content;
+}
+
+.folder-icon {
+  font-size: 12px;
+}
+
+.folder-name {
+  color: #666;
+  font-weight: 400;
+}
+
 .subscription-description {
   font-size: 12px;
   color: #999;
   margin-top: 2px;
+}
+
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  padding: 40px 20px;
+}
+
+.loading-content {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.loading-icon {
+  color: #409eff;
+  animation: rotate 1s linear infinite;
+}
+
+.loading-text {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .no-subscriptions {

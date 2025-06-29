@@ -83,6 +83,7 @@
                     {{ isLiked ? `❤️ 已点赞 (${likeCount})` : `🤍 点赞 (${likeCount})` }}
                   </el-button>
                   <el-button 
+                    v-if="isLiterature"
                     type="primary" 
                     size="small" 
                     @click="showFavoriteDialog"
@@ -652,7 +653,7 @@
     <div class="favorite-dialog-content">
       <!-- 面包屑导航 -->
       <div class="breadcrumb-container">
-        <div class="breadcrumb-title">文献库</div>
+        <div class="breadcrumb-title">文献库目录</div>
         <div class="breadcrumb-list">
           <span 
             v-for="(item, index) in breadcrumbList" 
@@ -674,10 +675,18 @@
           ← 返回上一级
         </el-button>
       </div>
+      <!-- 新建收藏夹按钮 -->
+      <div style="display: flex; align-items: center; margin-bottom: 10px;">
+        <el-tooltip :content="createFolderTooltip" placement="right">
+          <el-button type="primary" @click="showCreateFolderDialog = true">
+            新建收藏夹
+          </el-button>
+        </el-tooltip>
+      </div>
       
       <!-- 收藏夹列表 -->
-      <div class="folders-container" v-loading="loadingFolders">
-        <div v-if="!loadingFolders && folders.length === 0" class="empty-folders">
+      <div class="folders-container" v-loading="loadingFolders || loadingOriginalFolders">
+        <div v-if="!loadingFolders && !loadingOriginalFolders && folders.length === 0" class="empty-folders">
           <el-empty description="当前目录下暂无收藏夹"></el-empty>
         </div>
         
@@ -686,11 +695,17 @@
             v-for="folder in folders" 
             :key="folder.favoriteId"
             class="folder-item"
-            :class="{ 'selected': selectedFolders.some(f => f.favoriteId === folder.favoriteId) }"
+            :class="{ 
+              'selected': selectedFolders.some(f => f.favoriteId === folder.favoriteId),
+              'originally-selected': originalSelectedFolders.some(f => f.favoriteId === folder.favoriteId)
+            }"
             @click="toggleFolderSelection(folder)"
           >
             <div class="folder-icon">📁</div>
             <div class="folder-name">{{ folder.name }}</div>
+            <div class="folder-status" v-if="originalSelectedFolders.some(f => f.favoriteId === folder.favoriteId)">
+              <el-tag size="small" type="info">已收藏</el-tag>
+            </div>
             <div class="folder-actions">
               <el-button
                 @click.stop="openFolder(folder)"
@@ -737,11 +752,24 @@
         <el-button 
           type="primary" 
           @click="confirmFavorite"
-          :disabled="selectedFolders.length === 0"
         >
           确认收藏
         </el-button>
       </span>
+    </template>
+  </el-dialog>
+
+  <!-- 新建收藏夹对话框 -->
+  <el-dialog
+    v-model="showCreateFolderDialog"
+    title="新建收藏夹"
+    width="400px"
+    :close-on-click-modal="false"
+  >
+    <el-input v-model="newFolderName" placeholder="请输入收藏夹名称" maxlength="50" show-word-limit />
+    <template #footer>
+      <el-button @click="showCreateFolderDialog = false">取消</el-button>
+      <el-button type="primary" @click="handleCreateFolder" :loading="creatingFolder">创建</el-button>
     </template>
   </el-dialog>
 </template>
@@ -750,7 +778,7 @@
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta, likeOutcome, cancelLikeOutcome, isOutcomeLiked, getOutcomeLikeCount, deleteOutcomeComment, applyForFullText, deleteOutcomeFile, deleteOutcome } from '@/api/outcome';
-import { getFavoritePage, addOutcomeToFavorite, Favorite } from '@/api/favorite';
+import { getFavoritePage, addOutcomeToFavorite, Favorite, findFavoriteByOutcome, removeOutcomeFromFavorite, createFavorite } from '@/api/favorite';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import store from '@/store';
 import dayjs from 'dayjs';
@@ -840,7 +868,9 @@ export default defineComponent({
     const favoriteDialogVisible = ref(false);
     const folders = ref<Favorite[]>([]);
     const selectedFolders = ref<Favorite[]>([]);
+    const originalSelectedFolders = ref<Favorite[]>([]); // 原始选择的收藏夹，用于比较变化
     const loadingFolders = ref(false);
+    const loadingOriginalFolders = ref(false); // 加载原始收藏夹状态
     const currentParentId = ref(0);
     const breadcrumbList = ref<{favoriteId: number, name: string}[]>([
       { favoriteId: 0, name: '文献库' }
@@ -1368,15 +1398,26 @@ export default defineComponent({
     };
     
     // 显示收藏对话框
-    const showFavoriteDialog = () => {
+    const showFavoriteDialog = async () => {
       if (!currentUserId.value) {
         ElMessage.warning('请先登录');
         return;
       }
       
+      if (!outcomeData.value || !outcomeData.value.outcomeId) {
+        ElMessage.error('无法获取成果ID');
+        return;
+      }
+      
       favoriteDialogVisible.value = true;
       selectedFolders.value = [];
-      loadFolders();
+      originalSelectedFolders.value = [];
+      
+      // 先加载原始收藏夹状态
+      await loadOriginalFavoriteFolders();
+      
+      // 然后加载收藏夹列表
+      await loadFolders();
     };
     
     // 加载收藏夹列表
@@ -1470,37 +1511,61 @@ export default defineComponent({
     
     // 确认收藏
     const confirmFavorite = async () => {
-      if (selectedFolders.value.length === 0) {
-        ElMessage.warning('请选择至少一个收藏夹');
-        return;
-      }
-      
       if (!outcomeData.value || !outcomeData.value.outcomeId) {
         ElMessage.error('无法获取成果ID');
         return;
       }
       
       try {
+        const originalIds = originalSelectedFolders.value.map(f => f.favoriteId);
+        const currentIds = selectedFolders.value.map(f => f.favoriteId);
+        
+        // 找出需要添加的收藏夹
+        const toAdd = selectedFolders.value.filter(f => !originalIds.includes(f.favoriteId));
+        
+        // 找出需要移除的收藏夹
+        const toRemove = originalSelectedFolders.value.filter(f => !currentIds.includes(f.favoriteId));
+        
         let successCount = 0;
-        for (const folder of selectedFolders.value) {
+        let errorCount = 0;
+        
+        // 添加新的收藏夹
+        for (const folder of toAdd) {
           const success = await addOutcomeToFavorite({
             favoriteId: folder.favoriteId,
             outcomeId: outcomeData.value.outcomeId
           });
           if (success) {
             successCount++;
+          } else {
+            errorCount++;
           }
         }
         
-        if (successCount > 0) {
-          ElMessage.success(`成功收藏到 ${successCount} 个收藏夹`);
+        // 移除收藏夹
+        for (const folder of toRemove) {
+          const success = await removeOutcomeFromFavorite({
+            favoriteId: folder.favoriteId,
+            outcomeId: outcomeData.value.outcomeId
+          });
+          if (success) {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        }
+        
+        if (toAdd.length === 0 && toRemove.length === 0) {
+          ElMessage.info('收藏夹状态未发生变化');
+        } else if (errorCount === 0) {
+          ElMessage.success(`收藏夹更新成功`);
           favoriteDialogVisible.value = false;
         } else {
-          ElMessage.error('收藏失败');
+          ElMessage.warning(`部分操作失败，成功：${successCount}，失败：${errorCount}`);
         }
       } catch (error) {
-        console.error('收藏失败:', error);
-        ElMessage.error('收藏失败');
+        console.error('收藏操作失败:', error);
+        ElMessage.error('收藏操作失败');
       }
     };
     
@@ -1605,6 +1670,127 @@ export default defineComponent({
       loadLikeCount();
     });
     
+    // 加载原始收藏夹状态
+    const loadOriginalFavoriteFolders = async () => {
+      if (!outcomeData.value || !outcomeData.value.outcomeId) {
+        return;
+      }
+      
+      loadingOriginalFolders.value = true;
+      try {
+        const favoriteIds = await findFavoriteByOutcome(outcomeData.value.outcomeId);
+        if (favoriteIds && favoriteIds.length > 0) {
+          // 获取收藏夹详细信息
+          const originalFolders: Favorite[] = [];
+          
+          // 递归查找收藏夹的函数
+          const findFolderRecursively = async (parentId: number, targetId: number): Promise<Favorite | null> => {
+            const result = await getFavoritePage({
+              pageSize: 1000,
+              pageNum: 1,
+              parentId: parentId
+            });
+            
+            if (!result) {
+              return null;
+            }
+            
+            // 在当前层级查找
+            for (const folder of result.list) {
+              if (folder.favoriteId === targetId) {
+                return folder;
+              }
+            }
+            
+            // 递归查找子文件夹
+            for (const folder of result.list) {
+              const found = await findFolderRecursively(folder.favoriteId, targetId);
+              if (found) {
+                return found;
+              }
+            }
+            
+            return null;
+          };
+          
+          // 为每个收藏夹ID查找详细信息
+          for (const favoriteId of favoriteIds) {
+            const foundFolder = await findFolderRecursively(0, favoriteId);
+            if (foundFolder) {
+              originalFolders.push(foundFolder);
+            } else {
+              // 如果找不到，使用默认信息
+              originalFolders.push({
+                favoriteId: favoriteId,
+                name: `收藏夹${favoriteId}`,
+                userId: currentUserId.value || 0,
+                parentId: 0
+              });
+            }
+          }
+          
+          originalSelectedFolders.value = originalFolders;
+          selectedFolders.value = [...originalFolders]; // 初始选择状态与原始状态相同
+        } else {
+          originalSelectedFolders.value = [];
+          selectedFolders.value = [];
+        }
+      } catch (error) {
+        console.error('加载原始收藏夹状态失败:', error);
+        originalSelectedFolders.value = [];
+        selectedFolders.value = [];
+      } finally {
+        loadingOriginalFolders.value = false;
+      }
+    };
+
+    const showCreateFolderDialog = ref(false);
+    const newFolderName = ref('');
+    const creatingFolder = ref(false);
+
+    const handleCreateFolder = async () => {
+      if (!newFolderName.value.trim()) {
+        ElMessage.warning('请输入收藏夹名称');
+        return;
+      }
+      creatingFolder.value = true;
+      try {
+        const result = await createFavorite({ name: newFolderName.value.trim(), parentId: currentParentId.value });
+        if (result) {
+          ElMessage.success('创建成功');
+          showCreateFolderDialog.value = false;
+          newFolderName.value = '';
+          await loadFolders();
+        } else {
+          ElMessage.error('创建失败');
+        }
+      } catch (e) {
+        ElMessage.error('创建失败');
+      } finally {
+        creatingFolder.value = false;
+      }
+    };
+    
+    // 获取当前目录名称
+    const getCurrentFolderName = () => {
+      if (breadcrumbList.value.length > 0) {
+        return breadcrumbList.value[breadcrumbList.value.length - 1].name;
+      }
+      return '文献库';
+    };
+    
+    // 计算属性：新建收藏夹的tooltip内容
+    const createFolderTooltip = computed(() => {
+      const currentName = getCurrentFolderName();
+      return `在"${currentName}"下新建收藏夹`;
+    });
+    
+    // 判断是否为文献类型（会议论文或期刊论文）
+    const isLiterature = computed(() => {
+      if (!outcomeData.value || !outcomeData.value.type) return false;
+      return outcomeData.value.type === '会议论文' || outcomeData.value.type === '期刊论文';
+    });
+    
     return {
       loading,
       outcomeData,
@@ -1672,7 +1858,9 @@ export default defineComponent({
       favoriteDialogVisible,
       folders,
       selectedFolders,
+      originalSelectedFolders,
       loadingFolders,
+      loadingOriginalFolders,
       currentParentId,
       breadcrumbList,
       folderCurrentPage,
@@ -1680,6 +1868,7 @@ export default defineComponent({
       total,
       showFavoriteDialog,
       loadFolders,
+      loadOriginalFavoriteFolders,
       navigateToFolder,
       updateBreadcrumb,
       navigateToBreadcrumb,
@@ -1695,7 +1884,14 @@ export default defineComponent({
       deleteOutcomeFileMethod,
       // 删除成果相关
       deletingOutcome,
-      deleteOutcomeMethod
+      deleteOutcomeMethod,
+      showCreateFolderDialog,
+      newFolderName,
+      creatingFolder,
+      handleCreateFolder,
+      getCurrentFolderName,
+      createFolderTooltip,
+      isLiterature
     };
   }
 });
@@ -2617,6 +2813,22 @@ export default defineComponent({
   box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
 }
 
+.folder-item.originally-selected {
+  border-color: #67c23a;
+  background-color: #f0f9ff;
+}
+
+.folder-item.originally-selected.selected {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+}
+
+.folder-status {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}
+
 .folder-icon {
   font-size: 32px;
   margin-bottom: 10px;
@@ -2672,7 +2884,7 @@ export default defineComponent({
   font-weight: 600;
   color: #333;
   margin-bottom: 10px;
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .selected-list {
@@ -2683,6 +2895,7 @@ export default defineComponent({
 
 .selected-tag {
   margin: 0;
+  font-size: 13px;
 }
 
 /* 点赞和收藏按钮样式 */
