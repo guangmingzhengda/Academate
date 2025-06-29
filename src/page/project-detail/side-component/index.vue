@@ -12,14 +12,16 @@
                         @click="goToUserProfile(work.creatorUserDetail.id)"
                     />
                     <div class="creator-details">
-                        <div class="creator-name" @click="goToUserProfile(work.creatorUserDetail.id)">
-                            {{ work.creatorUserDetail.name || work.creatorUserDetail.account }}
-                        </div>
-                        <div class="creator-institution" v-if="work.creatorUserDetail.institution">
-                            <i class="el-icon-office-building"></i> {{ work.creatorUserDetail.institution }}
-                        </div>
-                        <div class="creator-field" v-if="work.creatorUserDetail.field">
-                            <i class="el-icon-collection"></i> {{ work.creatorUserDetail.field }}
+                        <div class="creator-basic-info">
+                            <div class="creator-name" @click="goToUserProfile(work.creatorUserDetail.id)">
+                                {{ work.creatorUserDetail.name || work.creatorUserDetail.account }}
+                            </div>
+                            <div class="creator-institution" v-if="work.creatorUserDetail.institution">
+                                <i class="el-icon-office-building"></i> {{ work.creatorUserDetail.institution }}
+                            </div>
+                            <div class="creator-field" v-if="work.creatorUserDetail.field">
+                                <i class="el-icon-collection"></i> {{ work.creatorUserDetail.field }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -91,12 +93,11 @@
     </div>
 </template>
 
-<script lang="js">
-import {getAllCommentsAPI, getStarSum} from "@/page/achievement-detail/api/api";
-import {ref} from "vue";
+<script>
+import { defineComponent, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
-export default {
+export default defineComponent({
     name: "side-component",
     props: {
         work: {
@@ -108,107 +109,28 @@ export default {
             default: 'visitor'
         }
     },
-    data() {
-        return {
-            owner: {
-                id: 0,
-                account: '',
-                email: '',
-                name: '项目负责人',
-                institution: '',
-                field: '',
-                profile: '',
-                avatar: '',
-                createTime: '',
-                jobTitle: '',
-                department: '',
-                highestDegree: '',
-                graduateSchool: '',
-                major: '',
-                graduationDate: '',
-                totalOutcomeLikes: 0,
-                followersCount: 0
-            },
-            researchOutcomes: [],
-            defaultAvatar: ref('/api/file/default_avatar.png')
-        }
-    },
-    computed: {
-        // 不需要统计数据的计算属性
-    },
-    mounted() {
-        // 不再需要更新统计数据
-    },
-    methods: {
-        viewProfile() {
-            if (this.owner && this.owner.id) {
-                window.open(`/profile/${this.owner.id}`, '_blank');
-            }
-        },
-        formatEducation() {
-            const { highestDegree, graduateSchool, major, graduationDate } = this.owner;
-            let education = [];
-            if (highestDegree) education.push(highestDegree);
-            if (major) education.push(major);
-            if (graduateSchool) education.push(graduateSchool);
-            if (graduationDate) {
-                // 只显示年月日
-                const date = new Date(graduationDate);
-                const y = date.getFullYear();
-                const m = (date.getMonth() + 1).toString().padStart(2, '0');
-                const d = date.getDate().toString().padStart(2, '0');
-                education.push(`毕业于 ${y}-${m}-${d}`);
-            }
-            return education.length > 0 ? education.join(', ') : '暂无信息';
-        },
-        formatDate(date) {
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            return new Date(date).toLocaleDateString(undefined, options);
-        },
-        goToOutcome(outcomeId) {
-            if (!outcomeId) return;
-            window.open(`/outcome-detail/${outcomeId}`, '_blank');
-        },
-        goToUserProfile(userId) {
+    setup(props) {
+        const router = useRouter();
+        const defaultAvatar = ref('/api/file/default_avatar.png');
+
+        const goToUserProfile = (userId) => {
             if (!userId) return;
-            const router = useRouter();
             router.push(`/profile/${userId}`);
-        },
-        getMemberCount() {
-            const participantCount = this.work?.participantUserDetail?.length || 0;
+        };
+        
+        const getMemberCount = () => {
+            const participantCount = props.work?.participantUserDetail?.length || 0;
             // 加1是因为还有创建者
             return participantCount + 1;
-        }
-    },
-    watch: {
-        work: {
-            handler(newWork) {
-                // 当接收到新的work数据时，更新项目负责人信息
-                if (newWork && newWork.userDetail) {
-                    this.owner = {
-                        ...this.owner,
-                        ...newWork.userDetail
-                    };
-                } else if (newWork && newWork.researcherList && newWork.researcherList.length > 0) {
-                    // 兼容旧的数据结构
-                    const projectLead = newWork.researcherList.find(r => r.role === '项目负责人') || newWork.researcherList[0];
-                    if (projectLead) {
-                        this.owner.name = projectLead.name || this.owner.name;
-                        this.owner.institution = projectLead.institution || this.owner.institution;
-                        this.owner.id = projectLead.id || this.owner.id;
-                    }
-                }
-                
-                // 更新研究成果列表
-                if (newWork && Array.isArray(newWork.researchOutcomes)) {
-                    this.researchOutcomes = newWork.researchOutcomes;
-                }
-            },
-            immediate: true,
-            deep: true
-        }
+        };
+
+        return {
+            defaultAvatar,
+            goToUserProfile,
+            getMemberCount
+        };
     }
-}
+});
 </script>
 
 <style scoped>
@@ -246,6 +168,7 @@ export default {
 /* 创建者样式 */
 .creator-container {
     padding: 15px;
+    text-align: left;
 }
 
 .creator-info {
@@ -272,6 +195,17 @@ export default {
 
 .creator-details {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.creator-basic-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 0;
+    margin: 0;
 }
 
 .creator-name {
@@ -280,6 +214,7 @@ export default {
     color: #333;
     margin-bottom: 5px;
     cursor: pointer;
+    text-align: left;
 }
 
 .creator-name:hover {
@@ -294,6 +229,7 @@ export default {
     display: flex;
     align-items: center;
     gap: 5px;
+    margin-left: 0;
 }
 
 /* 额外的创建者信息 */
@@ -313,11 +249,14 @@ export default {
     width: 80px;
     color: #909399;
     flex-shrink: 0;
+    text-align: right;
+    padding-right: 10px;
 }
 
 .info-value {
     color: #606266;
     flex: 1;
+    text-align: left;
 }
 
 /* 创建者简介 */
@@ -331,6 +270,7 @@ export default {
     font-size: 14px;
     color: #909399;
     margin-bottom: 8px;
+    text-align: left;
 }
 
 .profile-content {
@@ -342,6 +282,7 @@ export default {
     background-color: #f9f9f9;
     padding: 10px;
     border-radius: 4px;
+    text-align: left;
 }
 
 /* 成员列表样式 */
@@ -349,6 +290,7 @@ export default {
     padding: 15px;
     max-height: 300px;
     overflow-y: auto;
+    text-align: left;
 }
 
 .member-item {
@@ -380,6 +322,7 @@ export default {
     font-weight: 500;
     color: #333;
     cursor: pointer;
+    text-align: left;
 }
 
 .member-name:hover {
@@ -390,6 +333,7 @@ export default {
 .member-institution {
     font-size: 12px;
     color: #909399;
+    text-align: left;
 }
 
 .empty-members {
