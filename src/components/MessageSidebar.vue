@@ -229,7 +229,16 @@ const filteredMessages = computed(() => {
     
     return messages.value.filter(message => {
         // 只显示别人发给我的消息（发送者不是当前用户）
-        return message.senderId && message.senderId !== currentUserId
+        if (!message.senderId || message.senderId === currentUserId) {
+            return false
+        }
+        
+        // 过滤掉聊天消息类型，不在消息侧边栏中显示
+        if (message.type === 'chat_message') {
+            return false
+        }
+        
+        return true
     })
 })
 
