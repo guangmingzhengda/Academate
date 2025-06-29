@@ -104,14 +104,28 @@
                                 <div class="card-header">权限不足</div>
                                 <p>您不是该项目的成员，无法查看项目评论。</p>
                                 <p>请先申请加入项目。</p>
-                                <el-button type="primary" @click="applyToJoin">申请加入项目</el-button>
+                                <el-button 
+                                    type="primary" 
+                                    @click="applyToJoin" 
+                                    :loading="applyLoading" 
+                                    :disabled="applyLoading || hasApplied"
+                                >
+                                    {{ hasApplied ? '已申请加入' : '申请加入项目' }}
+                                </el-button>
                             </div>
                         </div>
                         <div v-else class="non-member-container">
                             <div class="card-header">权限不足</div>
                             <p>您不是该项目的成员，无法查看项目详情和评论。</p>
                             <p>请先申请加入项目。</p>
-                            <el-button type="primary" @click="applyToJoin">申请加入项目</el-button>
+                            <el-button 
+                                type="primary" 
+                                @click="applyToJoin" 
+                                :loading="applyLoading" 
+                                :disabled="applyLoading || hasApplied"
+                            >
+                                {{ hasApplied ? '已申请加入' : '申请加入项目' }}
+                            </el-button>
                         </div>
                     </div>
                     <div v-else class="error-container">
@@ -160,6 +174,8 @@ export default {
             loading: true,
             project: null,  // 初始化为null，不再设置默认值
             role: "visitor", // 设置默认值为visitor
+            applyLoading: false, // 申请加入项目的加载状态
+            hasApplied: false, // 新增已申请状态
         };
     },
     mounted() {
@@ -262,6 +278,7 @@ export default {
                     return;
                 }
                 
+                this.applyLoading = true;
                 const result = await applyJoinProject({
                     applicant: userId,
                     projectId: Number(projectId),
@@ -269,12 +286,22 @@ export default {
                 });
                 
                 if (result && result.code === 0) {
-                    // 申请成功的消息已在API中显示
-                    // console.log('申请加入项目成功');
+                    // 申请成功后显示成功提示，并禁用申请按钮
+                    this.$set(this, 'hasApplied', true);
+                    // 可以考虑在一段时间后刷新页面或重新获取项目数据
+                    setTimeout(() => {
+                        this.initializeProject();
+                    }, 2000);
+                } else if (result && result.code === 400 && result.message.includes('已申请')) {
+                    // 如果已经申请过，设置已申请状态
+                    this.$set(this, 'hasApplied', true);
+                    callInfo('您已经申请过该项目，请等待管理员审核');
                 }
             } catch (error) {
                 // console.error('申请加入项目出错:', error);
                 callError('申请加入项目失败，请稍后重试');
+            } finally {
+                this.applyLoading = false;
             }
         },
         pullProjectData() {

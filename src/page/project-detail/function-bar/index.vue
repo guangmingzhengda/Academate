@@ -385,7 +385,7 @@ export default {
                     projectId: Number(projectId),
                     title: title
                 });
-                
+                console.log(result);
                 if (result && result.code === 0) {
                     // 申请成功的消息已在API中显示
                     console.log('申请加入项目成功');

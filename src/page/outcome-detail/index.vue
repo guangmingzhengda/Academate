@@ -497,7 +497,8 @@
             type="date"
             placeholder="请选择发表日期"
             style="width: 100%"
-            value-format="yyyy-MM-dd"
+            value-format="YYYY-MM-DD"
+            format="YYYY-MM-DD"
           ></el-date-picker>
         </el-form-item>
         <el-form-item label="DOI" v-if="editFormData.type !== 'patent'">
@@ -779,6 +780,7 @@ import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutco
 import { getFavoritePage, addOutcomeToFavorite, Favorite, findFavoriteByOutcome, removeOutcomeFromFavorite, createFavorite } from '@/api/favorite';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import store from '@/store';
+import dayjs from 'dayjs';
 
 export default defineComponent({
   name: 'OutcomeDetail',
@@ -1245,6 +1247,19 @@ export default defineComponent({
       if (!editFormData.value || !editFormData.value.outcomeId) {
         ElMessage.error('缺少必要的成果信息');
         return;
+      }
+      
+      // 检查并确保日期格式正确，转换为后端需要的date-time格式
+      if (editFormData.value.publishDate) {
+        try {
+          // 使用dayjs格式化日期为 YYYY-MM-DD HH:mm:ss 格式
+          editFormData.value.publishDate = dayjs(editFormData.value.publishDate).format('YYYY-MM-DD 00:00:00');
+          console.log('发送的日期格式:', editFormData.value.publishDate);
+        } catch (e) {
+          console.error('日期格式化错误:', e);
+          ElMessage.warning('发表日期格式有误，请重新选择');
+          return;
+        }
       }
       
       submittingEdit.value = true;

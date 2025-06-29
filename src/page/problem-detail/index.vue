@@ -62,7 +62,12 @@
                                                     >
                                                     <div>
                                                         <div class="username user-link" @click="goToUserProfile(answer.userId)">{{ answer.userName }}</div>
-                                                        <div class="timestamp">{{ formatDate(answer.answeredAt) }}</div>
+                                                        <div class="timestamp">
+                                                            发布于 {{ formatDateTime(answer.answeredAt) }}
+                                                            <span v-if="isEdited(answer.answeredAt, answer.answeredEd)" class="edited-time">
+                                                                (编辑于 {{ formatDateTime(answer.answeredEd) }})
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="answer-actions">
@@ -141,7 +146,12 @@
                                                             >
                                                             <div>
                                                                 <div class="username user-link" @click="goToUserProfile(childAnswer.userId)">{{ childAnswer.userName }}</div>
-                                                                <div class="timestamp">{{ formatDate(childAnswer.answeredAt) }}</div>
+                                                                <div class="timestamp">
+                                                                    发布于 {{ formatDateTime(childAnswer.answeredAt) }}
+                                                                    <span v-if="isEdited(childAnswer.answeredAt, childAnswer.answeredEd)" class="edited-time">
+                                                                        (编辑于 {{ formatDateTime(childAnswer.answeredEd) }})
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         <div class="answer-actions">
@@ -192,7 +202,12 @@
                                                                     >
                                                                     <div>
                                                                         <div class="username user-link" @click="goToUserProfile(grandChildAnswer.userId)">{{ grandChildAnswer.userName }}</div>
-                                                                        <div class="timestamp">{{ formatDate(grandChildAnswer.answeredAt) }}</div>
+                                                                        <div class="timestamp">
+                                                                            发布于 {{ formatDateTime(grandChildAnswer.answeredAt) }}
+                                                                            <span v-if="isEdited(grandChildAnswer.answeredAt, grandChildAnswer.answeredEd)" class="edited-time">
+                                                                                (编辑于 {{ formatDateTime(grandChildAnswer.answeredEd) }})
+                                                                            </span>
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                                 <div class="answer-actions">
@@ -487,6 +502,25 @@ export default defineComponent({
             return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
         };
         
+        // 格式化日期时间（精确到分钟）
+        const formatDateTime = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+        };
+        
+        // 判断回答是否被编辑过
+        const isEdited = (answeredAt, answeredEd) => {
+            if (!answeredAt || !answeredEd) return false;
+            
+            // 转换为Date对象进行比较
+            const atDate = new Date(answeredAt);
+            const edDate = new Date(answeredEd);
+            
+            // 比较两个时间是否相同
+            return atDate.getTime() !== edDate.getTime();
+        };
+        
         onMounted(loadQuestionDetail);
         
         // 处理点赞
@@ -712,6 +746,8 @@ export default defineComponent({
             replyToAnswer,
             submitAnswer,
             formatDate,
+            formatDateTime,
+            isEdited,
             handleLike,
             acceptLoading,
             acceptAnswerAction,
@@ -964,6 +1000,12 @@ export default defineComponent({
     color: #909399;
     margin-top: 4px;
     text-align: left;
+}
+
+.edited-time {
+    color: #a0a0a0;
+    font-style: italic;
+    margin-left: 4px;
 }
 
 .answer-actions {
