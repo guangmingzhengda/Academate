@@ -61,7 +61,7 @@
                                 size="small"
                                 @click="sendMessage"
                                 :disabled="loading"
-                                v-if="!isOwnProfile"
+                                v-if="!isOwnProfile && isFollowing"
                             >
                                 私信
                             </el-button>

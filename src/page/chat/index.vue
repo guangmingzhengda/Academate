@@ -363,26 +363,38 @@ const connectWebSocket = () => {
         ws.value.onmessage = (event) => {
             console.log('收到WebSocket消息:', event.data)
             
-            const messageData = JSON.parse(event.data)
-            console.log('解析后的消息数据:', messageData)
+            // 先检查是否是特殊字符串消息
+            if (event.data === 'true') {
+                console.log('收到发送成功确认消息')
+                handleSendSuccess()
+                return
+            }
+            
+            if (event.data === 'conn_success') {
+                console.log('收到连接成功确认消息')
+                return
+            }
+            
+            // 尝试解析JSON消息
+            try {
+                const messageData = JSON.parse(event.data)
+                console.log('解析后的消息数据:', messageData)
                 
-            // 检查是否是聊天消息（有sid、rid、content字段）
-            if (messageData.sid && messageData.rid && messageData.content) {
-                console.log('识别为聊天消息，调用聊天消息处理函数')
-                handleIncomingChatMessage(messageData)
-            } else if (messageData.message && messageData.messageId && messageData.type === 'chat_message') {
-                console.log('识别为新的聊天消息格式，调用聊天消息处理函数')
-                handleIncomingChatMessage(messageData)
-            } else if (messageData.message && messageData.messageId) {
-                console.log('识别为系统消息，跳过处理（聊天界面不处理系统消息）')
-            } else {
-                // 如果不是JSON格式，检查是否是发送成功的确认消息
-                if (event.data === 'true') {
-                    console.log('收到发送成功确认消息')
-                    handleSendSuccess()
+                // 检查是否是聊天消息（有sid、rid、content字段）
+                if (messageData.sid && messageData.rid && messageData.content) {
+                    console.log('识别为聊天消息，调用聊天消息处理函数')
+                    handleIncomingChatMessage(messageData)
+                } else if (messageData.message && messageData.messageId && messageData.type === 'chat_message') {
+                    console.log('识别为新的聊天消息格式，调用聊天消息处理函数')
+                    handleIncomingChatMessage(messageData)
+                } else if (messageData.message && messageData.messageId) {
+                    console.log('识别为系统消息，跳过处理（聊天界面不处理系统消息）')
                 } else {
-                    console.log('解析WebSocket消息失败，不是JSON:', event.data)
+                    console.log('未知消息格式，跳过处理')
                 }
+                
+            } catch (error) {
+                console.log('解析WebSocket消息失败，不是JSON:', event.data)
             }
         }
 
@@ -476,14 +488,14 @@ const fetchConversations = async () => {
         const conversationList = await listConversations()
         
         if (conversationList && conversationList.length > 0) {
-            // 转换会话数据格式
+            // 转换会话数据格式，使用接口返回的新字段
             conversations.value = conversationList.map(conv => ({
                 id: conv.id,
                 name: conv.chatUserVO.name || '未知用户',
                 avatar: conv.chatUserVO.avatar || 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-                lastMessage: '',
+                lastMessage: conv.latestMessage || '', // 使用接口返回的latestMessage字段
                 lastTime: formatMessageTime(conv.updatedAt),
-                unreadCount: 0,
+                unreadCount: conv.unreadMessageCount || 0, // 使用接口返回的unreadMessageCount字段
                 messages: [],
                 chatUserVO: conv.chatUserVO,
                 initiatorId: conv.initiatorId,
@@ -686,9 +698,9 @@ const selectFriend = async (friend) => {
                     id: newConversationData.id,
                     name: newConversationData.chatUserVO.name || friend.name,
                     avatar: newConversationData.chatUserVO.avatar || friend.avatar,
-                    lastMessage: '',
+                    lastMessage: newConversationData.latestMessage || '', // 使用接口返回的latestMessage字段
                     lastTime: formatMessageTime(newConversationData.createdAt),
-                    unreadCount: 0,
+                    unreadCount: newConversationData.unreadMessageCount || 0, // 使用接口返回的unreadMessageCount字段
                     messages: [],
                     chatUserVO: newConversationData.chatUserVO,
                     initiatorId: newConversationData.initiatorId,
@@ -743,8 +755,13 @@ const selectConversation = async (conversation) => {
                 const markSuccess = await markAsRead({ messageIds })
                 if (markSuccess) {
                     console.log('成功标记消息为已读')
-                    // 清除未读消息计数
-                    conversation.unreadCount = 0
+                    // 重新获取会话列表以更新未读计数
+                    await fetchConversations()
+                    // 更新当前会话的未读计数
+                    const refreshedConversation = conversations.value.find(conv => conv.id === conversation.id)
+                    if (refreshedConversation) {
+                        conversation.unreadCount = refreshedConversation.unreadCount
+                    }
                 } else {
                     console.log('标记消息为已读失败')
                 }
@@ -752,9 +769,7 @@ const selectConversation = async (conversation) => {
         }
     }
     
-    // 清除未读消息计数
-    conversation.unreadCount = 0
-    console.log('选择会话，清除未读消息计数:', conversation.name)
+    console.log('选择会话:', conversation.name)
     
     // 滚动到底部
     nextTick(() => {
@@ -915,12 +930,6 @@ const handleIncomingChatMessage = async (messageData) => {
             currentConversation.value.lastMessage = newMessage.content
             currentConversation.value.lastTime = formatMessageTime(newMessage.sentAt)
             
-            // 如果是别人发给我的消息，增加未读计数
-            if (!newMessage.isMine) {
-                currentConversation.value.unreadCount = (currentConversation.value.unreadCount || 0) + 1
-                console.log('收到别人发来的消息，增加未读计数:', currentConversation.value.unreadCount)
-            }
-            
             // 强制触发Vue的响应式更新
             await nextTick()
             
@@ -948,6 +957,13 @@ const handleIncomingChatMessage = async (messageData) => {
                         const markSuccess = await markAsRead({ messageIds: [newMessage.id] })
                         if (markSuccess) {
                             console.log('成功标记新消息为已读')
+                            // 重新获取会话列表以更新未读计数
+                            await fetchConversations()
+                            // 更新当前会话的未读计数
+                            const refreshedConversation = conversations.value.find(conv => conv.id === currentConversation.value.id)
+                            if (refreshedConversation) {
+                                currentConversation.value.unreadCount = refreshedConversation.unreadCount
+                            }
                         } else {
                             console.log('标记新消息为已读失败')
                         }
@@ -1010,12 +1026,6 @@ const updateOtherConversationMessage = (senderId, receiverId, messageData, conte
         // 更新最后消息和时间
         targetConversation.lastMessage = content
         targetConversation.lastTime = formatMessageTime(sentAt || Date.now())
-        
-        // 如果是别人发给我的消息，增加未读计数
-        if (senderId !== currentUserIdNum) {
-            targetConversation.unreadCount = (targetConversation.unreadCount || 0) + 1
-            console.log('其他会话收到新消息，增加未读计数:', targetConversation.unreadCount)
-        }
         
         // 强制触发Vue的响应式更新
         conversations.value = [...conversations.value]
