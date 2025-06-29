@@ -139,7 +139,7 @@
             </el-col>
             <el-col :span="7">
                 <div class="side-container">
-                    <side-component :work="project"/>
+                    <side-component :work="project" :role="role"/>
                 </div>
             </el-col>
 
@@ -215,7 +215,7 @@ export default {
                         
                         this.project = {
                             projectDetail: {
-                                projectId: projectData.projectId || projectData.id || 1,
+                                projectId: projectData.projectId || 1,
                                 title: projectData.title || "未命名项目",
                                 description: projectData.description || "",
                                 startDate: projectData.startDate || "",
@@ -223,14 +223,18 @@ export default {
                                 collaborationRequirement: projectData.collaborationRequirement || "",
                                 isPublic: projectData.isPublic !== undefined ? projectData.isPublic : true, // 默认为公开
                             },
-                            userDetail: projectData.userDetail || null,
+                            // 新API结构中的创建者信息
+                            creatorUserDetail: projectData.creatorUserDetail || null,
+                            // 新API结构中的参与者信息
+                            participantUserDetail: Array.isArray(projectData.participantUserDetail) ? projectData.participantUserDetail : [],
+                            // 保留原有字段
                             researcherList: Array.isArray(projectData.researcherList) ? projectData.researcherList : [],
                             subfield: projectData.field || "",
                             stats: {
                                 visitCount: projectData.visitCount || 0,
                                 comments: projectData.commentCount || 0,
                                 favorites: projectData.favoriteCount || 0,
-                                memberCount: projectData.memberCount || 0
+                                memberCount: (projectData.participantUserDetail?.length || 0) + 1 // 成员数量为参与者数量+1(创建者)
                             },
                             researchOutcomes: Array.isArray(projectData.researchOutcomes) ? projectData.researchOutcomes : []
                         };

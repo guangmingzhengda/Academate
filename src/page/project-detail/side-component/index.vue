@@ -1,66 +1,91 @@
 <template>
-    <div class="owner-info-card">
-        <div class="card-header">
-            <h3>关于项目负责人</h3>
-        </div>
-        <div class="card-body">
-            <div class="owner-profile">
-                <img :src="owner.avatar || '../assets/default_avatar.png'" alt="" class="avatar" @click="viewProfile" style="cursor:pointer;">
-                <div class="owner-details">
-                    <div class="owner-name" @click="viewProfile" style="cursor:pointer;">{{ owner.name }}</div>
-                    <div class="owner-institution">工作单位：{{ owner.institution }}</div>
-                    <div class="owner-title">当前职称：{{ owner.jobTitle }}</div>
+    <div class="side-component">
+        <!-- 创建者信息 -->
+        <div v-if="work && work.creatorUserDetail" class="card">
+            <div class="card-header">项目创建者</div>
+            <div class="creator-container">
+                <div class="creator-info">
+                    <img 
+                        :src="work.creatorUserDetail.avatar || defaultAvatar" 
+                        class="creator-avatar" 
+                        alt="创建者头像" 
+                        @click="goToUserProfile(work.creatorUserDetail.id)"
+                    />
+                    <div class="creator-details">
+                        <div class="creator-name" @click="goToUserProfile(work.creatorUserDetail.id)">
+                            {{ work.creatorUserDetail.name || work.creatorUserDetail.account }}
+                        </div>
+                        <div class="creator-institution" v-if="work.creatorUserDetail.institution">
+                            <i class="el-icon-office-building"></i> {{ work.creatorUserDetail.institution }}
+                        </div>
+                        <div class="creator-field" v-if="work.creatorUserDetail.field">
+                            <i class="el-icon-collection"></i> {{ work.creatorUserDetail.field }}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 额外的创建者信息 -->
+                <div class="creator-additional-info">
+                    <div class="info-item" v-if="work.creatorUserDetail.department">
+                        <div class="info-label">所属部门</div>
+                        <div class="info-value">{{ work.creatorUserDetail.department }}</div>
+                    </div>
+                    <div class="info-item" v-if="work.creatorUserDetail.jobTitle">
+                        <div class="info-label">职称</div>
+                        <div class="info-value">{{ work.creatorUserDetail.jobTitle }}</div>
+                    </div>
+                    <div class="info-item" v-if="work.creatorUserDetail.highestDegree">
+                        <div class="info-label">最高学位</div>
+                        <div class="info-value">{{ work.creatorUserDetail.highestDegree }}</div>
+                    </div>
+                    <div class="info-item" v-if="work.creatorUserDetail.graduateSchool">
+                        <div class="info-label">毕业院校</div>
+                        <div class="info-value">{{ work.creatorUserDetail.graduateSchool }}</div>
+                    </div>
+                    <div class="info-item" v-if="work.creatorUserDetail.major">
+                        <div class="info-label">专业</div>
+                        <div class="info-value">{{ work.creatorUserDetail.major }}</div>
+                    </div>
+                    <div class="info-item" v-if="work.creatorUserDetail.email">
+                        <div class="info-label">联系邮箱</div>
+                        <div class="info-value">{{ work.creatorUserDetail.email }}</div>
+                    </div>
+                </div>
+                
+                <!-- 创建者简介 -->
+                <div class="creator-profile" v-if="work.creatorUserDetail.profile">
+                    <div class="profile-label">个人简介</div>
+                    <div class="profile-content">{{ work.creatorUserDetail.profile }}</div>
                 </div>
             </div>
-            <hr>
-            <div class="info-section">
-                <h4>研究领域</h4>
-                <p>{{ owner.field || '暂无信息' }}</p>
-            </div>
-            <div class="info-section">
-                <h4>教育背景</h4>
-                <p>{{ formatEducation() }}</p>
-            </div>
-            <div class="info-section">
-                <h4>个人简介</h4>
-                <p class="bio">{{ owner.profile || '暂无信息' }}</p>
-            </div>
-             <div class="info-section">
-                <h4>联系方式</h4>
-                <p>{{ owner.email || '暂无信息' }}</p>
-            </div>
-            <div class="info-section">
-                <h4>统计数据</h4>
-                <p>研究成果获赞: {{ owner.totalOutcomeLikes || 0 }}</p>
-                <p>关注人数: {{ owner.followersCount || 0 }}</p>
-            </div>
         </div>
-        <div class="card-footer">
-            <el-button type="primary" plain @click="viewProfile">查看完整资料</el-button>
-        </div>
-    </div>
-    
-    <!-- 项目研究成果列表 -->
-    <div class="research-outcomes" v-if="researchOutcomes && researchOutcomes.length > 0">
-        <div class="card-header">
-            <h3>项目研究成果</h3>
-        </div>
-        <div class="card-body">
-            <div v-for="(outcome, index) in researchOutcomes" :key="index" class="outcome-item">
-                <div class="outcome-title" @click="goToOutcome(outcome.outcomeId)">
-                    {{ outcome.title }}
+
+        <!-- 项目成员列表 (仅对项目创建者和参与者显示) -->
+        <div v-if="work && (role === 'creator' || role === 'participant')" class="card">
+            <div class="card-header">
+                项目成员
+                <span class="member-count">共 {{ getMemberCount() }} 人</span>
+            </div>
+            <div class="members-container" v-if="work.participantUserDetail && work.participantUserDetail.length > 0">
+                <div v-for="(member, index) in work.participantUserDetail" :key="index" class="member-item">
+                    <img 
+                        :src="member.avatar || defaultAvatar" 
+                        class="member-avatar" 
+                        alt="成员头像" 
+                        @click="goToUserProfile(member.id)"
+                    />
+                    <div class="member-details">
+                        <div class="member-name" @click="goToUserProfile(member.id)">
+                            {{ member.name || member.account }}
+                        </div>
+                        <div class="member-institution" v-if="member.institution">
+                            {{ member.institution }}
+                        </div>
+                    </div>
                 </div>
-                <div class="outcome-meta">
-                    <span v-if="outcome.authors">作者: {{ outcome.authors }}</span>
-                    <span v-if="outcome.publishDate">发表日期: {{ formatDate(outcome.publishDate) }}</span>
-                    <span v-if="outcome.journal">期刊: {{ outcome.journal }}</span>
-                    <span v-if="outcome.type" class="outcome-type">{{ outcome.type }}</span>
-                </div>
-                <div class="outcome-stats">
-                    <span class="likes">
-                        <i class="el-icon-star-on"></i> {{ outcome.likeCount || 0 }}
-                    </span>
-                </div>
+            </div>
+            <div v-else class="empty-members">
+                暂无其他项目成员
             </div>
         </div>
     </div>
@@ -69,13 +94,18 @@
 <script lang="js">
 import {getAllCommentsAPI, getStarSum} from "@/page/achievement-detail/api/api";
 import {ref} from "vue";
+import { useRouter } from 'vue-router';
 
 export default {
     name: "side-component",
     props: {
         work: {
             type: Object,
-            required: true
+            default: () => ({})
+        },
+        role: {
+            type: String,
+            default: 'visitor'
         }
     },
     data() {
@@ -99,7 +129,8 @@ export default {
                 totalOutcomeLikes: 0,
                 followersCount: 0
             },
-            researchOutcomes: []
+            researchOutcomes: [],
+            defaultAvatar: ref('/api/file/default_avatar.png')
         }
     },
     computed: {
@@ -137,6 +168,16 @@ export default {
         goToOutcome(outcomeId) {
             if (!outcomeId) return;
             window.open(`/outcome-detail/${outcomeId}`, '_blank');
+        },
+        goToUserProfile(userId) {
+            if (!userId) return;
+            const router = useRouter();
+            router.push(`/profile/${userId}`);
+        },
+        getMemberCount() {
+            const participantCount = this.work?.participantUserDetail?.length || 0;
+            // 加1是因为还有创建者
+            return participantCount + 1;
         }
     },
     watch: {
@@ -171,230 +212,190 @@ export default {
 </script>
 
 <style scoped>
-.small-title {
-    text-align: left;
-    font-weight: bold;
-    font-size: 20px;
-}
-.field-list {
-    padding: 5px;
-}
-.field {
-    margin: 5px 0;
-    cursor: pointer;
-    text-align: left;
-    font-size: 16px;
-    color: #6e9bc5;
-    transition: color 0.3s;
-}
-.field:hover {
-    color: #106898;
-}
-hr {
-    border: 0;
-    height: 1px;
-    background: #ccc;
-    margin: 20px 0;
+.side-component {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
-.owner-info-card {
+.card {
     background-color: #fff;
-    border: 1px solid #e0e0e0;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    margin-bottom: 20px;
-    font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
-    text-align: left;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    overflow: hidden;
 }
 
 .card-header {
-    padding: 15px 20px;
-    border-bottom: 1px solid #e0e0e0;
-    background-color: #f9f9f9;
-    border-radius: 8px 8px 0 0;
-}
-
-.card-header h3 {
-    margin: 0;
-    color: #333;
-    font-size: 18px;
+    background-color: #f5f7fa;
+    padding: 12px 15px;
+    font-size: 16px;
     font-weight: 600;
-}
-
-.card-body {
-    padding: 20px;
-}
-
-.card-footer {
-    padding: 15px 20px;
-    border-top: 1px solid #e0e0e0;
-    text-align: center;
-    background-color: #f9f9f9;
-    border-radius: 0 0 8px 8px;
-}
-
-.owner-profile {
+    color: #333;
+    border-bottom: 1px solid #ebeef5;
     display: flex;
-    align-items: flex-start;
-    margin-bottom: 20px;
-    text-align: left;
-    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
 }
 
-.avatar {
+.member-count {
+    font-size: 14px;
+    color: #909399;
+    font-weight: normal;
+}
+
+/* 创建者样式 */
+.creator-container {
+    padding: 15px;
+}
+
+.creator-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.creator-avatar {
     width: 60px;
     height: 60px;
     border-radius: 50%;
     object-fit: cover;
-    border: 2px solid #e0e0e0;
-    transition: box-shadow 0.2s, border-color 0.2s;
+    cursor: pointer;
+    border: 2px solid #f0f0f0;
+    transition: all 0.3s ease;
 }
-.avatar:hover {
-    box-shadow: 0 4px 16px rgba(64,158,255,0.18);
+
+.creator-avatar:hover {
     border-color: #409eff;
+    transform: scale(1.05);
 }
 
-.owner-details {
-    margin-left: 16px;
-    text-align: left;
+.creator-details {
+    flex: 1;
 }
 
-.owner-name, .owner-institution, .owner-title {
-    text-align: left;
-}
-
-.owner-name {
-    font-size: 18px;
+.creator-name {
+    font-size: 16px;
     font-weight: 600;
     color: #333;
     margin-bottom: 5px;
     cursor: pointer;
-    transition: text-decoration 0.2s, color 0.2s;
 }
-.owner-name:hover {
-    text-decoration: underline;
+
+.creator-name:hover {
     color: #409eff;
+    text-decoration: underline;
 }
 
-.owner-institution, .owner-title {
+.creator-institution, .creator-field {
     font-size: 14px;
-    color: #666;
+    color: #606266;
     margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 
-.info-section {
-    margin-bottom: 20px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #f0f0f0;
-    text-align: left;
+/* 额外的创建者信息 */
+.creator-additional-info {
+    margin-top: 15px;
+    border-top: 1px dashed #ebeef5;
+    padding-top: 15px;
 }
-.info-section:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
-}
-.info-section h4 {
-    margin: 0 0 8px 0;
-    font-size: 16px;
-    color: #222;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-}
-.info-section p, .bio {
-    margin: 0;
+
+.info-item {
+    display: flex;
+    margin-bottom: 10px;
     font-size: 14px;
-    color: #444;
-    line-height: 1.8;
-    padding-left: 2px;
-}
-.bio {
-    max-height: 80px;
-    overflow-y: auto;
-    background: #fafbfc;
-    border-radius: 4px;
-    /* padding: 8px 10px; */
-    margin-top: 2px;
 }
 
-.research-outcomes {
-    margin-top: 20px;
-    background-color: #fff;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+.info-label {
+    width: 80px;
+    color: #909399;
+    flex-shrink: 0;
 }
 
-.outcome-item {
-    padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
-    transition: background-color 0.2s;
+.info-value {
+    color: #606266;
+    flex: 1;
 }
 
-.outcome-item:last-child {
-    border-bottom: none;
+/* 创建者简介 */
+.creator-profile {
+    margin-top: 15px;
+    border-top: 1px dashed #ebeef5;
+    padding-top: 15px;
 }
 
-.outcome-item:hover {
-    background-color: #f9f9f9;
-}
-
-.outcome-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
-    cursor: pointer;
+.profile-label {
+    font-size: 14px;
+    color: #909399;
     margin-bottom: 8px;
 }
 
-.outcome-title:hover {
-    color: #1890ff;
+.profile-content {
+    font-size: 14px;
+    color: #606266;
+    line-height: 1.6;
+    max-height: 120px;
+    overflow-y: auto;
+    background-color: #f9f9f9;
+    padding: 10px;
+    border-radius: 4px;
+}
+
+/* 成员列表样式 */
+.members-container {
+    padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.member-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.member-item:last-child {
+    border-bottom: none;
+}
+
+.member-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+}
+
+.member-details {
+    flex: 1;
+}
+
+.member-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    cursor: pointer;
+}
+
+.member-name:hover {
+    color: #409eff;
     text-decoration: underline;
 }
 
-.outcome-meta {
-    margin-top: 5px;
-    font-size: 13px;
-    color: #666;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.outcome-type {
-    background-color: #e6f7ff;
-    color: #1890ff;
-    padding: 2px 8px;
-    border-radius: 4px;
+.member-institution {
     font-size: 12px;
-    font-weight: 500;
+    color: #909399;
 }
 
-.outcome-stats {
-    margin-top: 8px;
-    text-align: right;
-}
-
-.likes {
-    font-size: 13px;
-    color: #ff4d4f;
-    display: inline-flex;
-    align-items: center;
-}
-
-.likes i {
-    margin-right: 3px;
-}
-
-@media (max-width: 768px) {
-    .owner-profile {
-        flex-direction: column;
-        align-items: flex-start;
-        text-align: left;
-    }
-    .owner-details {
-        margin-left: 0;
-        margin-top: 12px;
-        text-align: left;
-    }
+.empty-members {
+    padding: 20px 15px;
+    text-align: center;
+    color: #909399;
+    font-size: 14px;
 }
 </style>

@@ -149,56 +149,22 @@ export function invite(params: InviteParams): Promise<InviteRes> {
  * @param id 项目ID
  * @returns 项目详情
  */
-export async function getProjectDetail(id: number | string) {
-    if (!id) {
-        console.error("getProjectDetail: 项目ID不能为空");
-        callError("项目ID不能为空");
-        return null;
-    }
-    
-    console.log(`正在获取项目详情，ID: ${id}`);
-    
+export async function getProjectDetail(id) {
     try {
+        // 使用新的API路径
         const response = await axios.get(`/project/detail/${id}`);
-        console.log("项目详情API响应:", response);
         
+        // 检查响应状态
         if (response.status === 200) {
-            // 检查响应数据是否符合预期
-            if (response.data && typeof response.data === 'object') {
-                return response.data;
-            } else {
-                console.error("API响应格式异常:", response.data);
-                callError("API响应格式异常");
-                return {
-                    code: -1,
-                    data: null,
-                    message: "API响应格式异常"
-                };
-            }
+            return response.data;
         } else {
-            console.error("获取项目详情时出错:", response);
-            callError("获取项目详情时出错：" + (response.data?.message || "未知错误"));
+            callError("获取项目详情失败");
             return null;
         }
-    } catch (error: any) {
-        console.error("获取项目详情异常:", error);
-        if (error.response) {
-            console.error("错误响应:", error.response);
-            callError(`获取项目详情失败: ${error.response.status} - ${error.response.data?.message || "未知错误"}`);
-        } else if (error.request) {
-            console.error("无响应:", error.request);
-            callError("服务器未响应，请检查网络连接");
-        } else {
-            console.error("请求配置错误:", error.message);
-            callError(error.message || "获取项目详情失败");
-        }
-        
-        // 返回一个结构化的错误响应，而不是null
-        return {
-            code: -1,
-            data: null,
-            message: error.message || "获取项目详情失败"
-        };
+    } catch (error) {
+        console.error("获取项目详情出错:", error);
+        callError("网络错误或服务器异常");
+        return null;
     }
 }
 
