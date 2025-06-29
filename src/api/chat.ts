@@ -133,4 +133,49 @@ export async function listChatMessages(conversationId: number): Promise<MessageV
         }
         return null;
     }
+}
+
+/**
+ * 创建会话
+ * 接口地址：/api/message/create
+ * 请求方式：POST
+ * 请求数据类型：application/x-www-form-urlencoded
+ * @param userId 要与之会话的用户ID
+ */
+export async function createConversation(userId: number): Promise<ConversationVO | null> {
+    try {
+        console.log('开始创建会话，用户ID:', userId);
+        
+        const response = await axios.post<{code: number; data: ConversationVO; message: string}>('/message/create', null, {
+            params: { id: userId },
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        
+        console.log('创建会话响应:', response.data);
+        
+        if (response.status === 200) {
+            if (response.data.code === 0) {
+                console.log('成功创建会话:', response.data.data);
+                return response.data.data;
+            } else {
+                callError(response.data.message || '创建会话失败');
+                return null;
+            }
+        } else {
+            callError('网络错误');
+            return null;
+        }
+    } catch (error: any) {
+        console.error('创建会话错误:', error);
+        if (error.response) {
+            callError(error.response.data?.message || '创建会话失败');
+        } else if (error.request) {
+            callError('网络连接错误');
+        } else {
+            callError('创建会话失败，请重试');
+        }
+        return null;
+    }
 } 
