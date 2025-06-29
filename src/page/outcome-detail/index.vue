@@ -795,33 +795,33 @@ export default defineComponent({
     
     // 判断当前用户是否为作者
     const isCurrentUserAuthor = computed(() => {
-      console.log('调试信息 - 当前用户ID:', currentUserId.value);
+      // console.log('调试信息 - 当前用户ID:', currentUserId.value);
       
       // 如果没有当前用户ID或成果数据，则不是作者
       if (!currentUserId.value || !outcomeData.value) {
-        console.log('调试信息 - 用户ID或成果数据为空，不是作者');
+        // console.log('调试信息 - 用户ID或成果数据为空，不是作者');
         return false;
       }
       
       // 1. 如果成果标记为当前用户的成果，直接返回true
       if (outcomeData.value.isMine) {
-        console.log('调试信息 - 成果被标记为当前用户的成果');
+        // console.log('调试信息 - 成果被标记为当前用户的成果');
         return true;
       }
       
       // 2. 检查authorList中是否有当前用户的ID
       if (outcomeData.value.authorList && outcomeData.value.authorList.length > 0) {
         const authorIds = outcomeData.value.authorList.map(author => author.id);
-        console.log('调试信息 - 作者ID列表:', authorIds);
-        console.log('调试信息 - 当前用户ID:', currentUserId.value);
+        // console.log('调试信息 - 作者ID列表:', authorIds);
+        // console.log('调试信息 - 当前用户ID:', currentUserId.value);
         
         const isAuthor = authorIds.includes(currentUserId.value);
-        console.log('调试信息 - 用户ID是否在作者列表中:', isAuthor);
+        // console.log('调试信息 - 用户ID是否在作者列表中:', isAuthor);
         return isAuthor;
       }
       
       // 如果没有作者列表，则不是作者
-      console.log('调试信息 - 没有作者列表，不是作者');
+      // console.log('调试信息 - 没有作者列表，不是作者');
       return false;
     });
     
@@ -901,7 +901,7 @@ export default defineComponent({
           totalComments.value = 0;
         }
       } catch (error) {
-        console.error('加载评论失败:', error);
+        // console.error('加载评论失败:', error);
         ElMessage.error('加载评论失败');
       } finally {
         loadingComments.value = false;
@@ -910,11 +910,11 @@ export default defineComponent({
     
     // 提交评论
     const submitComment = async () => {
-      console.log('===== 调试评论问题 =====');
-      console.log('提交评论原始内容:', commentText.value);
-      console.log('评论内容类型:', typeof commentText.value);
-      console.log('评论内容长度:', commentText.value ? commentText.value.length : 0);
-      console.log('评论trim后长度:', commentText.value ? commentText.value.trim().length : 0);
+      // console.log('===== 调试评论问题 =====');
+      // console.log('提交评论原始内容:', commentText.value);
+      // console.log('评论内容类型:', typeof commentText.value);
+      // console.log('评论内容长度:', commentText.value ? commentText.value.length : 0);
+      // console.log('评论trim后长度:', commentText.value ? commentText.value.trim().length : 0);
       
       if (!commentText.value || !commentText.value.trim()) {
         ElMessage.warning('评论内容不能为空');
@@ -933,12 +933,12 @@ export default defineComponent({
         // 一级评论不需要parentCommentId
       };
       
-      console.log('准备发送评论数据:', commentData);
+      // console.log('准备发送评论数据:', commentData);
       
       submittingComment.value = true;
       try {
         const result = await sendOutcomeComment(commentData);
-        console.log('评论发送结果:', result);
+        // console.log('评论发送结果:', result);
         
         if (result) {
           ElMessage.success('评论发布成功');
@@ -946,7 +946,7 @@ export default defineComponent({
           await loadComments(); // 重新加载评论列表
         }
       } catch (error) {
-        console.error('发布评论失败:', error);
+        // console.error('发布评论失败:', error);
         ElMessage.error('发布评论失败');
       } finally {
         submittingComment.value = false;
@@ -967,10 +967,10 @@ export default defineComponent({
     
     // 提交回复
     const submitReply = async (parentId: number) => {
-      console.log('提交回复:', replyText.value);
-      console.log('回复内容长度:', replyText.value ? replyText.value.length : 0);
-      console.log('回复trim后长度:', replyText.value ? replyText.value.trim().length : 0);
-      console.log('父评论ID:', parentId); // 打印父评论ID，确保正确
+      // console.log('提交回复:', replyText.value);
+      // console.log('回复内容长度:', replyText.value ? replyText.value.length : 0);
+      // console.log('回复trim后长度:', replyText.value ? replyText.value.trim().length : 0);
+      // console.log('父评论ID:', parentId); // 打印父评论ID，确保正确
       
       if (!replyText.value || !replyText.value.trim()) {
         ElMessage.warning('回复内容不能为空');
@@ -989,12 +989,12 @@ export default defineComponent({
         parentCommentId: parentId // 二级评论需要设置父评论ID
       };
       
-      console.log('准备发送回复数据:', replyData);
+      // console.log('准备发送回复数据:', replyData);
       
       submittingReply.value = true;
       try {
         const result = await sendOutcomeComment(replyData);
-        console.log('回复发送结果:', result);
+        // console.log('回复发送结果:', result);
         
         if (result) {
           ElMessage.success('回复发布成功');
@@ -1003,7 +1003,7 @@ export default defineComponent({
           await loadComments(); // 重新加载评论列表
         }
       } catch (error) {
-        console.error('发布回复失败:', error);
+        // console.error('发布回复失败:', error);
         ElMessage.error('发布回复失败');
       } finally {
         submittingReply.value = false;
@@ -1061,23 +1061,23 @@ export default defineComponent({
     // 加载研究成果数据
     const loadOutcomeData = async () => {
       loading.value = true;
-      console.log('调试信息 - 开始加载成果数据, 成果ID:', outcomeId.value);
+      // console.log('调试信息 - 开始加载成果数据, 成果ID:', outcomeId.value);
       try {
         if (outcomeId.value) {
           // 有ID，从后端获取数据
           const data = await getResearchOutcomeById(Number(outcomeId.value));
           if (data) {
             outcomeData.value = data;
-            console.log('调试信息 - 成功加载成果数据:', data);
-            console.log('调试信息 - 成果作者:', data.authors);
-            console.log('调试信息 - 成果是否为当前用户的:', data.isMine);
+            // console.log('调试信息 - 成功加载成果数据:', data);
+            // console.log('调试信息 - 成果作者:', data.authors);
+            // console.log('调试信息 - 成果是否为当前用户的:', data.isMine);
             if (data.authorList) {
-              console.log('调试信息 - 成果作者列表:', data.authorList);
+              // console.log('调试信息 - 成果作者列表:', data.authorList);
             }
             console.log(outcomeData.value);
           } else {
             outcomeData.value = null;
-            console.log('调试信息 - 成果数据为空');
+            // console.log('调试信息 - 成果数据为空');
             ElMessage.error('研究成果不存在或已被删除，3秒后将自动跳转到首页');
             // 设置3秒后自动跳转到首页
             setTimeout(() => {
@@ -1087,7 +1087,7 @@ export default defineComponent({
         } else {
           // 无ID，提示错误并跳转
           outcomeData.value = null;
-          console.log('调试信息 - 未提供成果ID');
+          // console.log('调试信息 - 未提供成果ID');
           ElMessage.error('未提供成果ID，3秒后将自动跳转到首页');
           // 设置3秒后自动跳转到首页
           setTimeout(() => {
@@ -1095,7 +1095,7 @@ export default defineComponent({
           }, 3000);
         }
       } catch (error) {
-        console.error('调试信息 - 加载研究成果数据失败:', error);
+        // console.error('调试信息 - 加载研究成果数据失败:', error);
         outcomeData.value = null;
         ElMessage.error('获取研究成果信息出错，3秒后将自动跳转到首页');
         // 设置3秒后自动跳转到首页
@@ -1180,7 +1180,7 @@ export default defineComponent({
           await loadOutcomeData();
         }
       } catch (error) {
-        console.error('上传文件失败:', error);
+        // console.error('上传文件失败:', error);
         ElMessage.error('上传文件失败');
       } finally {
         uploading.value = false;
@@ -1229,7 +1229,7 @@ export default defineComponent({
           await loadOutcomeData();
         }
       } catch (error) {
-        console.error('更新成果信息失败:', error);
+        // console.error('更新成果信息失败:', error);
         ElMessage.error('更新成果信息失败');
       } finally {
         submittingEdit.value = false;
@@ -1268,7 +1268,7 @@ export default defineComponent({
           }
         }
       } catch (error) {
-        console.error('点赞操作失败:', error);
+        // console.error('点赞操作失败:', error);
         ElMessage.error('操作失败');
       } finally {
         likingInProgress.value = false;
@@ -1285,7 +1285,7 @@ export default defineComponent({
         const liked = await isOutcomeLiked(currentUserId.value, Number(outcomeId.value));
         isLiked.value = liked;
       } catch (error) {
-        console.error('检查点赞状态失败:', error);
+        // console.error('检查点赞状态失败:', error);
       }
     };
     
@@ -1299,7 +1299,7 @@ export default defineComponent({
         const count = await getOutcomeLikeCount(Number(outcomeId.value));
         likeCount.value = count;
       } catch (error) {
-        console.error('获取点赞数量失败:', error);
+        // console.error('获取点赞数量失败:', error);
         likeCount.value = 0;
       }
     };
@@ -1319,7 +1319,7 @@ export default defineComponent({
           await loadComments();
         }
       } catch (error) {
-        console.error('删除评论失败:', error);
+        // console.error('删除评论失败:', error);
         ElMessage.error('删除评论失败');
       } finally {
         deletingCommentId.value = null;
@@ -1345,7 +1345,7 @@ export default defineComponent({
           hasAppliedFullText.value = true;
         }
       } catch (error) {
-        console.error('申请全文失败:', error);
+        // console.error('申请全文失败:', error);
         ElMessage.error('申请全文失败');
       } finally {
         applyingFullText.value = false;
@@ -1523,14 +1523,14 @@ export default defineComponent({
             await loadOutcomeData();
           }
         } catch (error) {
-          console.error('删除成果原文失败:', error);
+          // console.error('删除成果原文失败:', error);
           ElMessage.error('删除成果原文失败');
         } finally {
           deletingOutcomeFile.value = false;
         }
       } catch (error) {
         // 用户取消删除
-        console.log('用户取消删除原文');
+        // console.log('用户取消删除原文');
       }
     };
     
@@ -1563,26 +1563,26 @@ export default defineComponent({
             router.push('/home');
           }
         } catch (error) {
-          console.error('删除成果失败:', error);
+          // console.error('删除成果失败:', error);
           ElMessage.error('删除成果失败');
         } finally {
           deletingOutcome.value = false;
         }
       } catch (error) {
         // 用户取消删除
-        console.log('用户取消删除成果');
+        // console.log('用户取消删除成果');
       }
     };
     
     // 页面加载时获取数据
     onMounted(() => {
-      console.log('调试信息 - 组件挂载');
-      console.log('调试信息 - 当前用户信息:', {
-        id: store.state.id,
-        name: store.state.name,
-        nickname: store.state.nickname,
-        role: store.state.role
-      });
+      // console.log('调试信息 - 组件挂载');
+      // console.log('调试信息 - 当前用户信息:', {
+      //   id: store.state.id,
+      //   name: store.state.name,
+      //   nickname: store.state.nickname,
+      //   role: store.state.role
+      // });
       
       loadOutcomeData();
       loadComments();

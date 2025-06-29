@@ -413,7 +413,7 @@ export default defineComponent({
                     }, 3000);
                 }
             } catch (error) {
-                console.error('获取问题详情失败:', error);
+                // console.error('获取问题详情失败:', error);
                 questionData.value = null;
                 // 不再显示弹窗提示，只保留页面内的提示
                 // 设置3秒后自动跳转到首页
@@ -475,7 +475,7 @@ export default defineComponent({
                     await loadQuestionDetail();
                 }
             } catch (error) {
-                console.error('提交回答失败:', error);
+                // console.error('提交回答失败:', error);
                 ElMessage.error('提交回答失败，请稍后重试');
             }
         };
@@ -527,7 +527,7 @@ export default defineComponent({
                     answer.likeCount = newLikeCount;
                 }
             } catch (error) {
-                console.error('点赞操作失败:', error);
+                // console.error('点赞操作失败:', error);
                 ElMessage.error('点赞操作失败，请稍后重试');
             } finally {
                 answer.likeLoading = false;
@@ -550,7 +550,7 @@ export default defineComponent({
                     await loadQuestionDetail();
                 }
             } catch (error) {
-                console.error('采纳回答失败:', error);
+                // console.error('采纳回答失败:', error);
                 ElMessage.error('采纳回答失败，请稍后重试');
             } finally {
                 acceptLoading.value = null;
@@ -585,7 +585,7 @@ export default defineComponent({
                     await loadQuestionDetail(); // 重新加载数据
                 }
             } catch (error) {
-                console.error('更新回答失败:', error);
+                // console.error('更新回答失败:', error);
                 ElMessage.error('更新回答失败');
             }
         };
@@ -612,7 +612,7 @@ export default defineComponent({
                     await loadQuestionDetail(); // 重新加载数据
                 }
             } catch (error) {
-                console.error('删除回答失败:', error);
+                // console.error('删除回答失败:', error);
                 ElMessage.error('删除回答失败');
             }
         };
@@ -639,7 +639,7 @@ export default defineComponent({
                     questionLiked.value = liked;
                 }
             } catch (error) {
-                console.error('加载问题点赞状态失败:', error);
+                // console.error('加载问题点赞状态失败:', error);
             }
         };
         
@@ -687,7 +687,7 @@ export default defineComponent({
                     questionLikeCount.value = newLikeCount;
                 }
             } catch (error) {
-                console.error('问题点赞操作失败:', error);
+                // console.error('问题点赞操作失败:', error);
                 ElMessage.error('操作失败，请稍后重试');
             } finally {
                 questionLikeLoading.value = false;
