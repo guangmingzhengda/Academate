@@ -23,7 +23,12 @@
                         style="cursor: pointer;"
                     >
                         <div class="project-info">
-                            <div class="project-title">{{ project.name }}</div>
+                            <div class="project-title">
+                                {{ project.name }}
+                                <el-tag :type="project.isPublic ? 'success' : 'warning'" size="small">
+                                    {{ project.isPublic ? '公开' : '私密' }}
+                                </el-tag>
+                            </div>
                             <div class="project-desc">{{ project.description }}</div>
                             <div class="project-meta">
                                 <div class="meta-row">
@@ -33,11 +38,6 @@
                                 <div class="meta-row">
                                     <span class="meta-item">身份：{{ roleMap[project.leader] || project.leader }}</span>
                                     <span v-if="project.endDate" class="meta-item">结束时间：{{ project.endDate }}</span>
-                                    <span class="meta-item">
-                                        <el-tag :type="project.isPublic ? 'success' : 'warning'" size="small">
-                                            {{ project.isPublic ? '公开' : '私密' }}
-                                        </el-tag>
-                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -144,7 +144,7 @@ export default {
             if (!props.userId) return;
             const res = await get_user_projects(props.userId);
             // 格式化字段
-            projects.value = (res || []).map(item => ({
+            let formattedProjects = (res || []).map(item => ({
                 id: item.projectId,
                 name: item.title,
                 description: item.description,
@@ -155,6 +155,13 @@ export default {
                 joinedAt: item.joinedAt,
                 isPublic: item.isPublic !== undefined ? item.isPublic : true
             }));
+            
+            // 如果不是当前用户的个人资料页，过滤掉私密项目
+            if (!props.isOwnProfile) {
+                formattedProjects = formattedProjects.filter(project => project.isPublic === true);
+            }
+            
+            projects.value = formattedProjects;
         }
 
         onMounted(fetchProjects);
@@ -439,6 +446,10 @@ export default {
     color: #2c3e50;
     margin-bottom: 6px;
     text-align: left;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
 .project-desc {
