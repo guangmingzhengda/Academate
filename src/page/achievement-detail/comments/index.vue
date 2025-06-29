@@ -108,7 +108,7 @@
 
 <script lang="js">
 import {ref} from "vue";
-import {commitCommentAPI, deleteCommentAPI, getAllCommentsAPI, getUserInfo,} from "@/page/achievement-detail/api/api";
+import {commitCommentAPI, deleteCommentAPI, getUserInfo,} from "@/page/achievement-detail/api/api";
 import {callSuccess} from "@/call";
 import store from "@/store";
 import {getUserAuthorId} from "@/api/favourite";

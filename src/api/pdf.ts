@@ -60,29 +60,50 @@ export interface BaseResponseNoteVO {
   message: string;
 }
 
+
+
 /**
- * AI摘要请求接口
+ * AI对话请求接口
  */
-export interface SummarizeRequest {
-  /** 文档ID */
-  literatureId: number;
+export interface ChatRequest {
+  /** 模型名称 */
+  model: string;
   
-  /** 提示词 */
-  prompt: string;
+  /** 对话消息列表 */
+  messages: Array<{
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+  }>;
+  
+  /** 是否流式输出 */
+  stream: boolean;
+  
+  /** 最大tokens数 */
+  max_tokens?: number;
+  
+  /** 温度参数 */
+  temperature?: number;
+  
+  /** API密钥 */
+  apiKey?: string;
 }
 
 /**
- * AI摘要流式响应数据接口
+ * AI对话响应数据接口
  */
-export interface SummarizeStreamData {
-  /** 内容 */
-  content?: string;
-  
-  /** 是否完成 */
-  done?: boolean;
+export interface ChatResponseData {
+  /** 选择列表 */
+  choices?: Array<{
+    delta?: {
+      content?: string;
+    };
+    finish_reason?: string;
+  }>;
   
   /** 错误信息 */
-  error?: string;
+  error?: {
+    message: string;
+  };
 }
 
 /**
@@ -307,41 +328,75 @@ export function createCloudAnnotationPersistence(): CloudAnnotationPersistence {
   return new CloudAnnotationPersistence();
 }
 
+
+
 /**
- * AI生成文献摘要流式响应
+ * AI对话流式响应
  * 
- * @param request 摘要请求参数
+ * @param message 用户消息内容（已包含页面内容的完整消息）
  * @param onData 数据回调函数，用于处理流式数据
  * @param onError 错误回调函数
  * @param onComplete 完成回调函数
+ * @param apiKey API密钥，暂时为空等待用户填写
+ * @param model 模型名称，默认使用火山方舟的模型
  * @returns Promise<boolean> 是否成功启动流式请求
  */
-export async function generateSummaryStream(
-  request: SummarizeRequest,
+export async function generateChatStream(
+  message: string,
   onData: (data: string) => void,
   onError?: (error: string) => void,
-  onComplete?: () => void
+  onComplete?: () => void,
+  apiKey: string = 'b1d34875-d54d-4c42-97b4-b9d067cecf03', // 暂时为空，等待用户填写
+  model: string = 'doubao-1-5-thinking-pro-250415' // 默认模型ID，可以根据需要修改
 ): Promise<boolean> {
+  // 检查API密钥
+  if (!apiKey || apiKey.trim() === '') {
+    const errorMessage = 'API密钥未设置，请先配置API密钥';
+    console.error('AI对话请求失败:', errorMessage);
+    callError('API密钥未设置，请联系管理员配置');
+    if (onError) onError(errorMessage);
+    return false;
+  }
+
   try {
-    const response = await fetch('/research_outcome/summarize-stream', {
+    // 构建请求数据
+    const requestData: ChatRequest = {
+      model: model,
+      messages: [
+        {
+          role: 'user',
+          content: message
+        }
+      ],
+      stream: true,
+      max_tokens: 2000,
+      temperature: 0.7,
+      apiKey: apiKey
+    };
+
+    console.log('发送AI对话请求:', { model, messageLength: message.length });
+
+    // 发起流式请求到火山方舟API
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(request)
+      body: JSON.stringify(requestData)
     });
 
     if (!response.ok) {
       const errorMessage = `HTTP error! status: ${response.status}`;
-      console.error('AI摘要请求失败:', errorMessage);
-      callError(`AI摘要请求失败: ${response.status} ${response.statusText}`);
+      console.error('AI对话请求失败:', errorMessage);
+      callError(`AI对话请求失败: ${response.status} ${response.statusText}`);
       if (onError) onError(errorMessage);
       return false;
     }
 
     if (!response.body) {
       const errorMessage = 'Response body is null';
-      console.error('AI摘要请求失败:', errorMessage);
+      console.error('AI对话请求失败:', errorMessage);
       callError('服务器响应异常');
       if (onError) onError(errorMessage);
       return false;
@@ -357,7 +412,7 @@ export async function generateSummaryStream(
         const { done, value } = await reader.read();
         
         if (done) {
-          console.log('AI摘要流式响应完成');
+          console.log('AI对话流式响应完成');
           if (onComplete) onComplete();
           break;
         }
@@ -373,37 +428,41 @@ export async function generateSummaryStream(
         for (const line of lines) {
           if (line.trim() === '') continue;
           
+          // 处理SSE格式的数据
           if (line.startsWith('data: ')) {
-            const data = line.slice(6).trim();
+            const data = line.slice(6).trim(); // 移除 'data: ' 前缀
             
             if (data === '[DONE]') {
-              console.log('AI摘要生成完成');
+              console.log('AI对话生成完成');
               if (onComplete) onComplete();
               return true;
             }
 
             try {
-              const jsonData = JSON.parse(data) as SummarizeStreamData;
-              if (jsonData.content) {
-                onData(jsonData.content);
-              }
-              if (jsonData.error) {
-                console.error('AI摘要生成错误:', jsonData.error);
-                if (onError) onError(jsonData.error);
+              const parsed: ChatResponseData = JSON.parse(data);
+              
+              if (parsed.error) {
+                console.error('AI对话生成错误:', parsed.error.message);
+                if (onError) onError(parsed.error.message);
                 return false;
               }
-            } catch (parseError) {
-              // 如果不是JSON，直接当作文本内容处理
-              if (data && data !== 'null') {
-                onData(data);
+
+              if (parsed.choices && parsed.choices.length > 0) {
+                const choice = parsed.choices[0];
+                if (choice.delta && choice.delta.content) {
+                  onData(choice.delta.content);
+                }
               }
+            } catch (parseError) {
+              console.warn('解析流式数据失败:', parseError, 'data:', data);
+              // 继续处理其他行，不中断整个流程
             }
           }
         }
       }
     } catch (error) {
       const errorMessage = `处理流式响应失败: ${error instanceof Error ? error.message : '未知错误'}`;
-      console.error('处理AI摘要流式响应失败:', error);
+      console.error('处理AI对话流式响应失败:', error);
       callError('处理AI响应时发生错误');
       if (onError) onError(errorMessage);
       return false;
@@ -414,9 +473,9 @@ export async function generateSummaryStream(
     return true;
 
   } catch (error) {
-    const errorMessage = `AI摘要请求失败: ${error instanceof Error ? error.message : '未知错误'}`;
-    console.error('AI摘要请求失败:', error);
-    callError('网络错误，AI摘要请求失败');
+    const errorMessage = `AI对话请求失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    console.error('AI对话请求失败:', error);
+    callError('网络错误，AI对话请求失败');
     if (onError) onError(errorMessage);
     return false;
   }
