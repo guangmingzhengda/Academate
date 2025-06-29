@@ -169,7 +169,7 @@ export async function subscribeArxivAuthor(data: ArxivAuthorSubscriptionRequest)
 }
 
 /**
- * 获取用户的订阅列表
+ * 获取用户的关键词订阅列表
  * 
  * 接口地址: /arxiv/subscription/list
  * 请求方式: GET

@@ -17,7 +17,9 @@
                             <el-icon><ArrowLeft /></el-icon>
                             返回上一级
                         </el-button>
-                        <el-button type="primary" @click="openCreateFolderDialog">
+                        <!-- arXiv订阅管理按钮 -->
+                        <ArxivSubscriptionManager />
+                        <el-button type="primary" @click="openCreateFolderDialog" style="font-family: 'Meiryo', sans-serif;">
                             <el-icon><Plus /></el-icon>
                             新建收藏夹
                         </el-button>
@@ -207,9 +209,13 @@ import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft, Document } from '@el
 import { callSuccess, callInfo, callWarning } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import { getFavoritePage, createFavorite, deleteFavorite, updateFavorite, getFavoriteOutcomePage, removeOutcomeFromFavorite } from '@/api/favorite'
+import ArxivSubscriptionManager from './ArxivSubscriptionManager.vue'
 
 export default {
     name: 'libraryManager',
+    components: {
+        ArxivSubscriptionManager
+    },
     setup() {
         const router = useRouter()
         
