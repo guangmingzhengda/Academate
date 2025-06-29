@@ -6,6 +6,7 @@ interface AnswerVO {
     questionId: number;
     answerText: string;
     answeredAt: string;
+    answeredEd: string;
     userId: number;
     userName: string;
     userAvatar: string;
