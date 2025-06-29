@@ -819,4 +819,59 @@ hr {
     border: none;
     box-shadow: 0 2px 8px rgba(64,158,255,0.18);
 }
+
+/* 自定义文本框样式 */
+.custom-textarea,
+.reply-textarea {
+    width: 100%;
+    height: 150px;
+    padding: 12px;
+    font-size: 14px;
+    line-height: 1.6;
+    border: 1px solid #dcdfe6;
+    border-radius: 4px;
+    resize: vertical;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.02);
+    overflow-y: auto;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+    transition: border-color 0.2s ease;
+    font-family: inherit;
+}
+
+.custom-textarea:focus,
+.reply-textarea:focus {
+    outline: none;
+    border-color: #409eff;
+    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.1);
+}
+
+/* 对话框样式优化 */
+.dialog-footer {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+:deep(.el-dialog__body) {
+    padding: 20px;
+}
+
+/* 回复输入框容器样式 */
+.reply-input-container {
+    margin-top: 12px;
+    margin-left: 50px;
+    padding: 12px;
+    background: #f5f7fa;
+    border-radius: 6px;
+}
+
+/* 回复操作按钮容器 */
+.reply-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+}
 </style>

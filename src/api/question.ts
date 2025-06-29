@@ -193,11 +193,11 @@ export async function getAnswerLikeCount(answerId: number): Promise<number> {
     if (response.status === 200 && response.data.code === 0) {
       return response.data.data;
     } else {
-      console.error("获取点赞数量失败:", response.data.message);
+      // console.error("获取点赞数量失败:", response.data.message);
       return 0;
     }
   } catch (error) {
-    console.error("获取点赞数量失败:", error);
+    // console.error("获取点赞数量失败:", error);
     return 0;
   }
 }
@@ -477,11 +477,11 @@ export async function getQuestionLikeCount(questionId: number): Promise<number> 
     if (response.status === 200 && response.data.code === 0) {
       return response.data.data;
     } else {
-      console.error("获取问题点赞数量失败:", response.data.message);
+      // console.error("获取问题点赞数量失败:", response.data.message);
       return 0;
     }
   } catch (error) {
-    console.error("获取问题点赞数量失败:", error);
+    // console.error("获取问题点赞数量失败:", error);
     return 0;
   }
 }
@@ -558,11 +558,11 @@ export async function isQuestionLiked(uid: number, questionId: number): Promise<
     if (response.status === 200 && response.data.code === 0) {
       return response.data.data;
     } else {
-      console.error("检查问题点赞状态失败:", response.data.message);
+      // console.error("检查问题点赞状态失败:", response.data.message);
       return false;
     }
   } catch (error) {
-    console.error("检查问题点赞状态失败:", error);
+    // console.error("检查问题点赞状态失败:", error);
     return false;
   }
 } 
