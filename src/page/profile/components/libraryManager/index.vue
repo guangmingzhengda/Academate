@@ -223,7 +223,7 @@ export default {
         
         // 收藏夹分页相关
         const folderCurrentPage = ref(1)
-        const folderPageSize = ref(6)
+        const folderPageSize = ref(5)
         
         // 收藏夹数据
         const folders = ref([])
@@ -232,7 +232,7 @@ export default {
         
         // 文献分页相关
         const outcomeCurrentPage = ref(1)
-        const outcomePageSize = ref(6)
+        const outcomePageSize = ref(5)
         
         // 文献数据
         const outcomes = ref([])
@@ -716,6 +716,7 @@ export default {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: left;
 }
 
 .outcome-authors {
@@ -725,6 +726,7 @@ export default {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    text-align: left;
 }
 
 .outcome-meta {
@@ -732,6 +734,8 @@ export default {
     gap: 15px;
     font-size: 12px;
     color: #909399;
+    align-items: center;
+    text-align: left;
 }
 
 .outcome-type {
@@ -740,10 +744,16 @@ export default {
     padding: 2px 8px;
     border-radius: 4px;
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .outcome-journal {
     font-style: italic;
+    text-align: left;
+}
+
+.outcome-date {
+    text-align: left;
 }
 
 .outcome-actions {
