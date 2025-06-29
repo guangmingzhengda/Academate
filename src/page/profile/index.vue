@@ -525,13 +525,23 @@ export default {
 
         // 标签页相关
         const activeTab = ref('projects')
-        const tabs = [
-            { key: 'projects', label: '项目/学术成果' },
-            { key: 'following', label: '关注列表' },
-            { key: 'followers', label: '被关注列表' },
-            { key: 'library', label: '文献库' },
-            { key: 'reports', label: '技术趋势报告' }
-        ]
+        const tabs = computed(() => {
+            const baseTabs = [
+                { key: 'projects', label: '项目/学术成果' },
+                { key: 'following', label: '关注列表' },
+                { key: 'followers', label: '被关注列表' }
+            ];
+            
+            // 只有在自己的主页才显示文献库和技术趋势报告
+            if (isOwnProfile.value) {
+                baseTabs.push(
+                    { key: 'library', label: '文献库' },
+                    { key: 'reports', label: '技术趋势报告' }
+                );
+            }
+            
+            return baseTabs;
+        });
 
         // 头像错误处理
         const altImg = () => {
@@ -851,6 +861,28 @@ export default {
                 }, trigger: 'blur' }
             ]
         }
+
+        // 监听用户ID变化，处理标签页切换
+        watch(userId, (newUserId, oldUserId) => {
+            if (newUserId !== oldUserId) {
+                // 如果当前标签页在新的用户页面中不可用，则切换到第一个可用的标签页
+                const availableTabs = tabs.value.map(tab => tab.key);
+                if (!availableTabs.includes(activeTab.value)) {
+                    activeTab.value = availableTabs[0];
+                }
+            }
+        });
+
+        // 监听isOwnProfile变化，处理标签页切换
+        watch(isOwnProfile, (newIsOwnProfile, oldIsOwnProfile) => {
+            if (newIsOwnProfile !== oldIsOwnProfile) {
+                // 如果当前标签页在新的用户页面中不可用，则切换到第一个可用的标签页
+                const availableTabs = tabs.value.map(tab => tab.key);
+                if (!availableTabs.includes(activeTab.value)) {
+                    activeTab.value = availableTabs[0];
+                }
+            }
+        });
 
         return {
             userInfo,
