@@ -76,8 +76,23 @@
                                     </div>
                                 </div>
                                 
-                                <!-- 数据请求、研究人员更新、问题回复的标记已读按钮/状态 -->
-                                <div v-if="['data_request', 'researcher_update', 'question_reply'].includes(message.type)">
+                                <!-- 数据请求的同意/拒绝按钮/状态 -->
+                                <div v-if="message.type === 'data_request'">
+                                    <div v-if="message.status === null" class="message-actions">
+                                        <el-button type="default" size="small" @click="handleDataRequest(message.id, true)">
+                                            同意
+                                        </el-button>
+                                        <el-button type="default" size="small" @click="handleDataRequest(message.id, false)">
+                                            拒绝
+                                        </el-button>
+                                    </div>
+                                    <div v-else class="message-status" :class="message.status">
+                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    </div>
+                                </div>
+                                
+                                <!-- 研究人员更新、问题回复的标记已读按钮/状态 -->
+                                <div v-if="['researcher_update', 'question_reply'].includes(message.type)">
                                     <!-- 调试信息（临时） -->
                                     <!-- <div style="font-size: 10px; color: #999;">
                                         [调试] 类型: {{ message.type }}, 状态: {{ message.status }}
@@ -115,13 +130,58 @@
             </div>
         </div>
     </div>
+    
+    <!-- 文件上传对话框 -->
+    <el-dialog
+        v-model="uploadDialogVisible"
+        title="上传全文资料"
+        width="500px"
+        :close-on-click-modal="false"
+    >
+        <div class="upload-content">
+            <p>请上传PDF格式的全文资料：</p>
+            <el-upload
+                ref="uploadRef"
+                class="upload-demo"
+                drag
+                :auto-upload="false"
+                :limit="1"
+                accept=".pdf"
+                :on-change="handleFileChange"
+                :file-list="fileList"
+            >
+                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                <div class="el-upload__text">
+                    将PDF文件拖到此处，或<em>点击上传</em>
+                </div>
+                <template #tip>
+                    <div class="el-upload__tip">
+                        只能上传PDF文件，且不超过50MB
+                    </div>
+                </template>
+            </el-upload>
+        </div>
+        <template #footer>
+            <span class="dialog-footer">
+                <el-button @click="uploadDialogVisible = false">取消</el-button>
+                <el-button 
+                    type="primary" 
+                    @click="handleUploadConfirm"
+                    :loading="uploadLoading"
+                    :disabled="!selectedFile"
+                >
+                    确认上传
+                </el-button>
+            </span>
+        </template>
+    </el-dialog>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import { Close } from '@element-plus/icons-vue'
+import { Close, UploadFilled } from '@element-plus/icons-vue'
 import { agree_project_invite, reject_project_invite } from '@/api/project'
-import { pullAllMessages, MessageVO, markAsRead } from '@/api/msg'
+import { pullAllMessages, MessageVO, markAsRead, handleApplyAgree, ApplyAgreeRequest } from '@/api/msg'
 import { get_user_detail } from '@/api/profile'
 import { callSuccess, callError } from '@/call'
 import store from '@/store'
@@ -155,6 +215,13 @@ const userNameCache = ref(new Map())
 // 标记全部已读的加载状态
 const markingAllAsRead = ref(false)
 
+// 文件上传相关状态
+const uploadDialogVisible = ref(false)
+const selectedFile = ref(null)
+const fileList = ref([])
+const uploadLoading = ref(false)
+const currentDataRequestMessage = ref(null) // 当前处理的数据请求消息
+
 // 过滤消息，只显示别人发给我的消息
 const filteredMessages = computed(() => {
     const currentUserId = store.getters.getId
@@ -169,13 +236,13 @@ const filteredMessages = computed(() => {
 // 计算非项目类型的未读消息（用于全部已读功能）
 const unreadNonProjectMessages = computed(() => {
     return filteredMessages.value.filter(message => {
-        // 项目类型的消息不包括在内（它们有自己的同意/拒绝逻辑）
-        if (['project_invite', 'project_apply'].includes(message.type)) {
+        // 项目类型和数据请求的消息不包括在内（它们有自己的同意/拒绝逻辑）
+        if (['project_invite', 'project_apply', 'data_request'].includes(message.type)) {
             return false
         }
         
-        // 对于已知的三种类型，检查status是否为pending
-        if (['data_request', 'researcher_update', 'question_reply'].includes(message.type)) {
+        // 对于已知的两种类型，检查status是否为pending
+        if (['researcher_update', 'question_reply'].includes(message.type)) {
             return message.status === 'pending' && !message.read
         }
         
@@ -293,7 +360,11 @@ const handleIncomingMessage = async (messageData) => {
             // 项目相关消息使用isAccepted字段，新消息默认为null
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
-        } else if (['data_request', 'researcher_update', 'question_reply'].includes(messageType)) {
+        } else if (messageType === 'data_request') {
+            // 数据请求也使用isAccepted字段，类似项目邀请
+            messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
+                           messageData.isAccepted === 'reject' ? 'rejected' : null
+        } else if (['researcher_update', 'question_reply'].includes(messageType)) {
             // 其他类型消息使用status字段，如果WebSocket消息有status字段则使用，否则默认pending
             messageStatus = messageData.status || 'pending'
         }
@@ -309,6 +380,7 @@ const handleIncomingMessage = async (messageData) => {
             read: messageData.status === 'processed' || messageData.isAccepted === 'agree' || messageData.isAccepted === 'reject',
             projectId: messageData.projectId || null,
             senderId: messageData.senderId || null, // 添加发送者ID，用于拒绝接口
+            outcomeId: messageData.outcomeId || null, // 添加成果ID，用于数据请求处理
             status: messageStatus
         }
         
@@ -398,7 +470,11 @@ const convertMessageVOToMessage = async (messageVO) => {
         // 项目邀请和申请使用 isAccepted 字段
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
-    } else if (['data_request', 'researcher_update', 'question_reply'].includes(messageType)) {
+    } else if (messageType === 'data_request') {
+        // 数据请求也使用 isAccepted 字段，类似项目邀请
+        messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
+                       messageVO.isAccepted === 'reject' ? 'rejected' : null
+    } else if (['researcher_update', 'question_reply'].includes(messageType)) {
         // 其他类型使用 status 字段，默认为 pending
         messageStatus = messageVO.status === 'processed' ? 'processed' : 'pending'
     }
@@ -413,6 +489,7 @@ const convertMessageVOToMessage = async (messageVO) => {
         read: isRead,
         projectId: messageVO.projectId || null,
         senderId: messageVO.senderId || null,
+        outcomeId: messageVO.outcomeId || null, // 添加成果ID，用于数据请求处理
         status: messageStatus
     }
         
@@ -550,6 +627,46 @@ const handleProjectApply = async (messageId, accepted) => {
         } catch (error) {
             callError('处理项目申请时发生错误')
             return
+        }
+    }
+}
+
+// 处理数据请求
+const handleDataRequest = async (messageId, accepted) => {
+    const message = messages.value.find(m => m.id === messageId)
+    if (!message) {
+        callError('消息不存在')
+        return
+    }
+    
+    if (!message.outcomeId) {
+        callError('消息中缺少成果ID，无法处理')
+        return
+    }
+    
+    if (accepted) {
+        // 同意：弹出文件上传对话框
+        currentDataRequestMessage.value = message
+        uploadDialogVisible.value = true
+        resetUploadDialog()
+    } else {
+        // 拒绝：直接调用后端接口
+        try {
+            const success = await handleApplyAgree({
+                agree: false,
+                outcomeId: message.outcomeId,
+                messageId: messageId
+            })
+            
+            if (success) {
+                message.status = 'rejected'
+                message.read = true
+                console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
+                callSuccess('已拒绝数据请求')
+            }
+        } catch (error) {
+            console.error('拒绝数据请求失败:', error)
+            callError('拒绝数据请求失败')
         }
     }
 }
@@ -718,6 +835,73 @@ const navigateToUserProfile = (senderId) => {
         console.error('页面跳转失败:', error)
         callError('页面跳转失败')
     })
+}
+
+// 重置文件上传对话框
+const resetUploadDialog = () => {
+    selectedFile.value = null
+    fileList.value = []
+    uploadLoading.value = false
+}
+
+// 处理文件选择变化
+const handleFileChange = (file, fileList) => {
+    console.log('文件选择变化:', file, fileList)
+    
+    // 检查文件类型
+    if (file.raw && file.raw.type !== 'application/pdf') {
+        callError('只能上传PDF格式的文件')
+        fileList.splice(fileList.indexOf(file), 1)
+        return
+    }
+    
+    // 检查文件大小（50MB）
+    if (file.raw && file.raw.size > 50 * 1024 * 1024) {
+        callError('文件大小不能超过50MB')
+        fileList.splice(fileList.indexOf(file), 1)
+        return
+    }
+    
+    selectedFile.value = file.raw
+}
+
+// 处理上传确认
+const handleUploadConfirm = async () => {
+    if (!selectedFile.value) {
+        callError('请选择要上传的PDF文件')
+        return
+    }
+    
+    if (!currentDataRequestMessage.value) {
+        callError('找不到对应的消息')
+        return
+    }
+    
+    const message = currentDataRequestMessage.value
+    uploadLoading.value = true
+    
+    try {
+        const success = await handleApplyAgree({
+            agree: true,
+            outcomeId: message.outcomeId,
+            messageId: message.id,
+            multipartFile: selectedFile.value
+        })
+        
+        if (success) {
+            message.status = 'accepted'
+            message.read = true
+            console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
+            callSuccess('文件上传成功，已同意数据请求')
+            uploadDialogVisible.value = false
+            resetUploadDialog()
+        }
+    } catch (error) {
+        console.error('上传文件失败:', error)
+        callError('上传文件失败')
+    } finally {
+        uploadLoading.value = false
+    }
 }
 
 // 计算未读消息数量
@@ -1063,5 +1247,48 @@ onUnmounted(() => {
 
 .sidebar-content::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
+}
+
+/* 文件上传对话框样式 */
+.upload-content {
+    padding: 20px 0;
+}
+
+.upload-content p {
+    margin-bottom: 16px;
+    color: #333;
+    font-size: 14px;
+}
+
+.upload-demo {
+    width: 100%;
+}
+
+.dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.el-upload-dragger {
+    width: 100% !important;
+    height: 180px !important;
+}
+
+.el-icon--upload {
+    font-size: 48px !important;
+    color: #c0c4cc !important;
+    margin-bottom: 16px !important;
+}
+
+.el-upload__text {
+    color: #606266 !important;
+    font-size: 14px !important;
+}
+
+.el-upload__tip {
+    color: #909399 !important;
+    font-size: 12px !important;
+    margin-top: 8px !important;
 }
 </style> 
