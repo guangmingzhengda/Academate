@@ -919,6 +919,16 @@ onMounted(async () => {
     // 监听头像更新事件
     window.addEventListener('avatarUpdated', handleAvatarUpdate)
     
+    // 监听从profile页面传来的会话跳转请求
+    window.addEventListener('openChatWithConversation', (event) => {
+        handleOpenChatWithConversation(event.detail)
+    })
+    
+    // 监听打开聊天窗口事件
+    window.addEventListener('openChatWindow', () => {
+        // 这个事件由App.vue处理，这里不需要做任何操作
+    })
+    
     // 初始化位置到屏幕中央
     const maxX = window.innerWidth - 800
     const maxY = window.innerHeight - 600
@@ -960,6 +970,10 @@ onUnmounted(() => {
     
     // 移除头像更新事件监听
     window.removeEventListener('avatarUpdated', handleAvatarUpdate)
+    
+    // 移除profile页面相关事件监听
+    window.removeEventListener('openChatWithConversation', handleOpenChatWithConversation)
+    window.removeEventListener('openChatWindow', () => {})
 
     if (messagesContainer.value) {
         messagesContainer.value.removeEventListener('wheel', handleChatWheel)
@@ -1013,6 +1027,33 @@ const reconnectWebSocket = () => {
 // 处理头像更新事件
 const handleAvatarUpdate = () => {
     fetchConversations()
+}
+
+// 处理从profile页面传来的会话跳转请求
+const handleOpenChatWithConversation = async (detail) => {
+    const { conversationId } = detail
+    
+    try {
+        // 确保会话列表已加载
+        if (conversations.value.length === 0) {
+            await fetchConversations()
+        }
+        
+        // 查找指定的会话
+        const targetConversation = conversations.value.find(conv => conv.id === conversationId)
+        
+        if (targetConversation) {
+            // 选择该会话
+            selectConversation(targetConversation)
+            // 切换到聊天界面
+            currentView.value = 'chat'
+        } else {
+            ElMessage.error('未找到指定的会话')
+        }
+    } catch (error) {
+        console.error('处理会话跳转请求失败:', error)
+        ElMessage.error('跳转到会话失败')
+    }
 }
 
 // 处理头像加载错误

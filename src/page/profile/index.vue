@@ -59,7 +59,7 @@
                                 type="primary" 
                                 plain
                                 size="small"
-                                @click="sendMessage"
+                                @click="openChatWithUser"
                                 :disabled="loading"
                                 v-if="!isOwnProfile && isFollowing"
                             >
@@ -215,51 +215,13 @@
     </div>
     </div>
     <!-- 编辑对话框 -->
-    <edit-dialog 
-        :visible="editDialogVisible" 
+    <edit-dialog
+        v-model="editDialogVisible"
         :type="editType" 
         :data="editData"
         @close="closeEditDialog"
         @save="saveData"
     />
-
-    <!-- 发送私信对话框 -->
-    <el-dialog
-        v-model="messageDialogVisible"
-        title=""
-        width="500px"
-        @close="closeMessageDialog"
-    >
-        <div class="message-dialog">
-            <div class="recipient-info">
-                <img :src="userInfo.avatar" alt="头像" class="recipient-avatar" @error="altImg"/>
-                <div>
-                    <div class="recipient-name">{{ userInfo.name || '姓名未知' }}</div>
-                    <div class="recipient-org">{{ userInfo.email || '未填写' }}</div>
-                </div>
-            </div>
-            
-            <el-form>
-                <el-form-item label="消息内容" required>
-                    <el-input
-                        v-model="messageContent"
-                        type="textarea"
-                        :rows="6"
-                        placeholder="请输入您要发送的消息内容..."
-                        maxlength="500"
-                        show-word-limit
-                    />
-                </el-form-item>
-            </el-form>
-        </div>
-
-        <template #footer>
-            <el-button @click="closeMessageDialog">取消</el-button>
-            <el-button type="primary" @click="sendPrivateMessage" :disabled="!messageContent.trim()">
-                发送
-            </el-button>
-        </template>
-    </el-dialog>
 
     <!-- 编辑资料对话框 -->
     <el-dialog
@@ -326,6 +288,7 @@ import { callSuccess, callInfo, callError } from '@/call'
 import { ElMessage } from 'element-plus'
 import { get_user_detail, upload_user_avatar, update_user_info, get_user_projects } from '@/api/profile'
 import { followUser, unfollowUser, getFollowedUsers } from '@/api/follow'
+import { listConversations, createConversation } from '@/api/chat'
 import store from '@/store'
 
 export default {
@@ -435,9 +398,6 @@ export default {
             editDialogVisible.value = false
             editType.value = ''
             editData.value = {}
-            // 重置私信对话框状态
-            messageDialogVisible.value = false
-            messageContent.value = ''
             // 重置编辑资料对话框状态
             editProfileDialogVisible.value = false
             
@@ -518,10 +478,6 @@ export default {
         }
 
         watch(userId, checkIsFollowing, { immediate: true })
-
-        // 私信相关
-        const messageDialogVisible = ref(false)
-        const messageContent = ref('')
 
         // 标签页相关
         const activeTab = ref('projects')
@@ -727,27 +683,44 @@ export default {
             activeTab.value = tabKey
         }
 
-        // 发送私信
-        const sendMessage = () => {
-            messageDialogVisible.value = true
-        }
-
-        // 关闭私信对话框
-        const closeMessageDialog = () => {
-            messageDialogVisible.value = false
-            messageContent.value = ''
-        }
-
-        // 发送私信内容（模拟，实际可调用API）
-        const sendPrivateMessage = () => {
-            if (!messageContent.value.trim()) {
-                callInfo('请输入消息内容')
-                return
+        // 打开与用户的聊天
+        const openChatWithUser = async () => {
+            try {
+                // 获取当前会话列表
+                const conversations = await listConversations()
+                
+                // 检查是否已有与该用户的对话
+                const existingConversation = conversations?.find(conv => conv.chatUserVO.userId === userId.value)
+                
+                if (existingConversation) {
+                    // 如果已有对话，通过全局事件通知聊天组件跳转到该对话
+                    window.dispatchEvent(new CustomEvent('openChatWithConversation', {
+                        detail: { conversationId: existingConversation.id }
+                    }))
+                    ElMessage.success(`已跳转到与 ${userInfo.value.name} 的对话`)
+                } else {
+                    // 如果没有对话，创建新对话
+                    const newConversationData = await createConversation(userId.value)
+                    
+                    if (newConversationData) {
+                        // 通过全局事件通知聊天组件创建新对话并跳转
+                        window.dispatchEvent(new CustomEvent('openChatWithConversation', {
+                            detail: { conversationId: newConversationData.id }
+                        }))
+                        ElMessage.success(`已创建与 ${userInfo.value.name} 的新对话`)
+                    } else {
+                        ElMessage.error('创建会话失败')
+                        return
+                    }
+                }
+                
+                // 通过全局事件打开聊天窗口
+                window.dispatchEvent(new CustomEvent('openChatWindow'))
+                
+            } catch (error) {
+                console.error('打开聊天失败:', error)
+                ElMessage.error('打开聊天失败，请重试')
             }
-            // TODO: 调用实际私信API
-            callSuccess(`私信已发送给 ${userInfo.value.name}`)
-            messageDialogVisible.value = false
-            messageContent.value = ''
         }
 
         // 编辑资料对话框相关
@@ -892,8 +865,6 @@ export default {
             editType,
             editData,
             isFollowing,
-            messageDialogVisible,
-            messageContent,
             activeTab,
             tabs,
             altImg,
@@ -903,9 +874,7 @@ export default {
             saveData,
             toggleFollow,
             switchTab,
-            sendMessage,
-            closeMessageDialog,
-            sendPrivateMessage,
+            openChatWithUser,
             editProfileDialogVisible,
             editProfileForm,
             openEditProfileDialog,
@@ -1281,7 +1250,7 @@ export default {
 .info-card {
     background-color: rgba(255, 255, 255, 0.95);
     border-radius: 0;
-    padding: 30px;
+    padding: 20px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
