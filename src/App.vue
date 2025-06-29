@@ -42,13 +42,14 @@
 <script>
 
 import navigator from "@/nav/index.vue";
-import {computed, ref} from "vue";
+import {computed, ref, onMounted, onUnmounted} from "vue";
 import store from "@/store";
 import {callError, callInfo} from "@/call";
 import TestAI from "@/page/achievement-detail/testAI/index.vue";
 import MessageSidebar from "@/components/MessageSidebar.vue";
 import ChatWindow from "@/page/chat/index.vue";
 import { ChatLineRound, ChatDotRound } from '@element-plus/icons-vue';
+import websocketManager from '@/utils/websocketManager';
 
 export default {
     name: 'App',
@@ -61,7 +62,7 @@ export default {
         const sidebarVisible = ref(false);
         const chatVisible = ref(false);
         const unreadCount = ref(2); // 模拟未读消息数量
-        const chatUnreadCount = ref(0); // 聊天未读消息数量，初始化为0
+        const chatUnreadCount = computed(() => store.getters.getChatUnreadCount);
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');
@@ -89,8 +90,32 @@ export default {
         }
 
         const updateChatUnreadCount = (count) => {
-            chatUnreadCount.value = count;
+            // 这里只需更新未读数，store已自动处理
         }
+
+        onMounted(() => {
+            // 全局注册聊天消息处理器，确保无论是否打开聊天窗口都能处理消息
+            websocketManager.registerMessageHandler('chat_message', (msg) => {
+                // 通过自定义事件将聊天消息传递给聊天组件
+                window.dispatchEvent(new CustomEvent('chatMessageReceived', { detail: msg }))
+            });
+            
+            websocketManager.registerMessageHandler('send_success', () => {
+                // 通过自定义事件将发送成功消息传递给聊天组件
+                window.dispatchEvent(new CustomEvent('chatMessageSent', { detail: {} }))
+            });
+            
+            // 全局注册系统消息处理器，确保无论是否打开消息中心都能处理消息
+            websocketManager.registerMessageHandler('system_message', (msg) => {
+                // 通过自定义事件将系统消息传递给消息中心组件
+                window.dispatchEvent(new CustomEvent('systemMessageReceived', { detail: msg }))
+            });
+        });
+        onUnmounted(() => {
+            websocketManager.unregisterMessageHandler('chat_message');
+            websocketManager.unregisterMessageHandler('send_success');
+            websocketManager.unregisterMessageHandler('system_message');
+        });
 
         return {
             navOpen,
