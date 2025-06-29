@@ -56,6 +56,13 @@ export interface BaseResponseVoid {
   message: string;
 }
 
+// 查找成果所在收藏夹响应类型
+export interface BaseResponseListLong {
+  code: number;
+  data: number[];
+  message: string;
+}
+
 // 分页获取收藏夹请求参数类型
 export interface GetFavoritePageRequest {
   pageSize: number;
@@ -71,6 +78,7 @@ export interface ResourceOutcomeSearchVO {
   authors: string;
   journal: string;
   publishDate: number;
+  subscribed: boolean;
 }
 
 // 分页获取收藏夹中成果的结果类型
@@ -140,7 +148,6 @@ export async function getFavoritePage(params: GetFavoritePageRequest): Promise<P
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     });
-    
     if (response.status === 200) {
       if (response.data.code === 0) {
         return response.data.data;
@@ -314,5 +321,37 @@ export async function removeOutcomeFromFavorite(data: FavoriteOutcome): Promise<
   } catch (error) {
     callError('网络错误或服务器异常');
     return false;
+  }
+}
+
+/**
+ * 查找成果所在的收藏夹
+ * 
+ * @param outcomeId 成果ID
+ * @returns Promise<number[] | null> 成功返回收藏夹ID数组，失败返回null
+ */
+export async function findFavoriteByOutcome(outcomeId: number): Promise<number[] | null> {
+  try {
+    const response = await axios.get<BaseResponseListLong>('/favorite/find_favorite', {
+      params: { outcomeId },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    if (response.status === 200) {
+      if (response.data.code === 0) {
+        return response.data.data;
+      } else {
+        callError(response.data.message || '查找成果所在收藏夹失败');
+        return null;
+      }
+    } else {
+      callError('网络错误');
+      return null;
+    }
+  } catch (error) {
+    callError('网络错误或服务器异常');
+    return null;
   }
 }

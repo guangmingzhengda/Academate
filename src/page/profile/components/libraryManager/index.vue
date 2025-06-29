@@ -19,10 +19,12 @@
                         </el-button>
                         <!-- arXiv订阅管理按钮 -->
                         <ArxivSubscriptionManager />
-                        <el-button type="primary" @click="openCreateFolderDialog" style="font-family: 'Meiryo', sans-serif;">
-                            <el-icon><Plus /></el-icon>
-                            新建收藏夹
-                        </el-button>
+                        <el-tooltip :content="createFolderTooltip" placement="right">
+                            <el-button type="primary" @click="openCreateFolderDialog" style="font-family: 'Meiryo', sans-serif;">
+                                <el-icon><Plus /></el-icon>
+                                新建收藏夹
+                            </el-button>
+                        </el-tooltip>
                     </div>
                 </div>
                 
@@ -53,7 +55,7 @@
                     <div v-else>
                         <!-- 收藏夹列表 -->
                         <div v-if="folders.length > 0" class="folders-section">
-                            <div class="section-title">收藏夹</div>
+                            <div class="section-title">所含收藏夹</div>
                             <div class="folders-grid">
                                 <div 
                                     v-for="folder in currentPageFolders" 
@@ -66,7 +68,6 @@
                                     </div>
                                     <div class="folder-info">
                                         <div class="folder-name">{{ folder.name }}</div>
-                                        <div class="folder-desc">收藏夹</div>
                                         <div class="folder-stats">
                                             <span class="paper-count">点击查看内容</span>
                                         </div>
@@ -108,7 +109,7 @@
 
                         <!-- 文献列表 -->
                         <div v-if="outcomes.length > 0" class="outcomes-section">
-                            <div class="section-title">文献</div>
+                            <div class="section-title">所含文献</div>
                             <div class="outcomes-grid">
                                 <div 
                                     v-for="outcome in currentPageOutcomes" 
@@ -121,11 +122,15 @@
                                     </div>
                                     <div class="outcome-info">
                                         <div class="outcome-title">{{ outcome.title }}</div>
-                                        <div class="outcome-authors">{{ outcome.authors }}</div>
+                                        <div class="outcome-authors">作者：{{ outcome.authors }}</div>
                                         <div class="outcome-meta">
-                                            <span class="outcome-type">{{ formatType(outcome.type) }}</span>
-                                            <span v-if="outcome.journal" class="outcome-journal">{{ outcome.journal }}</span>
-                                            <span v-if="outcome.publishDate" class="outcome-date">{{ formatDate(outcome.publishDate) }}</span>
+                                            <span class="outcome-type" :data-type="formatType(outcome.type)">{{ formatType(outcome.type) }}</span>
+                                            <span v-if="outcome.journal" class="outcome-journal">期刊：{{ outcome.journal }}</span>
+                                            <span v-if="outcome.publishDate" class="outcome-date">发表日期：{{ formatDate(outcome.publishDate) }}</span>
+                                            <span v-if="outcome.subscribed" class="outcome-subscribed">
+                                                <el-icon><Star /></el-icon>
+                                                根据订阅自动收集
+                                            </span>
                                         </div>
                                     </div>
                                     <div class="outcome-actions" @click.stop>
@@ -205,10 +210,11 @@
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft, Document } from '@element-plus/icons-vue'
+import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft, Document, Star } from '@element-plus/icons-vue'
 import { callSuccess, callInfo, callWarning } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import { getFavoritePage, createFavorite, deleteFavorite, updateFavorite, getFavoriteOutcomePage, removeOutcomeFromFavorite } from '@/api/favorite'
+import { checkFavoriteHasSubscription } from '@/api/arxiv'
 import ArxivSubscriptionManager from './ArxivSubscriptionManager.vue'
 
 export default {
@@ -281,7 +287,19 @@ export default {
                 'conference': '会议',
                 'patent': '专利',
                 'book': '书籍',
-                'chapter': '章节'
+                'chapter': '章节',
+                // 添加中文类型映射
+                '论文': '论文',
+                '期刊': '期刊',
+                '会议': '会议',
+                '会议论文': '会议论文',
+                '专利': '专利',
+                '书籍': '书籍',
+                '章节': '章节',
+                '数据': '数据',
+                '技术报告': '技术报告',
+                '海报': '海报',
+                '其他': '其他'
             }
             return typeMap[type] || type
         }
@@ -290,8 +308,25 @@ export default {
         const formatDate = (timestamp) => {
             if (!timestamp) return ''
             const date = new Date(timestamp)
-            return date.getFullYear()
+            const year = date.getFullYear()
+            const month = String(date.getMonth() + 1).padStart(2, '0')
+            const day = String(date.getDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
         }
+        
+        // 获取当前目录名称
+        const getCurrentFolderName = () => {
+            if (breadcrumbList.value.length > 0) {
+                return breadcrumbList.value[breadcrumbList.value.length - 1].name;
+            }
+            return '文献库';
+        };
+        
+        // 计算属性：新建收藏夹的tooltip内容
+        const createFolderTooltip = computed(() => {
+            const currentName = getCurrentFolderName();
+            return `在"${currentName}"下新建收藏夹`;
+        });
         
         // 加载收藏夹数据
         const loadFolders = async (parentId = 0) => {
@@ -351,6 +386,36 @@ export default {
                 loadFolders(parentId),
                 loadOutcomes(parentId)
             ])
+        }
+        
+        // 获取所有收藏夹数据（用于检查层级关系）
+        const getAllFolders = async () => {
+            const allFolders = []
+            
+            // 递归获取所有收藏夹
+            const loadFoldersRecursively = async (parentId = 0) => {
+                try {
+                    const result = await getFavoritePage({
+                        pageSize: 1000, // 使用较大的页面大小
+                        pageNum: 1,
+                        parentId: parentId
+                    })
+                    
+                    if (result && result.list.length > 0) {
+                        allFolders.push(...result.list)
+                        
+                        // 递归加载子收藏夹
+                        for (const folder of result.list) {
+                            await loadFoldersRecursively(folder.favoriteId)
+                        }
+                    }
+                } catch (error) {
+                    console.error(`加载父级ID ${parentId} 的收藏夹失败:`, error)
+                }
+            }
+            
+            await loadFoldersRecursively()
+            return allFolders
         }
         
         // 面包屑导航点击
@@ -468,6 +533,26 @@ export default {
         
         const deleteFolder = async (folderId) => {
             try {
+                // 获取所有收藏夹数据用于检查层级关系
+                const allFolders = await getAllFolders();
+                
+                // 检查收藏夹及其子收藏夹是否有订阅
+                const hasSubscription = await checkFavoriteHasSubscription(folderId, allFolders)
+                
+                if (hasSubscription) {
+                    // 如果有订阅，提示用户不能删除
+                    await ElMessageBox.alert(
+                        '该收藏夹或其子收藏夹已订阅了arXiv关键词或科研人员，无法删除。请先取消相关订阅后再删除收藏夹。',
+                        '无法删除',
+                        {
+                            confirmButtonText: '确定',
+                            type: 'warning'
+                        }
+                    )
+                    return
+                }
+                
+                // 如果没有订阅，继续删除流程
                 await ElMessageBox.confirm('确定要删除这个收藏夹吗？删除后无法恢复。', '确认删除', {
                     confirmButtonText: '确定',
                     cancelButtonText: '取消',
@@ -482,8 +567,11 @@ export default {
                     outcomeCurrentPage.value = 1
                     await loadCurrentLevelData(currentParentId.value)
                 }
-            } catch {
-                callInfo('已取消删除')
+            } catch (error) {
+                // 如果是用户取消操作，不显示错误信息
+                if (error !== 'cancel') {
+                    callInfo('已取消删除')
+                }
             }
         }
         
@@ -573,7 +661,8 @@ export default {
             loadOutcomes,
             removeOutcome,
             handleOutcomePageChange,
-            goToOutcomeDetail
+            goToOutcomeDetail,
+            createFolderTooltip
         }
     }
 }
@@ -721,18 +810,25 @@ export default {
     line-height: 1.4;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
     text-align: left;
+    word-wrap: break-word;
+    word-break: break-all;
+    max-width: 100%;
 }
 
 .outcome-authors {
-    font-size: 14px;
+    font-size: 13px;
     color: #606266;
     margin-bottom: 8px;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
     text-align: left;
+    word-wrap: break-word;
+    word-break: break-all;
+    max-width: 100%;
+    line-height: 1.3;
 }
 
 .outcome-meta {
@@ -742,15 +838,62 @@ export default {
     color: #909399;
     align-items: center;
     text-align: left;
+    flex-wrap: wrap;
+    line-height: 1.4;
 }
 
 .outcome-type {
-    background-color: #ecf5ff;
-    color: #409eff;
-    padding: 2px 8px;
+    padding: 4px 12px;
     border-radius: 4px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: bold;
+    color: white;
     white-space: nowrap;
+    background-color: #909399; /* 默认背景色 */
+}
+
+.outcome-type[data-type="论文"] {
+    background-color: #67c23a;
+}
+
+.outcome-type[data-type="期刊"] {
+    background-color: #409eff;
+}
+
+.outcome-type[data-type="会议"] {
+    background-color: #e6a23c;
+}
+
+.outcome-type[data-type="会议论文"] {
+    background-color: #409eff;
+}
+
+.outcome-type[data-type="专利"] {
+    background-color: #f56c6c;
+}
+
+.outcome-type[data-type="书籍"] {
+    background-color: #909399;
+}
+
+.outcome-type[data-type="章节"] {
+    background-color: #8e44ad;
+}
+
+.outcome-type[data-type="数据"] {
+    background-color: #1abc9c;
+}
+
+.outcome-type[data-type="技术报告"] {
+    background-color: #8e44ad;
+}
+
+.outcome-type[data-type="海报"] {
+    background-color: #e67e22;
+}
+
+.outcome-type[data-type="其他"] {
+    background-color: #95a5a6;
 }
 
 .outcome-journal {
@@ -760,6 +903,24 @@ export default {
 
 .outcome-date {
     text-align: left;
+}
+
+.outcome-subscribed {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #f0f9ff;
+    color: #0369a1;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid #bae6fd;
+}
+
+.outcome-subscribed .el-icon {
+    font-size: 10px;
+    color: #f59e0b;
 }
 
 .outcome-actions {
@@ -821,14 +982,12 @@ export default {
     color: #2c3e50;
     margin-bottom: 5px;
     text-align: left;
-}
-
-.folder-desc {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 13px;
-    color: #666;
-    margin-bottom: 8px;
-    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    word-wrap: break-word;
+    word-break: break-all;
+    max-width: 100%;
     line-height: 1.3;
 }
 
