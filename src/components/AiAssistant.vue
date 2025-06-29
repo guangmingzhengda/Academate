@@ -37,7 +37,17 @@
                             <img :src="aiAvatarUrl" alt="AI助手" class="avatar-img"/>
                         </div>
                         <div class="ai-message-content">
-                            <p style="text-align: left;" v-html="formatMessage(message.content)"></p>
+                            <!-- 加载状态显示 -->
+                            <div v-if="message.isLoading" class="ai-loading-content">
+                                <span>{{ message.content }}</span>
+                                <span class="loading-dots">
+                                    <span>.</span>
+                                    <span>.</span>
+                                    <span>.</span>
+                                </span>
+                            </div>
+                            <!-- 正常内容显示 -->
+                            <div v-else style="text-align: left;" v-html="formatMessage(message.content, message.type)"></div>
                             <span class="ai-message-time">{{ message.timestamp }}</span>
                         </div>
                         <div class="ai-avatar user-avatar" v-if="message.type === 'user'">
@@ -45,8 +55,8 @@
                         </div>
                     </div>
                     
-                    <!-- 加载中消息 -->
-                    <div v-if="loading" class="ai-message assistant">
+                    <!-- 加载中消息（只在没有AI消息正在生成时显示） -->
+                    <div v-if="loading && !hasEmptyAiMessage" class="ai-message assistant">
                         <div class="ai-avatar">
                             <img :src="aiAvatarUrl" alt="AI助手" class="avatar-img"/>
                         </div>
@@ -119,7 +129,8 @@
 import { ref, nextTick, watch, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { get_user_detail } from '@/api/profile'
-import { generateSummaryStream } from '@/api/pdf'
+import { generateChatStream } from '@/api/pdf'
+import MarkdownIt from 'markdown-it'
 
 export default {
     name: 'AiAssistant',
@@ -204,6 +215,14 @@ export default {
             getUserAvatar()
         })
 
+        // 检查是否有AI消息正在生成（用于避免重复显示loading动画）
+        const hasEmptyAiMessage = computed(() => {
+            if (messages.value.length === 0) return false
+            const lastMessage = messages.value[messages.value.length - 1]
+            return lastMessage.type === 'assistant' && 
+                   (lastMessage.isLoading || lastMessage.content === '')
+        })
+
         // 监听侧边栏显示状态，自动聚焦输入框
         watch(() => props.visible, (newVal) => {
             if (newVal) {
@@ -215,12 +234,26 @@ export default {
             }
         })
 
-        // 格式化消息内容（支持基本的HTML格式）
-        const formatMessage = (content) => {
-            return content
-                .replace(/\n/g, '<br>')
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        // 创建markdown解析器实例
+        const md = new MarkdownIt({
+            html: false,        // 禁用HTML标签以确保安全
+            breaks: true,       // 支持换行转换为<br>
+            linkify: true,      // 自动将URL转换为链接
+            typographer: true   // 启用排版优化
+        })
+
+        // 格式化消息内容（AI消息支持markdown，用户消息保持简单格式）
+        const formatMessage = (content, messageType = 'user') => {
+            if (messageType === 'assistant') {
+                // AI消息使用完整的markdown渲染
+                return md.render(content)
+            } else {
+                // 用户消息保持简单的文本格式
+                return content
+                    .replace(/\n/g, '<br>')
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            }
         }
 
         // 滚动到消息底部
@@ -233,11 +266,12 @@ export default {
         }
 
         // 添加消息到对话列表
-        const addMessage = (content, type = 'user') => {
+        const addMessage = (content, type = 'user', isLoading = false) => {
             const message = {
                 id: messageIdCounter++,
                 content,
                 type,
+                isLoading,
                 timestamp: new Date().toLocaleTimeString('zh-CN', { 
                     hour: '2-digit', 
                     minute: '2-digit' 
@@ -277,8 +311,11 @@ export default {
                 // 添加用户消息
                 addMessage(question, 'user')
 
-                // 发送普通AI请求
-                await sendAiRequest(question, context)
+                // 构建完整的问题，包含页面内容
+                const fullMessage = `当前页面内容：\n${context}\n\n请总结第${props.currentPage}页的内容，包括主要观点、关键信息和核心结论。`
+
+                // 发送流式对话请求
+                await sendAiChatRequest(fullMessage)
             }
         }
 
@@ -287,17 +324,23 @@ export default {
             const message = inputText.value.trim()
             if (!message || loading.value) return
 
-            // 添加用户消息
+            // 添加用户消息（显示原始问题）
             addMessage(message, 'user')
 
             // 清空输入框
             inputText.value = ''
 
             // 获取当前页面文字作为上下文
-            const context = props.currentPageText
+            const context = props.currentPageText || ''
 
-            // 发送AI请求
-            await sendAiRequest(message, context)
+            // 构建完整的问题，将当前页面内容拼接到问题前面
+            let fullMessage = message
+            if (context.trim()) {
+                fullMessage = `当前页面内容：\n${context}\n\n用户问题：${message}`
+            }
+
+            // 发送AI对话请求（使用拼接后的完整消息）
+            await sendAiChatRequest(fullMessage)
         }
 
         // 发送AI流式摘要请求
@@ -306,23 +349,48 @@ export default {
             let aiMessage = null
 
             try {
-                // 构建请求数据
-                const requestData = {
-                    literatureId: props.documentInfo.id,
-                    prompt: '请为这篇文档生成详细的学术摘要，包括研究背景、方法、主要发现和结论。'
+                // 获取文章前五页的内容
+                const firstFivePages = []
+                for (let i = 1; i <= Math.min(5, props.totalPages); i++) {
+                    const pageText = props.allTexts[i]
+                    if (pageText && pageText.trim()) {
+                        firstFivePages.push(`第${i}页：\n${pageText}`)
+                    }
                 }
 
-                console.log('发送AI摘要请求:', requestData)
+                if (firstFivePages.length === 0) {
+                    emit('error', '无法获取文档前五页内容，请等待PDF加载完成')
+                    return
+                }
 
-                // 创建一个空的AI回复消息，用于显示流式内容
-                aiMessage = addMessage('', 'assistant')
+                // 构建摘要请求的完整消息
+                const pagesContent = firstFivePages.join('\n\n')
+                const fullMessage = `请为以下学术文献的前五页内容生成详细的摘要，包括研究背景、目的、方法、主要发现和结论：
 
-                // 使用pdf.ts中的接口函数发起流式请求
-                const success = await generateSummaryStream(
-                    requestData,
+${pagesContent}
+
+请生成一个结构化的摘要，包含以下方面：
+1. 研究背景和问题
+2. 研究目的和假设  
+3. 研究方法和数据
+4. 主要发现和结果
+5. 结论和意义`
+
+                console.log('发送AI摘要请求:', { 
+                    documentTitle: props.documentInfo?.title,
+                    pagesIncluded: firstFivePages.length,
+                    contentLength: fullMessage.length 
+                })
+
+                // 创建一个AI消息并显示加载状态
+                aiMessage = addMessage('🤔 正在分析文档内容', 'assistant', true)
+
+                // 使用火山方舟对话API发起流式请求
+                const success = await generateChatStream(
+                    fullMessage,
                     // onData 回调：处理流式数据
                     (data) => {
-                        typewriterEffect(aiMessage, data)
+                        appendStreamContent(aiMessage, data)
                     },
                     // onError 回调：处理错误
                     (error) => {
@@ -330,7 +398,8 @@ export default {
                         if (aiMessage) {
                             const messageIndex = messages.value.findIndex(m => m.id === aiMessage.id)
                             if (messageIndex > -1) {
-                                messages.value[messageIndex].content = '抱歉，AI摘要生成失败，请稍后再试。'
+                                messages.value[messageIndex].content = '抱歉，AI摘要生成失败，请稍后再试。\n\n' + 
+                                    (error.includes('API密钥') ? '提示：API密钥配置可能有问题。' : '')
                             }
                         }
                         emit('error', 'AI摘要生成失败')
@@ -369,122 +438,91 @@ export default {
             }
         }
 
-
-
-        // 打字机效果
-        const typewriterEffect = async (messageObj, newContent) => {
-            const messageIndex = messages.value.findIndex(m => m.id === messageObj.id)
-            if (messageIndex === -1) return
-
-            const words = newContent.split('')
-            
-            for (let i = 0; i < words.length; i++) {
-                if (messageIndex < messages.value.length) {
-                    messages.value[messageIndex].content += words[i]
-                    
-                    // 每添加几个字符就滚动到底部
-                    if (i % 5 === 0) {
-                        scrollToBottom()
-                    }
-                    
-                    // 打字机速度控制
-                    await new Promise(resolve => setTimeout(resolve, 10))
-                }
-            }
-            
-            // 最后确保滚动到底部
-            scrollToBottom()
-        }
-
-        // 发送普通AI请求（保留原有逻辑用于当页总结和问答）
-        const sendAiRequest = async (question, context = '') => {
+        // 发送AI对话请求
+        const sendAiChatRequest = async (message) => {
             loading.value = true
+            let aiMessage = null
 
             try {
-                // 构建请求数据
-                const requestData = {
-                    question,
-                    context: context || '暂无上下文内容',
-                    documentTitle: props.documentInfo?.title || '未知文档',
-                    currentPage: props.currentPage,
-                    totalPages: props.totalPages
+                console.log('发送AI对话请求:', { messageLength: message.length })
+
+                // 创建一个AI消息并显示加载状态
+                aiMessage = addMessage('🤔 正在思考您的问题', 'assistant', true)
+
+                // 使用pdf.ts中的接口函数发起流式请求
+                const success = await generateChatStream(
+                    message,
+                    // onData 回调：处理流式数据
+                    (data) => {
+                        appendStreamContent(aiMessage, data)
+                    },
+                    // onError 回调：处理错误
+                    (error) => {
+                        console.error('AI对话生成错误:', error)
+                        if (aiMessage) {
+                            const messageIndex = messages.value.findIndex(m => m.id === aiMessage.id)
+                            if (messageIndex > -1) {
+                                messages.value[messageIndex].content = '抱歉，AI对话失败，请稍后再试。\n\n' + 
+                                    (error.includes('API密钥') ? '提示：API密钥未配置，请联系管理员设置。' : '')
+                            }
+                        }
+                        emit('error', 'AI对话失败')
+                    },
+                    // onComplete 回调：处理完成
+                    () => {
+                        console.log('AI对话生成完成')
+                        // 确保滚动到底部
+                        scrollToBottom()
+                    }
+                )
+
+                if (!success) {
+                    // 如果接口调用失败且没有创建消息，创建错误消息
+                    if (!aiMessage) {
+                        addMessage('抱歉，AI对话失败，请稍后再试。', 'assistant')
+                    }
                 }
 
-                // 这里应该调用实际的AI API
-                // 暂时使用模拟响应
-                const response = await simulateAiResponse(requestData)
-
-                // 添加AI回复消息
-                addMessage(response, 'assistant')
-
             } catch (error) {
-                console.error('AI请求失败:', error)
-                addMessage('抱歉，AI服务暂时不可用，请稍后再试。', 'assistant')
-                emit('error', 'AI请求失败')
+                console.error('AI对话请求失败:', error)
+                
+                // 如果已经创建了消息，更新其内容
+                if (aiMessage) {
+                    const messageIndex = messages.value.findIndex(m => m.id === aiMessage.id)
+                    if (messageIndex > -1) {
+                        messages.value[messageIndex].content = '抱歉，AI对话失败，请稍后再试。'
+                    }
+                } else {
+                    addMessage('抱歉，AI对话失败，请稍后再试。', 'assistant')
+                }
+                
+                emit('error', 'AI对话失败')
             } finally {
                 loading.value = false
             }
         }
 
-        // 模拟AI响应（实际项目中应该替换为真实的AI API调用）
-        const simulateAiResponse = async (requestData) => {
-            // 模拟网络延迟
-            await new Promise(resolve => setTimeout(resolve, 1500 + Math.random() * 1000))
+        // 直接添加流式内容（修复单词顺序问题）
+        const appendStreamContent = (messageObj, newContent) => {
+            const messageIndex = messages.value.findIndex(m => m.id === messageObj.id)
+            if (messageIndex === -1) return
 
-            const { question, context, documentTitle, currentPage, totalPages } = requestData
-
-            // 根据问题类型生成不同的模拟响应
-            if (question.includes('摘要') || question.includes('总结')) {
-                if (question.includes('当页') || question.includes(`第${currentPage}页`)) {
-                    return `**第${currentPage}页内容总结：**
-
-基于当前页面的文字内容，我为您总结如下要点：
-
-• **主要内容**：这一页主要讨论了相关的研究方法和理论基础
-• **关键概念**：涉及的核心概念包括研究设计、数据分析等
-• **重要结论**：提出了几个重要的研究发现
-
-*注：这是基于第${currentPage}页/${totalPages}页内容的AI分析总结*`
-                } else {
-                    return `**《${documentTitle}》文章摘要：**
-
-基于整篇文档的内容分析，我为您生成以下摘要：
-
-• **研究背景**：文档探讨了相关领域的重要问题和挑战
-• **研究方法**：采用了系统性的研究方法和分析框架  
-• **主要发现**：得出了几个关键性的研究结论
-• **实际意义**：为相关领域的理论和实践提供了有价值的参考
-
-*注：这是基于${totalPages}页完整文档的AI智能摘要*`
-                }
-            } else if (question.includes('解释') || question.includes('什么是')) {
-                return `**概念解释：**
-
-根据文档内容，我为您解释相关概念：
-
-这个概念在学术研究中具有重要意义，通常指的是...
-
-**相关要点：**
-• 定义和特征
-• 应用场景  
-• 重要性分析
-
-*如需更详细的解释，请提供具体的概念名称*`
-            } else {
-                return `**AI助手回复：**
-
-感谢您的提问！基于当前文档内容，我理解您想了解的是：
-
-${question}
-
-**我的分析：**
-• 这个问题涉及文档中的重要内容
-• 结合上下文来看，相关信息显示...
-• 建议您可以重点关注相关章节
-
-*如需更具体的回答，请提供更详细的问题描述*`
+            const currentMessage = messages.value[messageIndex]
+            
+            // 如果是第一次接收数据（处于加载状态），切换到正常状态并清空内容
+            if (currentMessage.isLoading) {
+                currentMessage.isLoading = false
+                currentMessage.content = ''
             }
+
+            // 直接追加流式内容
+            currentMessage.content += newContent
+            
+            // 滚动到底部
+            scrollToBottom()
         }
+
+
 
         // 处理输入框键盘事件
         const handleInputKeydown = (event) => {
@@ -503,16 +541,16 @@ ${question}
             messages,
             userAvatarUrl,
             aiAvatarUrl,
+            hasEmptyAiMessage,
             handleUserAvatarError,
             formatMessage,
             scrollToBottom,
             addMessage,
             handlePresetQuestion,
             sendMessage,
-            sendAiRequest,
             sendAiSummaryRequest,
-            typewriterEffect,
-            simulateAiResponse,
+            sendAiChatRequest,
+            appendStreamContent,
             handleInputKeydown
         }
     }
@@ -764,6 +802,171 @@ ${question}
     line-height: 1.5;
     word-wrap: break-word;
     color: #000;
+}
+
+/* AI消息的markdown内容样式 */
+.ai-message.assistant .ai-message-content div {
+    line-height: 1.6;
+    word-wrap: break-word;
+    color: #000;
+}
+
+.ai-message.assistant .ai-message-content div p {
+    margin: 0 0 12px 0;
+}
+
+.ai-message.assistant .ai-message-content div p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-message.assistant .ai-message-content div h1,
+.ai-message.assistant .ai-message-content div h2,
+.ai-message.assistant .ai-message-content div h3,
+.ai-message.assistant .ai-message-content div h4,
+.ai-message.assistant .ai-message-content div h5,
+.ai-message.assistant .ai-message-content div h6 {
+    margin: 16px 0 8px 0;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.ai-message.assistant .ai-message-content div h1 { font-size: 1.5em; }
+.ai-message.assistant .ai-message-content div h2 { font-size: 1.3em; }
+.ai-message.assistant .ai-message-content div h3 { font-size: 1.2em; }
+.ai-message.assistant .ai-message-content div h4 { font-size: 1.1em; }
+.ai-message.assistant .ai-message-content div h5 { font-size: 1.05em; }
+.ai-message.assistant .ai-message-content div h6 { font-size: 1em; }
+
+.ai-message.assistant .ai-message-content div ul,
+.ai-message.assistant .ai-message-content div ol {
+    margin: 8px 0;
+    padding-left: 20px;
+}
+
+.ai-message.assistant .ai-message-content div li {
+    margin: 4px 0;
+    line-height: 1.5;
+}
+
+.ai-message.assistant .ai-message-content div blockquote {
+    margin: 12px 0;
+    padding: 8px 16px;
+    border-left: 4px solid #3498db;
+    background: rgba(52, 152, 219, 0.05);
+    font-style: italic;
+}
+
+.ai-message.assistant .ai-message-content div code {
+    background: rgba(52, 152, 219, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9em;
+    color: #e74c3c;
+}
+
+.ai-message.assistant .ai-message-content div pre {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+.ai-message.assistant .ai-message-content div pre code {
+    background: none;
+    padding: 0;
+    color: #333;
+}
+
+.ai-message.assistant .ai-message-content div strong {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.ai-message.assistant .ai-message-content div em {
+    font-style: italic;
+    color: #666;
+}
+
+.ai-message.assistant .ai-message-content div a {
+    color: #3498db;
+    text-decoration: none;
+}
+
+.ai-message.assistant .ai-message-content div a:hover {
+    text-decoration: underline;
+}
+
+.ai-message.assistant .ai-message-content div table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 0.9em;
+}
+
+.ai-message.assistant .ai-message-content div th,
+.ai-message.assistant .ai-message-content div td {
+    border: 1px solid #ddd;
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.ai-message.assistant .ai-message-content div th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+/* AI加载状态样式 */
+.ai-loading-content {
+    color: #666 !important;
+    font-style: italic;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.ai-loading-content span:first-child {
+    color: #666;
+}
+
+/* 加载点动画 */
+.loading-dots {
+    display: inline-flex;
+    margin-left: 2px;
+}
+
+.loading-dots span {
+    color: #666;
+    animation: loadingDot 1.4s infinite;
+    animation-fill-mode: both;
+}
+
+.loading-dots span:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.loading-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.loading-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes loadingDot {
+    0%, 80%, 100% {
+        opacity: 0.3;
+        transform: scale(0.8);
+    }
+    40% {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 .ai-message-time {
