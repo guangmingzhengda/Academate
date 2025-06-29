@@ -609,7 +609,7 @@ export default {
                         restoreDrawingData(currentPage.value)
                     }, 300)
                     
-                    callInfo(`已从云端恢复 ${applyResult.counts.highlights} 个高亮、${applyResult.counts.annotations} 个批注、${applyResult.counts.drawings} 页绘制内容`)
+                    // callInfo(`已从云端恢复 ${applyResult.counts.highlights} 个高亮、${applyResult.counts.annotations} 个批注、${applyResult.counts.drawings} 页绘制内容`)
                 }
             } catch (error) {
                 console.error('从云端加载批注失败:', error)
