@@ -39,6 +39,9 @@
                                     <span class="meta-item">身份：{{ roleMap[project.leader] || project.leader }}</span>
                                     <span v-if="project.endDate" class="meta-item">结束时间：{{ project.endDate }}</span>
                                 </div>
+                                <div v-if="project.collaborationRequirement" class="meta-row">
+                                    <span class="meta-item">合作条件：{{ project.collaborationRequirement }}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -85,6 +88,18 @@
                     />
                     <div style="text-align:right;color:#999;font-size:12px;">
                         {{ descWordCount }} / 200 字/单词
+                    </div>
+                </el-form-item>
+                <el-form-item label="合作条件" prop="collaborationRequirement">
+                    <el-input 
+                        v-model="formData.collaborationRequirement" 
+                        type="textarea" 
+                        :rows="2"
+                        placeholder="请输入项目合作条件（选填）"
+                        @input="onCollabInput"
+                    />
+                    <div style="text-align:right;color:#999;font-size:12px;">
+                        {{ collabWordCount }} / 100 字/单词
                     </div>
                 </el-form-item>
                 <el-form-item label="私密设置" prop="isPublic">
@@ -153,7 +168,8 @@ export default {
                 status: item.status,
                 leader: item.role,
                 joinedAt: item.joinedAt,
-                isPublic: item.isPublic !== undefined ? item.isPublic : true
+                isPublic: item.isPublic !== undefined ? item.isPublic : true,
+                collaborationRequirement: item.collaborationRequirement
             }));
             
             // 如果不是当前用户的个人资料页，过滤掉私密项目
@@ -181,7 +197,8 @@ export default {
             endDate: '',
             status: '',
             leader: '',
-            isPublic: true
+            isPublic: true,
+            collaborationRequirement: ''
         })
 
         // 表单验证规则
@@ -197,11 +214,20 @@ export default {
             const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
             return cn + en
         })
+        const collabWordCount = computed(() => {
+            const val = formData.value.collaborationRequirement || ''
+            const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+            const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+            return cn + en
+        })
         const onNameInput = () => {
             formRef.value && formRef.value.validateField && formRef.value.validateField('name')
         }
         const onDescInput = () => {
             formRef.value && formRef.value.validateField && formRef.value.validateField('description')
+        }
+        const onCollabInput = () => {
+            formRef.value && formRef.value.validateField && formRef.value.validateField('collaborationRequirement')
         }
         const rules = {
             name: [
@@ -229,6 +255,22 @@ export default {
                         callback()
                     }
                 }, trigger: 'blur' }
+            ],
+            collaborationRequirement: [
+                { validator: (rule, value, callback) => {
+                    if (!value) {
+                        callback()
+                        return
+                    }
+                    const val = value || ''
+                    const cn = (val.match(/[\u4e00-\u9fa5]/g) || []).length
+                    const en = (val.replace(/[\u4e00-\u9fa5]/g, '').trim().split(/\s+/).filter(Boolean) || []).length
+                    if (cn + en > 100) {
+                        callback(new Error('合作条件不能超过100字/单词'))
+                    } else {
+                        callback()
+                    }
+                }, trigger: 'blur' }
             ]
         }
 
@@ -245,7 +287,8 @@ export default {
             formData.value = {
                 name: '',
                 description: '',
-                isPublic: true
+                isPublic: true,
+                collaborationRequirement: ''
             }
             dialogVisible.value = true
         }
@@ -254,7 +297,11 @@ export default {
         const editProject = (project) => {
             isEdit.value = true
             editingId.value = project.id
-            formData.value = { ...project, isPublic: project.isPublic }
+            formData.value = { 
+                ...project, 
+                isPublic: project.isPublic,
+                collaborationRequirement: project.collaborationRequirement || ''
+            }
             dialogVisible.value = true
         }
 
@@ -302,7 +349,8 @@ export default {
                         title: formData.value.name,
                         description: formData.value.description,
                         creatorId: userId,
-                        isPublic: formData.value.isPublic
+                        isPublic: formData.value.isPublic,
+                        collaborationRequirement: formData.value.collaborationRequirement || undefined
                     }
                     
                     const success = await create_project(projectData)
@@ -370,8 +418,10 @@ export default {
             roleMap,
             nameWordCount,
             descWordCount,
+            collabWordCount,
             onNameInput,
             onDescInput,
+            onCollabInput,
             statusMap
         }
     }

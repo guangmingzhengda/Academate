@@ -41,6 +41,10 @@ export interface ArxivSubscriptionVO {
   keyword: string;
   /** 描述 */
   description: string;
+  /** 收藏夹ID */
+  favoriteId: number;
+  /** 收藏夹名称 */
+  favoriteName: string;
 }
 
 // arXiv作者订阅信息类型
@@ -49,6 +53,10 @@ export interface ArxivAuthorSubscriptionVO {
   userId: number;
   /** 作者 */
   author: string;
+  /** 收藏夹ID */
+  favoriteId: number;
+  /** 收藏夹名称 */
+  favoriteName: string;
 }
 
 // 基础响应类型
@@ -359,5 +367,70 @@ export async function unsubscribeArxivAuthor(author: string): Promise<boolean> {
       callError('取消订阅失败，请重试');
     }
     return false;
+  }
+}
+
+/**
+ * 检查收藏夹及其所有子收藏夹是否有订阅
+ * 
+ * @param favoriteId 收藏夹ID
+ * @param allFolders 所有收藏夹列表（用于构建层级关系）
+ * @returns Promise<boolean> 有订阅返回true，无订阅返回false
+ */
+export async function checkFavoriteHasSubscription(favoriteId: number, allFolders: any[] = []): Promise<boolean> {
+  try {
+    console.log('检查收藏夹订阅状态请求:', favoriteId);
+    
+    // 获取关键词订阅列表
+    const keywordSubscriptions = await getArxivSubscriptionList();
+    // 获取作者订阅列表
+    const authorSubscriptions = await getArxivAuthorSubscriptionList();
+    
+    // 获取所有有订阅的收藏夹ID（包括关键词和作者订阅）
+    const subscribedFolderIds = new Set<number>();
+    
+    // 添加关键词订阅的收藏夹ID
+    keywordSubscriptions?.forEach(sub => {
+      subscribedFolderIds.add(sub.favoriteId);
+    });
+    
+    // 添加作者订阅的收藏夹ID
+    authorSubscriptions?.forEach(sub => {
+      subscribedFolderIds.add(sub.favoriteId);
+    });
+    
+    // 检查指定收藏夹及其所有子收藏夹是否有订阅
+    const checkFolderAndSubFolders = (folderId: number): boolean => {
+      // 检查当前收藏夹是否有订阅
+      if (subscribedFolderIds.has(folderId)) {
+        return true;
+      }
+      
+      // 查找当前收藏夹的所有子收藏夹
+      const subFolders = allFolders.filter(folder => folder.parentId === folderId);
+      
+      // 递归检查每个子收藏夹
+      for (const subFolder of subFolders) {
+        if (checkFolderAndSubFolders(subFolder.favoriteId)) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
+    
+    const hasSubscription = checkFolderAndSubFolders(favoriteId);
+    
+    console.log('检查收藏夹订阅状态结果:', {
+      favoriteId,
+      subscribedFolderIds: Array.from(subscribedFolderIds),
+      hasSubscription
+    });
+    
+    return hasSubscription;
+  } catch (error: any) {
+    console.error('检查收藏夹订阅状态错误:', error);
+    // 如果检查失败，为了安全起见，假设有订阅，阻止删除
+    return true;
   }
 } 

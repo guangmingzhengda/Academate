@@ -50,7 +50,7 @@
                                         <div class="project-desc">{{ project.description }}</div>
                                         <div class="project-meta">
                                             <div class="meta-row">
-                                                <span class="meta-item">开始时间：{{ project.startDate }}</span>
+                                                <span class="meta-item">开始时间：{{ formatDate(project.startDate) }}</span>
                                                 <span class="meta-item">状态：{{ project.status }}</span>
                                             </div>
                                         </div>
@@ -122,18 +122,13 @@
                                         </div>
                                         <div class="achievement-meta">
                                             <div class="meta-row">
-                                                <span class="meta-label">作者：</span>
-                                                <span class="meta-value">{{ achievement.authors || '暂无' }}</span>
-                                                <span v-if="achievement.publishDate" class="meta-label">发表时间：</span>
-                                                <span v-if="achievement.publishDate" class="meta-value">{{ achievement.publishDate }}</span>
+                                                <span class="meta-item">作者：{{ achievement.authors || '暂无' }}</span>
                                             </div>
-                                            <div v-if="achievement.journal || achievement.conference || achievement.patentNumber" class="meta-row">
-                                                <span v-if="achievement.journal" class="meta-label">期刊：</span>
-                                                <span v-if="achievement.journal" class="meta-value">{{ achievement.journal }}</span>
-                                                <span v-if="achievement.conference" class="meta-label">会议：</span>
-                                                <span v-if="achievement.conference" class="meta-value">{{ achievement.conference }}</span>
-                                                <span v-if="achievement.patentNumber" class="meta-label">专利号：</span>
-                                                <span v-if="achievement.patentNumber" class="meta-value">{{ achievement.patentNumber }}</span>
+                                            <div class="meta-row">
+                                                <span v-if="achievement.publishDate" class="meta-item">发表时间：{{ achievement.publishDate }}</span>
+                                                <span v-if="achievement.journal" class="meta-item">期刊：{{ achievement.journal }}</span>
+                                                <span v-if="achievement.conference" class="meta-item">会议：{{ achievement.conference }}</span>
+                                                <span v-if="achievement.patentNumber" class="meta-item">专利号：{{ achievement.patentNumber }}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -321,6 +316,13 @@ export default {
                    String(date.getDate()).padStart(2, '0');
         };
 
+        // 日期格式化函数
+        const formatDate = (dateStr) => {
+            if (!dateStr) return null;
+            const date = new Date(dateStr);
+            return date.toISOString().split('T')[0];
+        };
+
         // 随机图标函数
         const getRandomIcon = () => {
             const icons = [
@@ -384,7 +386,8 @@ export default {
             // 工具函数
             getRandomIcon,
             goToProjectDetail,
-            goToAchievementDetail
+            goToAchievementDetail,
+            formatDate
         };
 
     }
@@ -583,9 +586,20 @@ export default {
 }
 
 .meta-item {
+    margin-bottom: 3px;
     font-family: 'Meiryo', sans-serif;
     font-size: 12px;
-    color: #8e8e8e;
+    color: #666;
+    word-wrap: break-word;
+    word-break: break-all;
+    white-space: normal;
+    line-height: 1.5;
+    max-width: 100%;
+}
+
+.meta-item:first-child {
+    color: #666;
+    text-align: left;
 }
 
 /* 学术成果样式 */
@@ -681,18 +695,10 @@ export default {
     gap: 6px;
 }
 
-.meta-label {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 12px;
-    color: #8e8e8e;
-    font-weight: normal;
-}
-
-.meta-value {
-    font-family: 'Meiryo', sans-serif;
-    font-size: 12px;
-    color: #666;
-    margin-right: 15px;
+.meta-row {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
 }
 
 /* 分页样式 */

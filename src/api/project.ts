@@ -5,7 +5,8 @@ export async function create_project(data : {
     title: string,
     description: string,
     creatorId: number,
-    isPublic: boolean
+    isPublic: boolean,
+    collaborationRequirement?: string
 }) :Promise<boolean> {
     try {
         // // console.log(data);
@@ -340,18 +341,27 @@ export interface BaseResponse {
  */
 export async function applyJoinProject(params: ProjectApplyRequest): Promise<BaseResponse> {
   try {
-    // console.log('申请加入项目请求数据:', params);
+    console.log('申请加入项目请求数据:', params);
     
-    const response = await axios.post('/project/apply', params);
+    // 修改请求URL为后端文档中的/api/project/application
+    const response = await axios.post('/project/application', params);
     
-    // console.log('申请加入项目响应:', response.data);
+    console.log('申请加入项目响应:', response.data);
+    
+    if (response.data.code === 0) {
+      callSuccess('申请已成功发送，请等待项目管理员审核');
+    } else {
+      callError(response.data.message || '申请发送失败');
+    }
     
     return response.data;
   } catch (error: any) {
-    // console.error('申请加入项目错误:', error);
+    console.error('申请加入项目错误:', error);
     if (error.response) {
+      callError(error.response.data?.message || '申请发送失败');
       return error.response.data;
     } else {
+      callError('网络错误或服务器异常，请稍后重试');
       return {
         code: -1,
         data: null,
