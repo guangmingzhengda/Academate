@@ -57,7 +57,7 @@
                         @click="selectConversation(conversation)"
                     >
                         <div class="avatar">
-                            <img :src="conversation.avatar" :alt="conversation.name" />
+                            <img :src="conversation.avatar" :alt="conversation.name" @error="handleAvatarError" />
                         </div>
                         <div class="conversation-info">
                             <div class="name">
@@ -108,7 +108,7 @@
                         @click="selectFriend(friend)"
                     >
                         <div class="avatar">
-                            <img :src="friend.avatar" :alt="friend.name" />
+                            <img :src="friend.avatar" :alt="friend.name" @error="handleAvatarError" />
                         </div>
                         <div class="friend-info">
                             <div class="name">{{ friend.name }}</div>
@@ -130,32 +130,44 @@
                         :class="{ 'fullscreen-messages': isFullscreen }"
                         ref="messagesContainer"
                     >
-                        <div 
-                            v-for="message in currentConversation.messages" 
-                            :key="message.id"
-                            class="message-item"
-                            :class="{ 'message-mine': message.isMine }"
-                        >
-                            <div class="message-avatar">
-                                <img 
-                                    :src="message.isMine ? myAvatar : (message.avatar || currentConversation.avatar)" 
-                                    :alt="message.isMine ? '我' : currentConversation.name" 
-                                />
-                            </div>
-                            <div class="message-content">
-                                <div class="message-bubble">
-                                    {{ message.content }}
-                                    <div v-if="message.status === 'failed'" style="font-size: 10px; color: #f56c6c;">发送失败</div>
-                                </div>
-                                <div class="message-time">{{ message.time }}</div>
+                        <!-- 加载动画 -->
+                        <div v-if="isLoadingMessages" class="loading-container">
+                            <div class="loading-spinner">
+                                <el-icon class="loading-icon"><Loading /></el-icon>
+                                <span class="loading-text">加载聊天记录中...</span>
                             </div>
                         </div>
                         
-                        <!-- 状态变化提示 -->
-                        <div v-if="showStatusChangeTip" class="status-change-tip">
-                            <div class="tip-content">
-                                <el-icon class="tip-icon"><ChatDotRound /></el-icon>
-                                <span>现在你们可以畅聊了</span>
+                        <!-- 消息列表 -->
+                        <div v-else>
+                            <div 
+                                v-for="message in currentConversation.messages" 
+                                :key="message.id"
+                                class="message-item"
+                                :class="{ 'message-mine': message.isMine }"
+                            >
+                                <div class="message-avatar">
+                                    <img 
+                                        :src="message.isMine ? myAvatar : (message.avatar || currentConversation.avatar)" 
+                                        :alt="message.isMine ? '我' : currentConversation.name"
+                                        @error="handleAvatarError"
+                                    />
+                                </div>
+                                <div class="message-content">
+                                    <div class="message-bubble">
+                                        {{ message.content }}
+                                        <div v-if="message.status === 'failed'" style="font-size: 10px; color: #f56c6c;">发送失败</div>
+                                    </div>
+                                    <div class="message-time">{{ message.time }}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- 状态变化提示 -->
+                            <div v-if="showStatusChangeTip" class="status-change-tip">
+                                <div class="tip-content">
+                                    <el-icon class="tip-icon"><ChatDotRound /></el-icon>
+                                    <span>现在你们可以畅聊了</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -218,7 +230,8 @@ import {
     ChatDotRound,
     ArrowLeft,
     Search,
-    User
+    User,
+    Loading
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import axios from 'axios'
@@ -242,6 +255,7 @@ const currentView = ref('chat') // 'chat' 或 'friends'
 const searchKeyword = ref('')
 const showStatusChangeTip = ref(false) // 状态变化提示
 const previousConversationStatus = ref(null) // 记录之前的会话状态
+const isLoadingMessages = ref(false) // 消息加载状态
 
 // WebSocket相关状态（仅用于发送消息）
 const ws = ref(null)
@@ -282,8 +296,14 @@ const chatPosition = computed(() => {
     }
 })
 
-// 模拟数据
-const myAvatar = ref('https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png')
+// 获取当前用户头像
+const myAvatar = computed(() => {
+    const storeData = store.getters.getData
+    if (storeData && storeData.avatar) {
+        return storeData.avatar
+    }
+    return 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
+})
 
 // 会话列表数据
 const conversations = ref([])
@@ -463,7 +483,8 @@ const fetchChatMessages = async (conversationId) => {
                 isMine: msg.senderId === currentUserId.value,
                 sentAt: msg.sentAt,
                 status: msg.status,
-                type: msg.type
+                type: msg.type,
+                read: msg.status === 'read' || msg.status === 'processed' // 根据status字段判断是否已读
             }))
             
             // 按时间正序排列（最早的消息在前）
@@ -505,6 +526,7 @@ const fetchConversations = async () => {
             }))
             
             console.log(`成功获取 ${conversations.value.length} 个会话`)
+            console.log('总未读消息数:', totalUnreadCount.value)
         } else {
             console.log('没有会话或获取失败')
             conversations.value = []
@@ -715,6 +737,10 @@ const selectFriend = async (friend) => {
                 // 选择新创建的会话
                 selectConversation(newConversation)
                 ElMessage.success(`已创建与 ${friend.name} 的新对话`)
+                
+                // 发送更新后的总未读数量
+                console.log('创建新会话后，更新总未读数量:', totalUnreadCount.value)
+                emit('unread-count-update', totalUnreadCount.value)
             } else {
                 ElMessage.error('创建会话失败')
                 return
@@ -739,33 +765,50 @@ const selectConversation = async (conversation) => {
     
     // 获取该会话的聊天记录
     if (conversation.id) {
-        const messages = await fetchChatMessages(conversation.id)
-        conversation.messages = messages
+        // 显示加载动画
+        isLoadingMessages.value = true
         
-        // 更新最后消息和时间（如果有消息的话）
-        if (messages.length > 0) {
-            const lastMessage = messages[messages.length - 1]
-            conversation.lastMessage = lastMessage.content
-            conversation.lastTime = formatMessageTime(lastMessage.sentAt)
+        try {
+            const messages = await fetchChatMessages(conversation.id)
+            conversation.messages = messages
             
-            // 标记所有消息为已读
-            const messageIds = messages.map(msg => msg.id).filter(id => typeof id === 'number')
-            if (messageIds.length > 0) {
-                console.log('标记会话消息为已读，消息ID:', messageIds)
-                const markSuccess = await markAsRead({ messageIds })
-                if (markSuccess) {
-                    console.log('成功标记消息为已读')
-                    // 重新获取会话列表以更新未读计数
-                    await fetchConversations()
-                    // 更新当前会话的未读计数
-                    const refreshedConversation = conversations.value.find(conv => conv.id === conversation.id)
-                    if (refreshedConversation) {
-                        conversation.unreadCount = refreshedConversation.unreadCount
+            // 更新最后消息和时间（如果有消息的话）
+            if (messages.length > 0) {
+                const lastMessage = messages[messages.length - 1]
+                conversation.lastMessage = lastMessage.content
+                conversation.lastTime = formatMessageTime(lastMessage.sentAt)
+                
+                // 检查是否有未读消息需要标记为已读
+                const unreadMessages = messages.filter(msg => !msg.read && typeof msg.id === 'number')
+                if (unreadMessages.length > 0) {
+                    const messageIds = unreadMessages.map(msg => msg.id)
+                    console.log('标记会话未读消息为已读，消息ID:', messageIds)
+                    const markSuccess = await markAsRead({ messageIds })
+                    if (markSuccess) {
+                        console.log('成功标记消息为已读')
+                        // 重新获取会话列表以更新未读计数
+                        await fetchConversations()
+                        // 更新当前会话的未读计数
+                        const refreshedConversation = conversations.value.find(conv => conv.id === conversation.id)
+                        if (refreshedConversation) {
+                            conversation.unreadCount = refreshedConversation.unreadCount
+                        }
+                        // 发送更新后的总未读数量
+                        console.log('标记消息为已读后，更新总未读数量:', totalUnreadCount.value)
+                        emit('unread-count-update', totalUnreadCount.value)
+                    } else {
+                        console.log('标记消息为已读失败')
                     }
                 } else {
-                    console.log('标记消息为已读失败')
+                    console.log('会话内所有消息都已读，无需标记')
                 }
             }
+        } catch (error) {
+            console.error('获取聊天记录失败:', error)
+            ElMessage.error('获取聊天记录失败')
+        } finally {
+            // 隐藏加载动画
+            isLoadingMessages.value = false
         }
     }
     
@@ -910,7 +953,7 @@ const handleIncomingChatMessage = async (messageData) => {
                 type: 'chat',
                 senderId: senderId,
                 receiverId: receiverId,
-                read: false,
+                read: false, // 新收到的消息默认为未读
                 avatar: avatar // 新格式包含头像信息
             }
             
@@ -936,6 +979,31 @@ const handleIncomingChatMessage = async (messageData) => {
             // 滚动到底部
             scrollToBottom()
             
+            // 如果是自己发送的消息，标记为已读
+            if (newMessage.isMine) {
+                console.log('收到自己发送的消息，标记为已读，消息ID:', newMessage.id)
+                if (typeof newMessage.id === 'number') {
+                    const markSuccess = await markAsRead({ messageIds: [newMessage.id] })
+                    if (markSuccess) {
+                        console.log('成功标记自己发送的消息为已读')
+                        // 更新消息状态为已读
+                        newMessage.read = true
+                        // 重新获取会话列表以更新未读计数
+                        await fetchConversations()
+                        // 更新当前会话的未读计数
+                        const refreshedConversation = conversations.value.find(conv => conv.id === currentConversation.value.id)
+                        if (refreshedConversation) {
+                            currentConversation.value.unreadCount = refreshedConversation.unreadCount
+                        }
+                        // 发送更新后的总未读数量
+                        console.log('标记自己发送的消息为已读后，更新总未读数量:', totalUnreadCount.value)
+                        emit('unread-count-update', totalUnreadCount.value)
+                    } else {
+                        console.log('标记自己发送的消息为已读失败')
+                    }
+                }
+            }
+            
             // 如果是收到对方的消息，重新获取会话列表以更新状态
             if (!newMessage.isMine) {
                 await fetchConversations()
@@ -952,7 +1020,7 @@ const handleIncomingChatMessage = async (messageData) => {
                     console.log('收到对方消息，更新会话状态:', currentConversation.value.status)
                     
                     // 标记新收到的消息为已读
-                    if (typeof newMessage.id === 'number') {
+                    if (typeof newMessage.id === 'number' && !newMessage.read) {
                         console.log('标记新消息为已读，消息ID:', newMessage.id)
                         const markSuccess = await markAsRead({ messageIds: [newMessage.id] })
                         if (markSuccess) {
@@ -967,7 +1035,13 @@ const handleIncomingChatMessage = async (messageData) => {
                         } else {
                             console.log('标记新消息为已读失败')
                         }
+                    } else if (newMessage.read) {
+                        console.log('新消息已读，无需标记')
                     }
+                    
+                    // 重新计算并发送总未读数量
+                    console.log('收到新聊天消息，更新总未读数量:', totalUnreadCount.value)
+                    emit('unread-count-update', totalUnreadCount.value)
                 }
             }
             
@@ -975,7 +1049,7 @@ const handleIncomingChatMessage = async (messageData) => {
         } else {
             // 消息与当前会话无关，但可能是其他会话的消息
             console.log('消息与当前会话无关，检查是否更新其他会话')
-            updateOtherConversationMessage(senderId, receiverId, messageData, content, sentAt)
+            await updateOtherConversationMessage(senderId, receiverId, messageData, content, sentAt)
         }
     } else {
         console.log('不是聊天消息格式，跳过处理')
@@ -983,7 +1057,7 @@ const handleIncomingChatMessage = async (messageData) => {
 }
 
 // 更新其他会话的消息
-const updateOtherConversationMessage = (senderId, receiverId, messageData, content, sentAt) => {
+const updateOtherConversationMessage = async (senderId, receiverId, messageData, content, sentAt) => {
     const currentUserIdNum = Number(currentUserId.value)
     
     // 找到对应的会话
@@ -1012,7 +1086,7 @@ const updateOtherConversationMessage = (senderId, receiverId, messageData, conte
             type: 'chat',
             senderId: senderId,
             receiverId: receiverId,
-            read: false,
+            read: false, // 新收到的消息默认为未读
             avatar: avatar
         }
         
@@ -1029,6 +1103,34 @@ const updateOtherConversationMessage = (senderId, receiverId, messageData, conte
         
         // 强制触发Vue的响应式更新
         conversations.value = [...conversations.value]
+        
+        // 如果是自己发送的消息，标记为已读
+        if (senderId === currentUserIdNum) {
+            console.log('其他会话收到自己发送的消息，标记为已读，消息ID:', messageId)
+            if (typeof messageId === 'number') {
+                const markSuccess = await markAsRead({ messageIds: [messageId] })
+                if (markSuccess) {
+                    console.log('成功标记其他会话中自己发送的消息为已读')
+                    // 更新消息状态为已读
+                    newMessage.read = true
+                    // 重新获取会话列表以更新未读计数
+                    await fetchConversations()
+                    console.log('其他会话中标记自己发送的消息为已读后，更新总未读数量:', totalUnreadCount.value)
+                    emit('unread-count-update', totalUnreadCount.value)
+                } else {
+                    console.log('标记其他会话中自己发送的消息为已读失败')
+                }
+            }
+        }
+        
+        // 如果是别人发给我的消息，重新获取会话列表以更新未读计数
+        if (senderId !== currentUserIdNum) {
+            console.log('其他会话收到新消息，重新获取会话列表更新未读计数')
+            fetchConversations().then(() => {
+                console.log('其他会话收到新消息，更新总未读数量:', totalUnreadCount.value)
+                emit('unread-count-update', totalUnreadCount.value)
+            })
+        }
     }
 }
 
@@ -1047,6 +1149,9 @@ watch(totalUnreadCount, (newCount) => {
 // 生命周期
 onMounted(async () => {
     console.log('聊天页面组件挂载')
+    
+    // 监听头像更新事件
+    window.addEventListener('avatarUpdated', handleAvatarUpdate)
     
     // 初始化位置到屏幕中央
     const maxX = window.innerWidth - 800
@@ -1075,8 +1180,14 @@ onMounted(async () => {
         console.log('用户已登录，获取会话列表')
         await fetchConversations()
         
+        // 发送初始总未读数量
+        console.log('初始化时，总未读数量:', totalUnreadCount.value)
+        emit('unread-count-update', totalUnreadCount.value)
+        
         // 默认选择第一个对话
         if (conversations.value.length > 0) {
+            // 确保加载状态正确
+            isLoadingMessages.value = false
             selectConversation(conversations.value[0])
         }
     }
@@ -1088,6 +1199,9 @@ onUnmounted(() => {
     // 清理事件监听
     document.removeEventListener('mousemove', onDrag)
     document.removeEventListener('mouseup', stopDrag)
+    
+    // 移除头像更新事件监听
+    window.removeEventListener('avatarUpdated', handleAvatarUpdate)
 
     // 断开WebSocket连接
     disconnectWebSocket()
@@ -1111,10 +1225,16 @@ watch(currentUserId, async (newUserId, oldUserId) => {
             // 用户切换，重新获取会话列表
             console.log('用户切换，重新获取会话列表')
             await fetchConversations()
+            // 发送用户切换后的总未读数量
+            console.log('用户切换后，总未读数量:', totalUnreadCount.value)
+            emit('unread-count-update', totalUnreadCount.value)
         } else if (!oldUserId) {
             // 首次登录，获取会话列表
             console.log('首次登录，获取会话列表')
             await fetchConversations()
+            // 发送首次登录后的总未读数量
+            console.log('首次登录后，总未读数量:', totalUnreadCount.value)
+            emit('unread-count-update', totalUnreadCount.value)
         }
         
         if (!wsConnected.value) {
@@ -1131,6 +1251,10 @@ watch(currentUserId, async (newUserId, oldUserId) => {
         disconnectWebSocket()
         conversations.value = []
         currentConversation.value = null
+        isLoadingMessages.value = false // 重置加载状态
+        // 发送用户退出后的总未读数量（应该为0）
+        console.log('用户退出后，总未读数量:', totalUnreadCount.value)
+        emit('unread-count-update', totalUnreadCount.value)
     }
 }, { immediate: true })
 
@@ -1193,6 +1317,19 @@ const checkStatusChange = (newStatus) => {
     
     // 更新之前的状态
     previousConversationStatus.value = newStatus
+}
+
+// 处理头像更新事件
+const handleAvatarUpdate = () => {
+    // 实现头像更新逻辑
+    console.log('头像更新事件触发')
+}
+
+// 处理头像加载错误
+const handleAvatarError = (event) => {
+    console.log('头像加载失败，使用默认头像')
+    // 设置默认头像
+    event.target.src = 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
 }
 </script>
 
@@ -1684,6 +1821,42 @@ const checkStatusChange = (newStatus) => {
     to {
         opacity: 1;
         transform: translateY(0);
+    }
+}
+
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    min-height: 200px;
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+
+.loading-icon {
+    font-size: 32px;
+    color: #409eff;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    font-size: 14px;
+    color: #909399;
+    font-weight: 500;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
     }
 }
 </style> 

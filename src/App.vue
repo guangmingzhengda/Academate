@@ -61,7 +61,7 @@ export default {
         const sidebarVisible = ref(false);
         const chatVisible = ref(false);
         const unreadCount = ref(2); // 模拟未读消息数量
-        const chatUnreadCount = ref(0); // 模拟聊天未读消息数量
+        const chatUnreadCount = ref(0); // 聊天未读消息数量，初始化为0
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');
