@@ -189,12 +189,18 @@ export default {
                     await updateChatUnreadCount();
                 }
             });
+            
+            // 监听打开聊天窗口事件
+            window.addEventListener('openChatWindow', () => {
+                openChat()
+            })
         });
         onUnmounted(() => {
             websocketManager.unregisterMessageHandler('chat_message');
             websocketManager.unregisterMessageHandler('send_success');
             websocketManager.unregisterMessageHandler('*');
             websocketManager.unregisterConnectionHandler('app');
+            window.removeEventListener('openChatWindow', () => {});
         });
 
         return {
