@@ -34,6 +34,12 @@
                                         {{project.projectDetail.status}}
                                     </span>
                                 </div>
+                                <div class="detail-info" v-if="project.projectDetail.isPublic !== undefined">
+                                    <span class="info-label">项目可见性：</span>
+                                    <span class="status-badge" :class="project.projectDetail.isPublic ? 'status-ongoing' : 'status-paused'">
+                                        {{project.projectDetail.isPublic ? '公开' : '私有'}}
+                                    </span>
+                                </div>
                                 <div class="detail-info" v-if="project.projectDetail.collaborationRequirement">
                                     <span class="info-label">合作条件：</span>
                                     <span>{{project.projectDetail.collaborationRequirement}}</span>
@@ -74,6 +80,33 @@
                                 </div>
                             </div>
                         </div>
+                        <div v-else-if="project.projectDetail.isPublic">
+                            <div class="info-card">
+                                <div class="info-card-title">项目描述</div>
+                                <div class="info-card-content" id="description">
+                                    {{project.projectDetail.description === "" ? "该项目暂无详细描述" : project.projectDetail.description}}
+                                </div>
+                            </div>
+                            <div v-if="project.researchOutcomes && project.researchOutcomes.length > 0" class="info-card">
+                                <div class="info-card-title">研究成果</div>
+                                <div class="info-card-content">
+                                    <div v-for="(outcome, index) in project.researchOutcomes" :key="index" class="outcome-item">
+                                        <div class="outcome-title">{{outcome.title}}</div>
+                                        <div class="outcome-info">
+                                            <span class="outcome-type">{{outcome.type}}</span>
+                                            <span v-if="outcome.authors" class="outcome-authors">作者: {{outcome.authors}}</span>
+                                            <span v-if="outcome.publishDate" class="outcome-date">发布日期: {{formatDate(outcome.publishDate)}}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="non-member-container">
+                                <div class="card-header">权限不足</div>
+                                <p>您不是该项目的成员，无法查看项目评论。</p>
+                                <p>请先申请加入项目。</p>
+                                <el-button type="primary" @click="applyToJoin">申请加入项目</el-button>
+                            </div>
+                        </div>
                         <div v-else class="non-member-container">
                             <div class="card-header">权限不足</div>
                             <p>您不是该项目的成员，无法查看项目详情和评论。</p>
@@ -82,7 +115,7 @@
                         </div>
                     </div>
                     <div v-else class="error-container">
-                        <el-empty description="项目不存在或已被删除"></el-empty>
+                        <el-empty description="项目不存在或未公开"></el-empty>
                         <div class="error-actions">
                             <p>将在3秒后自动跳转到首页...</p>
                             <el-button type="primary" @click="goToHome">立即返回首页</el-button>
@@ -134,24 +167,35 @@ export default {
     },
     methods: {
         async initializeProject() {
-            console.log("项目详情页面初始化开始");
+            // console.log("项目详情页面初始化开始");
             try {
                 this.userId = store.getters.getId || 0;
-                console.log("当前用户ID:", this.userId);
+                // console.log("当前用户ID:", this.userId);
                 
                 if (this.$route.params.id) {
-                    console.log("正在获取项目ID:", this.$route.params.id);
+                    // console.log("正在获取项目ID:", this.$route.params.id);
                     this.loading = true;
                     const res = await this.pullProjectData();
-                    console.log("项目详情API响应:", res);
+                    // console.log("项目详情API响应:", res);
                     
                     if (res && res.code === 0 && res.data) {
                         // 保存用户在项目中的角色
-                        this.role = res.data.role || "visitor";
-                        console.log("用户角色:", this.role);
+                        this.role = res.data.role || "guest";
+                        // console.log("用户角色:", this.role);
                         
                         // 将API返回的数据转换为组件所需的格式
                         const projectData = res.data;
+                        
+                        // 检查项目是否公开或用户是否有权限查看
+                        if (!projectData.isPublic && this.role === "guest") {
+                            // console.log("项目不公开且用户无权限");
+                            this.project = null;
+                            callError("项目不存在或未公开，3秒后将自动跳转到首页");
+                            setTimeout(() => {
+                                this.goToHome();
+                            }, 3000);
+                            return;
+                        }
                         
                         this.project = {
                             projectDetail: {
@@ -161,6 +205,7 @@ export default {
                                 startDate: projectData.startDate || "",
                                 status: projectData.status || "未知",
                                 collaborationRequirement: projectData.collaborationRequirement || "",
+                                isPublic: projectData.isPublic !== undefined ? projectData.isPublic : true, // 默认为公开
                             },
                             userDetail: projectData.userDetail || null,
                             researcherList: Array.isArray(projectData.researcherList) ? projectData.researcherList : [],
@@ -174,11 +219,11 @@ export default {
                             researchOutcomes: Array.isArray(projectData.researchOutcomes) ? projectData.researchOutcomes : []
                         };
                         
-                        console.log("处理后的项目数据:", JSON.stringify(this.project));
+                        // console.log("处理后的项目数据:", JSON.stringify(this.project));
                     } else {
                         this.project = null; // 确保项目数据为null
-                        callError("项目不存在或已被删除，3秒后将自动跳转到首页");
-                        console.warn("API响应无效:", res);
+                        callError("项目不存在或未公开，3秒后将自动跳转到首页");
+                        // console.warn("API响应无效:", res);
                         // 设置3秒后自动跳转到首页
                         setTimeout(() => {
                             this.goToHome();
@@ -186,7 +231,7 @@ export default {
                     }
                 } else {
                     this.project = null; // 确保项目数据为null
-                    console.warn("未提供项目ID");
+                    // console.warn("未提供项目ID");
                     callError("未提供项目ID，3秒后将自动跳转到首页");
                     // 设置3秒后自动跳转到首页
                     setTimeout(() => {
@@ -195,7 +240,7 @@ export default {
                 }
             } catch (error) {
                 this.project = null; // 确保项目数据为null
-                console.error("获取项目详情出错:", error);
+                // console.error("获取项目详情出错:", error);
                 callError("获取项目信息出错，3秒后将自动跳转到首页");
                 // 设置3秒后自动跳转到首页
                 setTimeout(() => {
@@ -203,7 +248,7 @@ export default {
                 }, 3000);
             } finally {
                 this.loading = false;
-                console.log("项目详情页面初始化完成");
+                // console.log("项目详情页面初始化完成");
             }
         },
         async applyToJoin() {
@@ -211,7 +256,7 @@ export default {
                 const projectId = this.$route.params.id;
                 const userId = this.userId;
                 const projectTitle = this.project?.projectDetail?.title || "未命名项目";
-                console.log(projectId, userId, projectTitle);
+                // console.log(projectId, userId, projectTitle);
                 if (!projectId || !userId) {
                     callError('申请失败：缺少项目ID或用户ID');
                     return;
@@ -225,15 +270,15 @@ export default {
                 
                 if (result && result.code === 0) {
                     // 申请成功的消息已在API中显示
-                    console.log('申请加入项目成功');
+                    // console.log('申请加入项目成功');
                 }
             } catch (error) {
-                console.error('申请加入项目出错:', error);
+                // console.error('申请加入项目出错:', error);
                 callError('申请加入项目失败，请稍后重试');
             }
         },
         pullProjectData() {
-            console.log("调用getProjectDetail API");
+            // console.log("调用getProjectDetail API");
             return getProjectDetail(this.$route.params.id);
         },
         goToHome() {
@@ -252,7 +297,7 @@ export default {
                 const date = new Date(dateString);
                 return date.toLocaleDateString('zh-CN');
             } catch (e) {
-                console.error("日期格式化错误:", e);
+                // console.error("日期格式化错误:", e);
                 return dateString;
             }
         }
