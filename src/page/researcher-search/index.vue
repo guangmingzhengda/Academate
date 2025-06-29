@@ -121,13 +121,6 @@
                                         >
                                             已关注
                                         </el-button>
-                                        <el-button
-                                            type="default"
-                                            size="small"
-                                            @click="sendMessage(researcher)"
-                                        >
-                                            私信
-                                        </el-button>
                                     </div>
                                     <div class="researcher-info" style="display: flex; align-items: flex-start;">
                                         <router-link :to="`/profile/${researcher.id}`" class="avatar-section" style="text-decoration:none;">
@@ -214,51 +207,6 @@
         </div>
     </div>
 
-    <!-- 发送私信对话框 -->
-    <el-dialog
-        v-model="messageDialogVisible"
-        title=""
-        width="500px"
-        @close="closeMessageDialog"
-    >
-        <div class="message-dialog">
-            <div class="recipient-info">
-                <div class="recipient-avatar" :style="{ backgroundColor: !selectedResearcher?.avatar ? getRandomColor(selectedResearcher?.id || 1) : '' }">
-                    <template v-if="selectedResearcher?.avatar">
-                        <img :src="selectedResearcher.avatar" alt="avatar" class="avatar-img" />
-                    </template>
-                    <template v-else>
-                        {{ selectedResearcher?.name ? selectedResearcher.name.charAt(0) : 'U' }}
-                    </template>
-                </div>
-                <div>
-                    <div class="recipient-name">{{ selectedResearcher?.name || '未知用户' }}</div>
-                    <div class="recipient-org">{{ selectedResearcher?.institution || '未知机构' }}</div>
-                </div>
-            </div>
-            
-            <el-form>
-                <el-form-item label="消息内容" required>
-                    <el-input
-                        v-model="messageContent"
-                        type="textarea"
-                        :rows="6"
-                        placeholder="请输入您要发送的消息内容..."
-                        maxlength="500"
-                        show-word-limit
-                    />
-                </el-form-item>
-            </el-form>
-        </div>
-
-        <template #footer>
-            <el-button @click="closeMessageDialog">取消</el-button>
-            <el-button type="primary" @click="sendPrivateMessage" :disabled="!messageContent.trim()">
-                发送
-            </el-button>
-        </template>
-    </el-dialog>
-
 </template>
 
 <script>
@@ -286,11 +234,6 @@ export default {
         const currentPage = ref(1)
         const pageSize = ref(10)
         const total = ref(0)
-
-        // 私信相关
-        const messageDialogVisible = ref(false)
-        const selectedResearcher = ref(null)
-        const messageContent = ref('')
 
         // 科研人员数据
         const researchers = ref([])
@@ -387,31 +330,6 @@ export default {
             }
         }
 
-        // 发送私信
-        const sendMessage = (researcher) => {
-            selectedResearcher.value = researcher
-            messageDialogVisible.value = true
-        }
-
-        // 关闭私信对话框
-        const closeMessageDialog = () => {
-            messageDialogVisible.value = false
-            selectedResearcher.value = null
-            messageContent.value = ''
-        }
-
-        // 发送私信
-        const sendPrivateMessage = () => {
-            if (!messageContent.value.trim()) {
-                ElMessage.warning('请输入消息内容')
-                return
-            }
-            
-            // 这里应该调用API发送私信
-            ElMessage.success(`私信已发送给 ${selectedResearcher.value.name}`)
-            closeMessageDialog()
-        }
-
         // 分页处理
         const handlePageChange = (page) => {
             currentPage.value = page
@@ -444,17 +362,11 @@ export default {
             currentPage,
             pageSize,
             total,
-            messageDialogVisible,
-            selectedResearcher,
-            messageContent,
             researchers,
             loading,
             searchResearchers,
             resetFilters,
             toggleFollow,
-            sendMessage,
-            closeMessageDialog,
-            sendPrivateMessage,
             handlePageChange,
             getRandomColor,
             currentUserId,
@@ -861,46 +773,6 @@ export default {
 
 .pagination {
     display: flex;
-}
-
-/* 私信对话框样式 */
-.message-dialog {
-    padding: 20px 0;
-}
-
-.recipient-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-}
-
-.recipient-avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 20px;
-    font-weight: 600;
-}
-
-.recipient-name {
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
-    text-align: left;
-}
-
-.recipient-org {
-    font-size: 14px;
-    color: #666;
-    text-align: left;
 }
 
 .ach-title {

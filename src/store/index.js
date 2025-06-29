@@ -3,6 +3,8 @@ import axios from "axios";
 import router from "@/router";
 import VuexPersistence from "vuex-persist";
 import {callSuccess, callError, callInfo, callWarning} from "@/call";
+import websocketManager from "@/utils/websocketManager";
+import { listConversations } from '@/api/chat'
 
 //状态管理
 
@@ -41,7 +43,8 @@ export default createStore({
 
         navOpen: false,
 
-        vipSet: false
+        vipSet: false,
+        chatUnreadCount: 0 // 新增：未读聊天消息数
 
     },
 
@@ -148,7 +151,11 @@ export default createStore({
 
         getNavStat(state) {
             return state.navOpen;
-        }
+        },
+
+        getChatUnreadCount(state) {
+            return state.chatUnreadCount
+        },
 
     },
 
@@ -257,6 +264,10 @@ export default createStore({
             //state.courseMap.set(courseId, courseData);
         },
 
+        setChatUnreadCount(state, count) {
+            state.chatUnreadCount = count
+        },
+
     },
 
 
@@ -271,6 +282,17 @@ export default createStore({
                     if (response.data.code == 0){
                         commit('setToken', response.data.data.token);
                         commit('setData', response.data.data);
+                        
+                        // 登录成功后连接WebSocket
+                        console.log('登录成功，连接WebSocket')
+                        websocketManager.connect()
+                        // 登录成功后拉取会话列表并计算未读聊天消息数
+                        const conversationList = await listConversations()
+                        let unread = 0
+                        if (conversationList && conversationList.length > 0) {
+                            unread = conversationList.reduce((total, conv) => total + (conv.unreadMessageCount || 0), 0)
+                        }
+                        commit('setChatUnreadCount', unread)
                         callSuccess('登录成功');
                         setTimeout(()=>{
                             router.push('/home');
@@ -318,6 +340,17 @@ export default createStore({
                         
                         commit('setToken', response.data.data.token);
                         commit('setData', userData);
+                        
+                        // 登录成功后连接WebSocket
+                        console.log('邮箱登录成功，连接WebSocket')
+                        websocketManager.connect()
+                        // 登录成功后拉取会话列表并计算未读聊天消息数
+                        const conversationList = await listConversations()
+                        let unread = 0
+                        if (conversationList && conversationList.length > 0) {
+                            unread = conversationList.reduce((total, conv) => total + (conv.unreadMessageCount || 0), 0)
+                        }
+                        commit('setChatUnreadCount', unread)
                         callSuccess('邮箱登录成功');
                         setTimeout(()=>{
                             router.push('/home');
@@ -347,6 +380,10 @@ export default createStore({
         //登出，清除token
         logout({ commit }) {
             try {
+                // 登出前断开WebSocket连接
+                console.log('用户登出，断开WebSocket连接')
+                websocketManager.disconnect()
+                
                 callSuccess('账号退出成功');
                 commit('setToken', null);
                 const credient={
