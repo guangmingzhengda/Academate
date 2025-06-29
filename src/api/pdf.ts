@@ -61,6 +61,31 @@ export interface BaseResponseNoteVO {
 }
 
 /**
+ * AI摘要请求接口
+ */
+export interface SummarizeRequest {
+  /** 文档ID */
+  literatureId: number;
+  
+  /** 提示词 */
+  prompt: string;
+}
+
+/**
+ * AI摘要流式响应数据接口
+ */
+export interface SummarizeStreamData {
+  /** 内容 */
+  content?: string;
+  
+  /** 是否完成 */
+  done?: boolean;
+  
+  /** 错误信息 */
+  error?: string;
+}
+
+/**
  * 云端批注持久化管理器
  */
 export class CloudAnnotationPersistence {
@@ -261,7 +286,7 @@ export async function getAnnotationsFromCloud(outcomeId: number): Promise<any | 
       if (response.data.code === 404 || response.data.message?.includes('not found')) {
         return null;
       }
-      callError(`获取批注失败: ${response.data.message || '未知错误'}`);
+      // callError(`获取批注失败: ${response.data.message || '未知错误'}`);
       return null;
     }
   } catch (error) {
@@ -280,4 +305,119 @@ export async function getAnnotationsFromCloud(outcomeId: number): Promise<any | 
  */
 export function createCloudAnnotationPersistence(): CloudAnnotationPersistence {
   return new CloudAnnotationPersistence();
+}
+
+/**
+ * AI生成文献摘要流式响应
+ * 
+ * @param request 摘要请求参数
+ * @param onData 数据回调函数，用于处理流式数据
+ * @param onError 错误回调函数
+ * @param onComplete 完成回调函数
+ * @returns Promise<boolean> 是否成功启动流式请求
+ */
+export async function generateSummaryStream(
+  request: SummarizeRequest,
+  onData: (data: string) => void,
+  onError?: (error: string) => void,
+  onComplete?: () => void
+): Promise<boolean> {
+  try {
+    const response = await fetch('/research_outcome/summarize-stream', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request)
+    });
+
+    if (!response.ok) {
+      const errorMessage = `HTTP error! status: ${response.status}`;
+      console.error('AI摘要请求失败:', errorMessage);
+      callError(`AI摘要请求失败: ${response.status} ${response.statusText}`);
+      if (onError) onError(errorMessage);
+      return false;
+    }
+
+    if (!response.body) {
+      const errorMessage = 'Response body is null';
+      console.error('AI摘要请求失败:', errorMessage);
+      callError('服务器响应异常');
+      if (onError) onError(errorMessage);
+      return false;
+    }
+
+    // 处理流式响应
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          console.log('AI摘要流式响应完成');
+          if (onComplete) onComplete();
+          break;
+        }
+
+        // 解码数据
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+
+        // 处理可能的多个SSE事件
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // 保留最后一个不完整的行
+
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            
+            if (data === '[DONE]') {
+              console.log('AI摘要生成完成');
+              if (onComplete) onComplete();
+              return true;
+            }
+
+            try {
+              const jsonData = JSON.parse(data) as SummarizeStreamData;
+              if (jsonData.content) {
+                onData(jsonData.content);
+              }
+              if (jsonData.error) {
+                console.error('AI摘要生成错误:', jsonData.error);
+                if (onError) onError(jsonData.error);
+                return false;
+              }
+            } catch (parseError) {
+              // 如果不是JSON，直接当作文本内容处理
+              if (data && data !== 'null') {
+                onData(data);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      const errorMessage = `处理流式响应失败: ${error instanceof Error ? error.message : '未知错误'}`;
+      console.error('处理AI摘要流式响应失败:', error);
+      callError('处理AI响应时发生错误');
+      if (onError) onError(errorMessage);
+      return false;
+    } finally {
+      reader.releaseLock();
+    }
+
+    return true;
+
+  } catch (error) {
+    const errorMessage = `AI摘要请求失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    console.error('AI摘要请求失败:', error);
+    callError('网络错误，AI摘要请求失败');
+    if (onError) onError(errorMessage);
+    return false;
+  }
 } 
