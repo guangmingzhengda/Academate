@@ -218,7 +218,10 @@ export default {
                     return
                 }
                 
-                outcomeInfo.value = outcome
+                outcomeInfo.value = {
+                    ...outcome,
+                    id: outcomeId.value // 确保包含id字段用于AI摘要API
+                }
                 
                 // 更新PDF信息
                 currentPdfInfo.value = {

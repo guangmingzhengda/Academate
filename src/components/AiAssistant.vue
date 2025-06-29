@@ -119,6 +119,7 @@
 import { ref, nextTick, watch, computed, onMounted } from 'vue'
 import { useStore } from 'vuex'
 import { get_user_detail } from '@/api/profile'
+import { generateSummaryStream } from '@/api/pdf'
 
 export default {
     name: 'AiAssistant',
@@ -250,33 +251,35 @@ export default {
 
         // 处理预设问题
         const handlePresetQuestion = async (type) => {
-            let question = ''
-            let context = ''
-
             if (type === 'summary') {
-                question = '请生成这篇文章的摘要'
-                const textArray = Object.values(props.allTexts)
-                context = textArray.join('\n\n')
-
-                if (!context.trim()) {
-                    emit('error', '请等待PDF文档加载完成后再试')
+                // 检查是否有文档ID
+                if (!props.documentInfo?.id) {
+                    emit('error', '无法获取文档ID，请刷新页面重试')
                     return
                 }
+
+                const question = '📄 生成文章摘要'
+                
+                // 添加用户消息
+                addMessage(question, 'user')
+
+                // 发送AI流式摘要请求
+                await sendAiSummaryRequest()
             } else if (type === 'current-page') {
-                question = `请总结第${props.currentPage}页的内容`
-                context = props.currentPageText
+                const question = `📖 总结第${props.currentPage}页的内容`
+                const context = props.currentPageText
 
                 if (!context.trim()) {
                     emit('error', '当前页面暂无可提取的文字内容')
                     return
                 }
+
+                // 添加用户消息
+                addMessage(question, 'user')
+
+                // 发送普通AI请求
+                await sendAiRequest(question, context)
             }
-
-            // 添加用户消息
-            addMessage(question, 'user')
-
-            // 发送AI请求
-            await sendAiRequest(question, context)
         }
 
         // 发送消息
@@ -297,7 +300,103 @@ export default {
             await sendAiRequest(message, context)
         }
 
-        // 发送AI请求
+        // 发送AI流式摘要请求
+        const sendAiSummaryRequest = async () => {
+            loading.value = true
+            let aiMessage = null
+
+            try {
+                // 构建请求数据
+                const requestData = {
+                    literatureId: props.documentInfo.id,
+                    prompt: '请为这篇文档生成详细的学术摘要，包括研究背景、方法、主要发现和结论。'
+                }
+
+                console.log('发送AI摘要请求:', requestData)
+
+                // 创建一个空的AI回复消息，用于显示流式内容
+                aiMessage = addMessage('', 'assistant')
+
+                // 使用pdf.ts中的接口函数发起流式请求
+                const success = await generateSummaryStream(
+                    requestData,
+                    // onData 回调：处理流式数据
+                    (data) => {
+                        typewriterEffect(aiMessage, data)
+                    },
+                    // onError 回调：处理错误
+                    (error) => {
+                        console.error('AI摘要生成错误:', error)
+                        if (aiMessage) {
+                            const messageIndex = messages.value.findIndex(m => m.id === aiMessage.id)
+                            if (messageIndex > -1) {
+                                messages.value[messageIndex].content = '抱歉，AI摘要生成失败，请稍后再试。'
+                            }
+                        }
+                        emit('error', 'AI摘要生成失败')
+                    },
+                    // onComplete 回调：处理完成
+                    () => {
+                        console.log('AI摘要生成完成')
+                        // 确保滚动到底部
+                        scrollToBottom()
+                    }
+                )
+
+                if (!success) {
+                    // 如果接口调用失败且没有创建消息，创建错误消息
+                    if (!aiMessage) {
+                        addMessage('抱歉，AI摘要生成失败，请稍后再试。', 'assistant')
+                    }
+                }
+
+            } catch (error) {
+                console.error('AI摘要请求失败:', error)
+                
+                // 如果已经创建了消息，更新其内容
+                if (aiMessage) {
+                    const messageIndex = messages.value.findIndex(m => m.id === aiMessage.id)
+                    if (messageIndex > -1) {
+                        messages.value[messageIndex].content = '抱歉，AI摘要生成失败，请稍后再试。'
+                    }
+                } else {
+                    addMessage('抱歉，AI摘要生成失败，请稍后再试。', 'assistant')
+                }
+                
+                emit('error', 'AI摘要生成失败')
+            } finally {
+                loading.value = false
+            }
+        }
+
+
+
+        // 打字机效果
+        const typewriterEffect = async (messageObj, newContent) => {
+            const messageIndex = messages.value.findIndex(m => m.id === messageObj.id)
+            if (messageIndex === -1) return
+
+            const words = newContent.split('')
+            
+            for (let i = 0; i < words.length; i++) {
+                if (messageIndex < messages.value.length) {
+                    messages.value[messageIndex].content += words[i]
+                    
+                    // 每添加几个字符就滚动到底部
+                    if (i % 5 === 0) {
+                        scrollToBottom()
+                    }
+                    
+                    // 打字机速度控制
+                    await new Promise(resolve => setTimeout(resolve, 10))
+                }
+            }
+            
+            // 最后确保滚动到底部
+            scrollToBottom()
+        }
+
+        // 发送普通AI请求（保留原有逻辑用于当页总结和问答）
         const sendAiRequest = async (question, context = '') => {
             loading.value = true
 
@@ -411,6 +510,8 @@ ${question}
             handlePresetQuestion,
             sendMessage,
             sendAiRequest,
+            sendAiSummaryRequest,
+            typewriterEffect,
             simulateAiResponse,
             handleInputKeydown
         }
