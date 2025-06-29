@@ -3,7 +3,6 @@ import {computed, defineAsyncComponent} from 'vue'
 import store from "@/store";
 import {callSuccess, callError, callInfo, callWarning} from "@/call";
 import {setNav} from "@/nav/set";
-import {decode_function} from "@/decode/code";
 //路由设置
 
 const router = createRouter({

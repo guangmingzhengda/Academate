@@ -25,13 +25,14 @@
         <!-- 聊天功能触发按钮 -->
         <div v-if="tokenSet" class="chat-trigger-btn" @click="openChat">
             <el-icon><ChatDotRound /></el-icon>
+            <div v-if="chatUnreadCount > 0" class="chat-badge">{{ chatUnreadCount }}</div>
         </div>
 
         <!-- 消息侧边栏 -->
         <message-sidebar :visible="sidebarVisible" @close="closeSidebar" @unread-count-update="updateUnreadCount" />
 
         <!-- 聊天窗口 -->
-        <chat-window v-if="chatVisible" @close="closeChat" />
+        <chat-window v-if="chatVisible" @close="closeChat" @unread-count-update="updateChatUnreadCount" />
 
 <!--        <router-view/>-->
 
@@ -60,6 +61,7 @@ export default {
         const sidebarVisible = ref(false);
         const chatVisible = ref(false);
         const unreadCount = ref(2); // 模拟未读消息数量
+        const chatUnreadCount = ref(0); // 模拟聊天未读消息数量
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');
@@ -86,6 +88,10 @@ export default {
             unreadCount.value = count;
         }
 
+        const updateChatUnreadCount = (count) => {
+            chatUnreadCount.value = count;
+        }
+
         return {
             navOpen,
             tokenSet,
@@ -94,12 +100,14 @@ export default {
             sidebarVisible,
             chatVisible,
             unreadCount,
+            chatUnreadCount,
             tokenInfo,
             openMessageSidebar,
             closeSidebar,
             openChat,
             closeChat,
-            updateUnreadCount
+            updateUnreadCount,
+            updateChatUnreadCount
         }
     }
 }
@@ -217,6 +225,23 @@ export default {
 .chat-trigger-btn .el-icon {
     font-size: 24px;
     color: white;
+}
+
+.chat-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background-color: #f56c6c;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    border: 2px solid white;
 }
 
 </style>

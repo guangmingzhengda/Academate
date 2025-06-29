@@ -8,7 +8,7 @@ export async function create_project(data : {
     isPublic: boolean
 }) :Promise<boolean> {
     try {
-        // console.log(data);
+        // // console.log(data);
         const response = await axios.post('/project/create', data);
         if (response.status === 200){
             if (response.data.code == 0) {
@@ -54,7 +54,7 @@ export async function agree_project_invite(data: {
     messageId: number
 }): Promise<boolean> {
     try {
-        console.log('同意项目邀请请求数据:', data);
+        // console.log('同意项目邀请请求数据:', data);
         
         const response = await axios.post('/project/agree', null, {
             params: {
@@ -66,7 +66,7 @@ export async function agree_project_invite(data: {
             }
         });
         
-        console.log('同意项目邀请响应:', response.data);
+        // console.log('同意项目邀请响应:', response.data);
         
         if (response.status === 200) {
             if (response.data.code == 0) {
@@ -80,7 +80,7 @@ export async function agree_project_invite(data: {
             return false;
         }
     } catch (error: any) {
-        console.error('同意项目邀请错误:', error);
+        // console.error('同意项目邀请错误:', error);
         if (error.response) {
             callError(error.response.data?.message || '同意失败');
         } else if (error.request) {
@@ -176,7 +176,7 @@ export async function reject_project_invite(data: {
     senderId: number
 }): Promise<boolean> {
     try {
-        console.log('拒绝项目邀请请求数据:', data);
+        // console.log('拒绝项目邀请请求数据:', data);
         
         const response = await axios.post('/project/reject', null, {
             params: {
@@ -188,7 +188,7 @@ export async function reject_project_invite(data: {
             }
         });
         
-        console.log('拒绝项目邀请响应:', response.data);
+        // console.log('拒绝项目邀请响应:', response.data);
         
         if (response.status === 200) {
             if (response.data.code == 0) {
@@ -202,7 +202,7 @@ export async function reject_project_invite(data: {
             return false;
         }
     } catch (error: any) {
-        console.error('拒绝项目邀请错误:', error);
+        // console.error('拒绝项目邀请错误:', error);
         if (error.response) {
             callError(error.response.data?.message || '拒绝失败');
         } else if (error.request) {
@@ -294,7 +294,7 @@ export async function get_all_projects(data: {
             return null;
         }
     } catch (error: any) {
-        console.error('获取所有项目错误:', error);
+        // console.error('获取所有项目错误:', error);
         if (error.response) {
             callError(error.response.data?.message || '获取项目列表失败');
         } else if (error.request) {
@@ -340,15 +340,15 @@ export interface BaseResponse {
  */
 export async function applyJoinProject(params: ProjectApplyRequest): Promise<BaseResponse> {
   try {
-    console.log('申请加入项目请求数据:', params);
+    // console.log('申请加入项目请求数据:', params);
     
     const response = await axios.post('/project/apply', params);
     
-    console.log('申请加入项目响应:', response.data);
+    // console.log('申请加入项目响应:', response.data);
     
     return response.data;
   } catch (error: any) {
-    console.error('申请加入项目错误:', error);
+    // console.error('申请加入项目错误:', error);
     if (error.response) {
       return error.response.data;
     } else {
@@ -368,13 +368,13 @@ export async function applyJoinProject(params: ProjectApplyRequest): Promise<Bas
  */
 export async function deleteProject(projectId: number): Promise<boolean> {
   try {
-    console.log('删除项目请求，项目ID:', projectId);
+    // console.log('删除项目请求，项目ID:', projectId);
     
     const response = await axios.post('/project/delete', null, {
       params: { projectId }
     });
     
-    console.log('删除项目响应:', response.data);
+    // console.log('删除项目响应:', response.data);
     
     if (response.status === 200 && response.data.code === 0) {
       callSuccess('项目已成功删除');
@@ -384,7 +384,7 @@ export async function deleteProject(projectId: number): Promise<boolean> {
       return false;
     }
   } catch (error: any) {
-    console.error('删除项目错误:', error);
+    // console.error('删除项目错误:', error);
     if (error.response) {
       callError('删除项目失败: ' + (error.response.data?.message || '服务器错误'));
     } else {
@@ -401,13 +401,13 @@ export async function deleteProject(projectId: number): Promise<boolean> {
  */
 export async function completeProject(projectId: number): Promise<boolean> {
   try {
-    console.log('结束项目请求，项目ID:', projectId);
+    // console.log('结束项目请求，项目ID:', projectId);
     
     const response = await axios.post('/project/complete', null, {
       params: { projectId }
     });
     
-    console.log('结束项目响应:', response.data);
+    // console.log('结束项目响应:', response.data);
     
     if (response.status === 200 && response.data.code === 0) {
       callSuccess('项目已成功结束');
@@ -417,7 +417,7 @@ export async function completeProject(projectId: number): Promise<boolean> {
       return false;
     }
   } catch (error: any) {
-    console.error('结束项目错误:', error);
+    // console.error('结束项目错误:', error);
     if (error.response) {
       callError('结束项目失败: ' + (error.response.data?.message || '服务器错误'));
     } else {
@@ -434,11 +434,11 @@ export async function completeProject(projectId: number): Promise<boolean> {
  */
 export async function deleteProjectComment(commentId: number): Promise<boolean> {
   try {
-    console.log('准备删除项目评论，评论ID:', commentId);
+    // console.log('准备删除项目评论，评论ID:', commentId);
     const response = await axios.post('/api/project/comment/delete', null, {
       params: { commentId }
     });
-    console.log('删除项目评论响应:', response);
+    // console.log('删除项目评论响应:', response);
     
     if (response.status === 200 && response.data.code === 0) {
       callSuccess("评论已删除");
@@ -448,7 +448,7 @@ export async function deleteProjectComment(commentId: number): Promise<boolean> 
       return false;
     }
   } catch (error: any) {
-    console.error('删除评论异常:', error);
+    // console.error('删除评论异常:', error);
     if (error.response) {
       if (error.response.status === 403) {
         callError("无权限删除他人评论");
