@@ -14,25 +14,21 @@ class WebSocketManager {
     // 注册消息处理器
     registerMessageHandler(type, handler) {
         this.messageHandlers.set(type, handler)
-        console.log(`注册消息处理器: ${type}`)
     }
 
     // 注销消息处理器
     unregisterMessageHandler(type) {
         this.messageHandlers.delete(type)
-        console.log(`注销消息处理器: ${type}`)
     }
 
     // 注册连接状态处理器
     registerConnectionHandler(id, handler) {
         this.connectionHandlers.set(id, handler)
-        console.log(`注册连接状态处理器: ${id}`)
     }
 
     // 注销连接状态处理器
     unregisterConnectionHandler(id) {
         this.connectionHandlers.delete(id)
-        console.log(`注销连接状态处理器: ${id}`)
     }
 
     // 连接WebSocket
@@ -45,13 +41,13 @@ class WebSocketManager {
 
         // 如果已经连接，直接返回
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-            console.log('WebSocket连接已存在且处于打开状态，跳过连接')
+            console.log('WebSocket已连接，跳过重复连接')
             return
         }
 
         // 如果存在旧连接，先关闭
         if (this.ws) {
-            console.log('关闭现有WebSocket连接')
+            console.log('关闭现有WebSocket连接，准备重新连接')
             this.ws.close(1000, '重新连接')
             this.ws = null
         }
@@ -70,30 +66,25 @@ class WebSocketManager {
             }
 
             this.ws.onmessage = (event) => {
-                console.log('收到WebSocket消息:', event.data)
-                
                 // 先检查是否是特殊字符串消息
                 if (event.data === 'true') {
-                    console.log('收到发送成功确认消息')
                     this.handleSendSuccess()
                     return
                 }
                 
                 if (event.data === 'conn_success') {
-                    console.log('收到连接成功确认消息')
                     return
                 }
                 
                 // 尝试解析JSON消息
                 try {
                     const messageData = JSON.parse(event.data)
-                    console.log('解析后的消息数据:', messageData)
                     
                     // 根据消息类型分发处理
                     this.handleMessage(messageData)
                     
                 } catch (error) {
-                    console.log('解析WebSocket消息失败，不是JSON:', event.data)
+                    // 解析WebSocket消息失败，不是JSON
                 }
             }
 
@@ -125,13 +116,13 @@ class WebSocketManager {
 
     // 断开WebSocket连接
     disconnect() {
+        console.log('主动断开WebSocket连接')
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer)
             this.reconnectTimer = null
         }
         
         if (this.ws) {
-            console.log('断开WebSocket连接')
             this.ws.close(1000, '主动断开')
             this.ws = null
         }
@@ -153,7 +144,6 @@ class WebSocketManager {
         
         try {
             this.ws.send(JSON.stringify(messageData))
-            console.log('消息已通过WebSocket发送成功')
             return true
         } catch (error) {
             console.error('发送消息失败:', error)
@@ -163,28 +153,37 @@ class WebSocketManager {
 
     // 处理接收到的消息
     handleMessage(messageData) {
+        console.log('WebSocketManager收到消息:', messageData)
+        
         // 检查是否是聊天消息（type为"chat_message"）
         if (messageData.type === 'chat_message') {
-            console.log('识别为聊天消息，调用聊天消息处理函数')
-            // 新增：收到聊天消息时自动+1未读数（如果不是自己发送的）
-            const currentUserId = store.getters.getId
-            if (messageData.senderId && messageData.senderId !== currentUserId) {
-                const prev = store.state.chatUnreadCount || 0
-                store.commit('setChatUnreadCount', prev + 1)
-            }
             const handler = this.messageHandlers.get('chat_message')
             if (handler) {
                 handler(messageData)
             }
-        } else if (messageData.message && messageData.messageId) {
+        } else if (messageData.type && messageData.message && messageData.messageId) {
             // 其他类型的消息（消息中心的消息）
-            console.log('识别为消息中心消息，调用消息中心处理函数')
-            const handler = this.messageHandlers.get('system_message')
+            // 首先尝试查找特定类型的处理器
+            let handler = this.messageHandlers.get(messageData.type)
+            
+            // 如果没有特定类型的处理器，尝试使用通配符处理器
+            if (!handler) {
+                handler = this.messageHandlers.get('*')
+            }
+            
+            // 如果还是没有处理器，使用默认的system_message处理器（向后兼容）
+            if (!handler) {
+                handler = this.messageHandlers.get('system_message')
+            }
+            
             if (handler) {
                 handler(messageData)
+            } else {
+                console.log('未找到消息处理器，消息类型:', messageData.type)
             }
         } else {
-            console.log('未知消息格式，跳过处理')
+            // 未知消息格式，跳过处理
+            console.log('未知消息格式:', messageData)
         }
     }
 
@@ -209,7 +208,14 @@ class WebSocketManager {
 
     // 获取连接状态
     isConnected() {
-        return this.connected
+        // 检查实际的WebSocket连接状态
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.connected = true
+            return true
+        } else {
+            this.connected = false
+            return false
+        }
     }
 
     // 获取WebSocket实例

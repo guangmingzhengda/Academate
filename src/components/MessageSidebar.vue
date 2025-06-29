@@ -200,8 +200,22 @@ const emit = defineEmits(['close', 'unread-count-update'])
 // 路由实例
 const router = useRouter()
 
-// WebSocket连接状态（从全局管理器获取）
-const wsConnected = computed(() => websocketManager.isConnected())
+// WebSocket连接状态（改为ref，每次打开时主动检查）
+const wsConnected = ref(false)
+
+// 检查WebSocket连接状态
+const checkConnectionStatus = () => {
+    wsConnected.value = websocketManager.isConnected()
+    console.log('MessageSidebar检查连接状态:', wsConnected.value)
+}
+
+// 监听visible属性变化，每次打开时检查连接状态
+watch(() => props.visible, (newVisible) => {
+    if (newVisible) {
+        // 消息中心打开时，主动检查连接状态
+        checkConnectionStatus()
+    }
+}, { immediate: true })
 
 // 消息数据改为响应式数组，初始为空
 const messages = ref([])
@@ -885,6 +899,13 @@ watch(() => store.getters.getId, async (newUserId, oldUserId) => {
     }
 }, { immediate: true })
 
+// 处理WebSocket连接状态变化
+const handleConnectionChange = (event) => {
+    // 更新本地连接状态
+    wsConnected.value = event.detail.connected
+    console.log('MessageSidebar收到WebSocket连接状态变化:', event.detail.connected)
+}
+
 // 组件挂载时初始化
 onMounted(() => {
     console.log('MessageSidebar组件挂载')
@@ -893,6 +914,9 @@ onMounted(() => {
     window.addEventListener('systemMessageReceived', (event) => {
         handleIncomingMessage(event.detail)
     })
+    
+    // 监听WebSocket连接状态变化
+    window.addEventListener('websocketConnectionChanged', handleConnectionChange)
     
     emit('unread-count-update', unreadCount.value)
 })
@@ -903,6 +927,9 @@ onUnmounted(() => {
     
     // 移除系统消息事件监听
     window.removeEventListener('systemMessageReceived', handleIncomingMessage)
+    
+    // 移除WebSocket连接状态变化监听
+    window.removeEventListener('websocketConnectionChanged', handleConnectionChange)
 })
 </script>
 

@@ -373,8 +373,6 @@ const formatMessageTime = (dateString) => {
 // 获取聊天记录
 const fetchChatMessages = async (conversationId) => {
     try {
-        console.log('开始获取聊天记录，会话ID:', conversationId)
-        
         const messages = await listChatMessages(conversationId)
         
         if (messages && messages.length > 0) {
@@ -395,7 +393,6 @@ const fetchChatMessages = async (conversationId) => {
             
             return convertedMessages
         } else {
-            console.log('没有聊天记录或获取失败')
             return []
         }
     } catch (error) {
@@ -406,9 +403,6 @@ const fetchChatMessages = async (conversationId) => {
 
 // 处理接收到的聊天消息（当聊天窗口打开时）
 const handleIncomingChatMessage = async (messageData) => {
-    console.log('=== 处理接收到的聊天消息 ===')
-    console.log('消息数据:', messageData)
-    
     // 检查是否是聊天消息（支持两种格式）
     const isOldFormat = messageData.sid && messageData.rid && messageData.content
     const isNewFormat = messageData.message && messageData.messageId && messageData.type === 'chat_message'
@@ -424,15 +418,10 @@ const handleIncomingChatMessage = async (messageData) => {
         
         const currentUserIdNum = Number(currentUserId.value)
         
-        console.log('发送者ID:', senderId, '接收者ID:', receiverId, '当前用户ID:', currentUserIdNum)
-        console.log('消息内容:', content, '消息ID:', messageId)
-        
         // 检查消息是否与当前会话相关
         if (currentConversation.value && 
             ((senderId === currentUserIdNum && receiverId === currentConversation.value.chatUserVO.userId) ||
              (receiverId === currentUserIdNum && senderId === currentConversation.value.chatUserVO.userId))) {
-            
-            console.log('消息与当前会话相关，添加到消息列表')
             
             // 创建新消息对象
             const newMessage = {
@@ -456,7 +445,6 @@ const handleIncomingChatMessage = async (messageData) => {
             
             // 如果是自己发送的消息且未读，立即设置为已读
             if (senderId === currentUserIdNum && !newMessage.read) {
-                console.log('收到自己发送的消息且未读，立即设置为已读')
                 newMessage.read = true
                 
                 // 只有当消息ID是数字类型时才调用API标记为已读
@@ -464,56 +452,34 @@ const handleIncomingChatMessage = async (messageData) => {
                     try {
                         const markSuccess = await markAsRead({ messageIds: [messageId] })
                         if (markSuccess) {
-                            console.log('成功标记自己发送的消息为已读')
+                            // 标记已读成功后，重新获取会话列表（会自动发送未读数量更新）
+                            await fetchConversations()
                         } else {
-                            console.log('标记自己发送的消息为已读失败')
+                            console.error('标记自己发送的消息为已读失败')
                         }
                     } catch (error) {
                         console.error('标记自己发送的消息为已读时出错:', error)
                     }
-                } else {
-                    console.log('消息ID不是数字类型，跳过API调用:', messageId)
                 }
             }
             
-            // 如果不是自己发送的消息，增加未读数量
+            // 如果不是自己发送的消息，不直接修改未读数量
+            // 未读数量应该从会话列表接口获取，而不是手动修改
             if (senderId !== currentUserIdNum) {
-                currentConversation.value.unreadCount++
-                
-                // 如果当前会话是打开的，立即将消息设为已读
-                console.log('收到对方消息且当前会话已打开，立即设为已读')
-                newMessage.read = true
-                
-                // 只有当消息ID是数字类型时才调用API标记为已读
-                if (typeof messageId === 'number') {
-                    try {
-                        const markSuccess = await markAsRead({ messageIds: [messageId] })
-                        if (markSuccess) {
-                            console.log('成功标记对方消息为已读')
-                        } else {
-                            console.log('标记对方消息为已读失败')
-                        }
-                    } catch (error) {
-                        console.error('标记对方消息为已读时出错:', error)
-                    }
-                } else {
-                    console.log('消息ID不是数字类型，跳过API调用:', messageId)
-                }
+                // 注意：不要在这里修改未读数量，应该通过重新获取会话列表来更新
+                // 这样可以保持其他会话的未读状态
             }
             
             // 滚动到底部
             nextTick(() => {
                 scrollToBottom()
             })
-            
-            console.log('聊天消息已处理完成')
         } else {
-            console.log('消息与当前会话无关，跳过消息显示处理')
+            // 消息与当前会话无关，跳过消息显示处理
         }
         
         // 无论消息是否与当前会话相关，都要重新获取会话列表并渲染
         try {
-            console.log('收到聊天消息，更新会话列表信息')
             await fetchConversations()
             
             // 如果当前有选中的会话，更新其引用（保持消息列表不变）
@@ -535,44 +501,26 @@ const handleIncomingChatMessage = async (messageData) => {
                 }
             }
             
-            // 发送更新后的总未读数量
-            console.log('消息处理后，更新总未读数量:', totalUnreadCount.value)
-            emit('unread-count-update', totalUnreadCount.value)
-            
-            // 更新store中的聊天未读数量
-            store.commit('setChatUnreadCount', totalUnreadCount.value)
-            
             // 确保界面重新渲染
             nextTick(() => {
-                console.log('会话列表信息更新完成，界面已重新渲染')
-                console.log('当前总未读数量:', totalUnreadCount.value)
+                // 界面重新渲染完成
             })
-            
-            console.log('会话列表信息更新完成')
         } catch (error) {
             console.error('更新会话列表信息失败:', error)
         }
     } else {
-        console.log('消息格式不符合聊天消息要求，跳过处理')
+        // 消息格式不符合聊天消息要求，跳过处理
     }
 }
 
 // 处理发送成功确认
 const handleSendSuccess = () => {
-    console.log('收到发送成功确认，可以在这里处理UI更新')
+    // 收到发送成功确认，可以在这里处理UI更新
 }
 
 // 通过WebSocket发送消息
 const sendMessageViaWebSocket = (receiverId, content) => {
-    console.log('=== WebSocket发送消息调试信息 ===')
-    console.log('WebSocket连接状态:', wsConnected.value)
-    console.log('发送者ID:', currentUserId.value)
-    console.log('接收者ID:', receiverId)
-    console.log('消息内容:', content)
-    console.log('=== WebSocket发送消息调试信息结束 ===')
-    
     if (!wsConnected.value) {
-        console.error('WebSocket连接已断开，无法发送消息')
         ElMessage.error('WebSocket连接已断开，无法发送消息')
         return false
     }
@@ -583,15 +531,10 @@ const sendMessageViaWebSocket = (receiverId, content) => {
         content: content
     }
     
-    console.log('准备发送的消息数据:', messageData)
-    console.log('消息数据JSON:', JSON.stringify(messageData))
-    
     const success = websocketManager.sendMessage(messageData)
     if (success) {
-        console.log('消息已通过WebSocket发送成功')
         return true
     } else {
-        console.error('发送消息失败')
         ElMessage.error('发送消息失败')
         return false
     }
@@ -727,7 +670,6 @@ const selectFriend = async (friend) => {
     } else {
         // 如果没有对话，调用接口创建新对话
         try {
-            console.log('开始创建与用户的新会话:', friend.id)
             const newConversationData = await createConversation(friend.id)
             
             if (newConversationData) {
@@ -755,7 +697,6 @@ const selectFriend = async (friend) => {
                 ElMessage.success(`已创建与 ${friend.name} 的新对话`)
                 
                 // 发送更新后的总未读数量
-                console.log('创建新会话后，更新总未读数量:', totalUnreadCount.value)
                 emit('unread-count-update', totalUnreadCount.value)
             } else {
                 ElMessage.error('创建会话失败')
@@ -798,25 +739,20 @@ const selectConversation = async (conversation) => {
                 const unreadMessages = messages.filter(msg => !msg.read && typeof msg.id === 'number')
                 if (unreadMessages.length > 0) {
                     const messageIds = unreadMessages.map(msg => msg.id)
-                    console.log('标记会话未读消息为已读，消息ID:', messageIds)
                     const markSuccess = await markAsRead({ messageIds })
                     if (markSuccess) {
-                        console.log('成功标记消息为已读')
-                        // 重新获取会话列表以更新未读计数
+                        // 重新获取会话列表以更新未读计数（会自动发送未读数量更新）
                         await fetchConversations()
                         // 更新当前会话的未读计数
                         const refreshedConversation = conversations.value.find(conv => conv.id === conversation.id)
                         if (refreshedConversation) {
                             conversation.unreadCount = refreshedConversation.unreadCount
                         }
-                        // 发送更新后的总未读数量
-                        console.log('标记消息为已读后，更新总未读数量:', totalUnreadCount.value)
-                        emit('unread-count-update', totalUnreadCount.value)
                     } else {
-                        console.log('标记消息为已读失败')
+                        // 会话内所有消息都已读，无需标记
                     }
                 } else {
-                    console.log('会话内所有消息都已读，无需标记')
+                    // 会话内所有消息都已读，无需标记
                 }
             }
         } catch (error) {
@@ -828,15 +764,10 @@ const selectConversation = async (conversation) => {
         }
     }
     
-    console.log('选择会话:', conversation.name)
-    
     // 滚动到底部
     nextTick(() => {
         scrollToBottom()
     })
-
-    // 选中会话时重置未读数
-    store.commit('setChatUnreadCount', 0)
 }
 
 const sendMessage = async () => {
@@ -899,11 +830,8 @@ const handleChatWheel = (e) => {
 // 获取关注用户列表
 const fetchFollowedUsers = async () => {
     try {
-        console.log('开始获取关注用户列表')
-        
         const userId = currentUserId.value
         if (!userId) {
-            console.log('用户未登录，无法获取关注列表')
             return
         }
         
@@ -919,10 +847,7 @@ const fetchFollowedUsers = async () => {
                 isOnline: true, // 默认在线，实际应该从在线状态接口获取
                 account: user.account
             }))
-            
-            console.log(`成功获取 ${friends.value.length} 个关注用户`)
         } else {
-            console.log('没有关注用户或获取失败')
             friends.value = []
         }
     } catch (error) {
@@ -934,8 +859,6 @@ const fetchFollowedUsers = async () => {
 // 获取所有会话列表
 const fetchConversations = async () => {
     try {
-        console.log('开始获取会话列表')
-        
         const conversationList = await listConversations()
         
         if (conversationList && conversationList.length > 0) {
@@ -954,28 +877,29 @@ const fetchConversations = async () => {
                 createdAt: conv.createdAt,
                 updatedAt: conv.updatedAt
             }))
-            
-            console.log(`成功获取 ${conversations.value.length} 个会话`)
-            console.log('总未读消息数:', totalUnreadCount.value)
         } else {
-            console.log('没有会话或获取失败')
             conversations.value = []
         }
+        
+        // 获取会话列表后，立即计算并发送未读数量更新
+        const newUnreadCount = totalUnreadCount.value
+        emit('unread-count-update', newUnreadCount)
+        
     } catch (error) {
-        console.error('获取会话列表错误:', error)
+        console.error('❌ 获取会话列表错误:', error)
         conversations.value = []
+        // 出错时也发送未读数量更新（应该为0）
+        emit('unread-count-update', 0)
     }
 }
 
 // 监听总未读数量变化，通知父组件
-watch(totalUnreadCount, (newCount) => {
+watch(totalUnreadCount, (newCount, oldCount) => {
     emit('unread-count-update', newCount)
 }, { immediate: true })
 
 // 生命周期
 onMounted(async () => {
-    console.log('聊天页面组件挂载')
-    
     // 监听聊天消息事件
     window.addEventListener('chatMessageReceived', (event) => {
         handleIncomingChatMessage(event.detail)
@@ -984,6 +908,12 @@ onMounted(async () => {
     // 监听发送成功事件
     window.addEventListener('chatMessageSent', (event) => {
         handleSendSuccess()
+    })
+    
+    // 监听WebSocket连接状态变化事件
+    window.addEventListener('websocketConnectionChanged', (event) => {
+        // 强制更新连接状态
+        // 由于wsConnected是computed，它会自动重新计算
     })
     
     // 监听头像更新事件
@@ -1003,20 +933,9 @@ onMounted(async () => {
         chatContainer.value.addEventListener('wheel', handleChatWheel, { passive: false })
     }
     
-    // 检查WebSocket连接状态
-    console.log('=== WebSocket连接状态检查 ===')
-    console.log('当前用户ID:', currentUserId.value)
-    console.log('WebSocket连接状态:', wsConnected.value)
-    console.log('=== WebSocket连接状态检查结束 ===')
-    
     // 如果用户已登录，获取会话列表
     if (currentUserId.value) {
-        console.log('用户已登录，获取会话列表')
         await fetchConversations()
-        
-        // 发送初始总未读数量
-        console.log('初始化时，总未读数量:', totalUnreadCount.value)
-        emit('unread-count-update', totalUnreadCount.value)
         
         // 默认选择第一个对话
         if (conversations.value.length > 0) {
@@ -1036,6 +955,9 @@ onUnmounted(() => {
     window.removeEventListener('chatMessageReceived', handleIncomingChatMessage)
     window.removeEventListener('chatMessageSent', handleSendSuccess)
     
+    // 移除WebSocket连接状态变化事件监听
+    window.removeEventListener('websocketConnectionChanged', () => {})
+    
     // 移除头像更新事件监听
     window.removeEventListener('avatarUpdated', handleAvatarUpdate)
 
@@ -1050,34 +972,22 @@ onUnmounted(() => {
 
 // 监听用户ID变化，自动处理会话列表
 watch(currentUserId, async (newUserId, oldUserId) => {
-    console.log('聊天页面用户ID变化:', { oldUserId, newUserId })
-    
     if (newUserId && newUserId !== null) {
         // 用户已登录
         if (oldUserId && oldUserId !== newUserId) {
             // 用户切换，重新获取会话列表
-            console.log('用户切换，重新获取会话列表')
             await fetchConversations()
-            // 发送用户切换后的总未读数量
-            console.log('用户切换后，总未读数量:', totalUnreadCount.value)
-            emit('unread-count-update', totalUnreadCount.value)
         } else if (!oldUserId) {
             // 首次登录，获取会话列表
-            console.log('首次登录，获取会话列表')
             await fetchConversations()
-            // 发送首次登录后的总未读数量
-            console.log('首次登录后，总未读数量:', totalUnreadCount.value)
-            emit('unread-count-update', totalUnreadCount.value)
         }
     } else {
         // 用户退出登录，清空会话
-        console.log('用户已退出，清空会话')
         conversations.value = []
         currentConversation.value = null
         isLoadingMessages.value = false // 重置加载状态
         // 发送用户退出后的总未读数量（应该为0）
-        console.log('用户退出后，总未读数量:', totalUnreadCount.value)
-        emit('unread-count-update', totalUnreadCount.value)
+        emit('unread-count-update', 0)
     }
 }, { immediate: true })
 
@@ -1088,7 +998,8 @@ const reconnectWebSocket = () => {
         return
     }
     
-    console.log('手动重连WebSocket')
+    console.log('用户手动点击重连WebSocket')
+    
     // 检查是否已经有连接，避免重复连接
     if (websocketManager.isConnected()) {
         ElMessage.info('WebSocket已连接')
@@ -1101,7 +1012,6 @@ const reconnectWebSocket = () => {
 
 // 处理头像更新事件
 const handleAvatarUpdate = () => {
-    console.log('头像更新事件触发，重新获取会话列表')
     fetchConversations()
 }
 
