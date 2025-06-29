@@ -71,7 +71,7 @@
                   </div>
                 </div>
                 
-                <!-- 点赞按钮 (放在卡片左下角) -->
+                <!-- 点赞和收藏按钮 (放在卡片左下角) -->
                 <div class="like-section-bottom">
                   <el-button 
                     :type="isLiked ? 'danger' : 'default'" 
@@ -81,6 +81,14 @@
                     plain
                   >
                     {{ isLiked ? `❤️ 已点赞 (${likeCount})` : `🤍 点赞 (${likeCount})` }}
+                  </el-button>
+                  <el-button 
+                    type="primary" 
+                    size="small" 
+                    @click="showFavoriteDialog"
+                    plain
+                  >
+                    📚 收藏
                   </el-button>
                 </div>
               </div>
@@ -632,12 +640,116 @@
       </span>
     </template>
   </el-dialog>
+  
+  <!-- 收藏对话框 -->
+  <el-dialog
+    v-model="favoriteDialogVisible"
+    title="选择收藏夹"
+    width="800px"
+    :close-on-click-modal="false"
+  >
+    <div class="favorite-dialog-content">
+      <!-- 面包屑导航 -->
+      <div class="breadcrumb-container">
+        <div class="breadcrumb-title">文献库</div>
+        <div class="breadcrumb-list">
+          <span 
+            v-for="(item, index) in breadcrumbList" 
+            :key="index"
+            class="breadcrumb-item"
+            :class="{ 'active': index === breadcrumbList.length - 1 }"
+            @click="navigateToBreadcrumb(index)"
+          >
+            {{ item.name }}
+            <span v-if="index < breadcrumbList.length - 1" class="breadcrumb-separator">/</span>
+          </span>
+        </div>
+        <el-button 
+          v-if="breadcrumbList.length > 1"
+          type="text" 
+          @click="backToParentFolder"
+          class="back-button"
+        >
+          ← 返回上一级
+        </el-button>
+      </div>
+      
+      <!-- 收藏夹列表 -->
+      <div class="folders-container" v-loading="loadingFolders">
+        <div v-if="!loadingFolders && folders.length === 0" class="empty-folders">
+          <el-empty description="当前目录下暂无收藏夹"></el-empty>
+        </div>
+        
+        <div v-else class="folders-grid">
+          <div 
+            v-for="folder in folders" 
+            :key="folder.favoriteId"
+            class="folder-item"
+            :class="{ 'selected': selectedFolders.some(f => f.favoriteId === folder.favoriteId) }"
+            @click="toggleFolderSelection(folder)"
+          >
+            <div class="folder-icon">📁</div>
+            <div class="folder-name">{{ folder.name }}</div>
+            <div class="folder-actions">
+              <el-button
+                @click.stop="openFolder(folder)"
+                class="open-folder-btn"
+              >
+                打开
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 分页 -->
+      <div class="pagination-container" v-if="total > folderPageSize">
+        <el-pagination
+          v-model:current-page="folderCurrentPage"
+          :page-size="folderPageSize"
+          :total="total"
+          layout="prev, pager, next"
+          @current-change="handleFolderPageChange"
+        />
+      </div>
+      
+      <!-- 已选择的收藏夹 -->
+      <div class="selected-folders" v-if="selectedFolders.length > 0">
+        <div class="selected-title">已选择的收藏夹：</div>
+        <div class="selected-list">
+          <el-tag 
+            v-for="folder in selectedFolders" 
+            :key="folder.favoriteId"
+            closable
+            @close="toggleFolderSelection(folder)"
+            class="selected-tag"
+          >
+            {{ folder.name }}
+          </el-tag>
+        </div>
+      </div>
+    </div>
+    
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="favoriteDialogVisible = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="confirmFavorite"
+          :disabled="selectedFolders.length === 0"
+        >
+          确认收藏
+        </el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts">
 import { defineComponent, ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getResearchOutcomeById, uploadResearchFile, ResearchOutcomeVO, getOutcomeComments, sendOutcomeComment, CommentVO, ResearchOutcomeMetaUploadRequest, updateResearchOutcomeMeta, likeOutcome, cancelLikeOutcome, isOutcomeLiked, getOutcomeLikeCount, deleteOutcomeComment, applyForFullText, deleteOutcomeFile, deleteOutcome } from '@/api/outcome';
+import { getFavoritePage, addOutcomeToFavorite, Favorite } from '@/api/favorite';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import store from '@/store';
 
@@ -721,6 +833,19 @@ export default defineComponent({
     // 全文申请相关
     const applyingFullText = ref(false);
     const hasAppliedFullText = ref(false);
+    
+    // 收藏相关
+    const favoriteDialogVisible = ref(false);
+    const folders = ref<Favorite[]>([]);
+    const selectedFolders = ref<Favorite[]>([]);
+    const loadingFolders = ref(false);
+    const currentParentId = ref(0);
+    const breadcrumbList = ref<{favoriteId: number, name: string}[]>([
+      { favoriteId: 0, name: '文献库' }
+    ]);
+    const folderCurrentPage = ref(1);
+    const folderPageSize = ref(6);
+    const total = ref(0);
     
     // 从路由参数获取ID
     const outcomeId = computed(() => {
@@ -949,6 +1074,7 @@ export default defineComponent({
             if (data.authorList) {
               console.log('调试信息 - 成果作者列表:', data.authorList);
             }
+            console.log(outcomeData.value);
           } else {
             outcomeData.value = null;
             console.log('调试信息 - 成果数据为空');
@@ -1226,6 +1352,149 @@ export default defineComponent({
       }
     };
     
+    // 显示收藏对话框
+    const showFavoriteDialog = () => {
+      if (!currentUserId.value) {
+        ElMessage.warning('请先登录');
+        return;
+      }
+      
+      favoriteDialogVisible.value = true;
+      selectedFolders.value = [];
+      loadFolders();
+    };
+    
+    // 加载收藏夹列表
+    const loadFolders = async () => {
+      loadingFolders.value = true;
+      try {
+        const result = await getFavoritePage({
+          pageSize: folderPageSize.value,
+          pageNum: folderCurrentPage.value,
+          parentId: currentParentId.value
+        });
+        
+        if (result) {
+          folders.value = result.list;
+          total.value = result.total;
+        } else {
+          folders.value = [];
+          total.value = 0;
+        }
+      } catch (error) {
+        console.error('加载收藏夹失败:', error);
+        folders.value = [];
+        total.value = 0;
+      } finally {
+        loadingFolders.value = false;
+      }
+    };
+    
+    // 导航到指定收藏夹
+    const navigateToFolder = async (parentId: number) => {
+      currentParentId.value = parentId;
+      folderCurrentPage.value = 1;
+      await loadFolders();
+      updateBreadcrumb(parentId);
+    };
+    
+    // 更新面包屑导航
+    const updateBreadcrumb = (parentId: number) => {
+      breadcrumbList.value = []
+      if (parentId !== 0) {
+        breadcrumbList.value.push({
+          favoriteId: parentId,
+          name: '收藏夹'
+        })
+      }
+    };
+    
+    // 面包屑导航点击
+    const navigateToBreadcrumb = async (index: number) => {
+      if (index < breadcrumbList.value.length - 1) {
+        const targetItem = breadcrumbList.value[index]
+        currentParentId.value = targetItem.favoriteId
+        
+        breadcrumbList.value = breadcrumbList.value.slice(0, index + 1)
+        await loadFolders()
+      }
+    };
+    
+    // 返回上一级收藏夹
+    const backToParentFolder = async () => {
+      if (breadcrumbList.value.length > 1) {
+        breadcrumbList.value.pop()
+        
+        const newCurrentItem = breadcrumbList.value[breadcrumbList.value.length - 1]
+        currentParentId.value = newCurrentItem.favoriteId
+        
+        await loadFolders()
+      }
+    };
+    
+    // 打开收藏夹
+    const openFolder = async (folder: Favorite) => {
+      breadcrumbList.value.push({
+        favoriteId: folder.favoriteId,
+        name: folder.name
+      })
+      
+      currentParentId.value = folder.favoriteId
+      await loadFolders()
+    };
+    
+    // 选择/取消选择收藏夹
+    const toggleFolderSelection = (folder: Favorite) => {
+      const index = selectedFolders.value.findIndex(f => f.favoriteId === folder.favoriteId);
+      if (index > -1) {
+        selectedFolders.value.splice(index, 1);
+      } else {
+        selectedFolders.value.push(folder);
+      }
+    };
+    
+    // 确认收藏
+    const confirmFavorite = async () => {
+      if (selectedFolders.value.length === 0) {
+        ElMessage.warning('请选择至少一个收藏夹');
+        return;
+      }
+      
+      if (!outcomeData.value || !outcomeData.value.outcomeId) {
+        ElMessage.error('无法获取成果ID');
+        return;
+      }
+      
+      try {
+        let successCount = 0;
+        for (const folder of selectedFolders.value) {
+          const success = await addOutcomeToFavorite({
+            favoriteId: folder.favoriteId,
+            outcomeId: outcomeData.value.outcomeId
+          });
+          if (success) {
+            successCount++;
+          }
+        }
+        
+        if (successCount > 0) {
+          ElMessage.success(`成功收藏到 ${successCount} 个收藏夹`);
+          favoriteDialogVisible.value = false;
+        } else {
+          ElMessage.error('收藏失败');
+        }
+      } catch (error) {
+        console.error('收藏失败:', error);
+        ElMessage.error('收藏失败');
+      }
+    };
+    
+    // 分页处理
+    const handleFolderPageChange = async (page: number) => {
+      folderCurrentPage.value = page;
+      await loadFolders();
+    };
+    
     // 删除成果原文
     const deletingOutcomeFile = ref(false);
     const deleteOutcomeFileMethod = async () => {
@@ -1384,6 +1653,26 @@ export default defineComponent({
       applyingFullText,
       hasAppliedFullText,
       applyForOutcomeFullText,
+      // 收藏相关
+      favoriteDialogVisible,
+      folders,
+      selectedFolders,
+      loadingFolders,
+      currentParentId,
+      breadcrumbList,
+      folderCurrentPage,
+      folderPageSize,
+      total,
+      showFavoriteDialog,
+      loadFolders,
+      navigateToFolder,
+      updateBreadcrumb,
+      navigateToBreadcrumb,
+      backToParentFolder,
+      openFolder,
+      toggleFolderSelection,
+      confirmFavorite,
+      handleFolderPageChange,
       // 用户是否为作者
       isCurrentUserAuthor,
       // 删除成果原文相关
@@ -2200,5 +2489,196 @@ export default defineComponent({
 .reply-actions .el-button[style*="color: #F56C6C"]:hover {
   color: #ff4d4f !important;
   background-color: #fff1f0;
+}
+
+/* 收藏对话框样式 */
+.favorite-dialog-content {
+  padding: 20px 0;
+}
+
+.breadcrumb-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.breadcrumb-title {
+  font-weight: 600;
+  color: #333;
+  margin-right: 15px;
+  font-size: 16px;
+}
+
+.breadcrumb-list {
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.breadcrumb-item {
+  cursor: pointer;
+  color: #409eff;
+  font-size: 14px;
+  transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+}
+
+.breadcrumb-item:hover {
+  color: #66b1ff;
+  text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+  color: #606266;
+  cursor: default;
+}
+
+.breadcrumb-item.active:hover {
+  color: #606266;
+  text-decoration: none;
+}
+
+.breadcrumb-separator {
+  margin: 0 8px;
+  color: #c0c4cc;
+}
+
+.back-button {
+  margin-left: auto;
+  color: #409eff;
+  font-size: 14px;
+}
+
+.back-button:hover {
+  color: #66b1ff;
+}
+
+.folders-container {
+  min-height: 300px;
+  margin-bottom: 20px;
+}
+
+.empty-folders {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+.folders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.folder-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  border: 2px solid #e9ecef;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background-color: #fff;
+  position: relative;
+}
+
+.folder-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.folder-item.selected {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+}
+
+.folder-icon {
+  font-size: 32px;
+  margin-bottom: 10px;
+}
+
+.folder-name {
+  font-size: 14px;
+  color: #333;
+  text-align: center;
+  margin-bottom: 10px;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.folder-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.folder-item:hover .folder-actions {
+  opacity: 1;
+}
+
+.open-folder-btn {
+  padding: 2px 12px;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.open-folder-btn:hover {
+  color: #007afc;
+  background-color: #d7eaff;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+}
+
+.selected-folders {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+.selected-title {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.selected-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.selected-tag {
+  margin: 0;
+}
+
+/* 点赞和收藏按钮样式 */
+.like-section-bottom {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.like-section-bottom .el-button {
+  flex: 1;
+  max-width: 120px;
 }
 </style> 
