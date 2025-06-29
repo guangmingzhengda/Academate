@@ -83,6 +83,7 @@
                     {{ isLiked ? `❤️ 已点赞 (${likeCount})` : `🤍 点赞 (${likeCount})` }}
                   </el-button>
                   <el-button 
+                    v-if="isLiterature"
                     type="primary" 
                     size="small" 
                     @click="showFavoriteDialog"
@@ -1784,6 +1785,12 @@ export default defineComponent({
       return `在"${currentName}"下新建收藏夹`;
     });
     
+    // 判断是否为文献类型（会议论文或期刊论文）
+    const isLiterature = computed(() => {
+      if (!outcomeData.value || !outcomeData.value.type) return false;
+      return outcomeData.value.type === '会议论文' || outcomeData.value.type === '期刊论文';
+    });
+    
     return {
       loading,
       outcomeData,
@@ -1883,7 +1890,8 @@ export default defineComponent({
       creatingFolder,
       handleCreateFolder,
       getCurrentFolderName,
-      createFolderTooltip
+      createFolderTooltip,
+      isLiterature
     };
   }
 });
