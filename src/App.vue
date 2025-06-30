@@ -32,7 +32,7 @@
         <message-sidebar :visible="sidebarVisible" @close="closeSidebar" @unread-count-update="updateUnreadCount" />
 
         <!-- 聊天窗口 -->
-        <chat-window v-if="chatVisible" @close="closeChat" @unread-count-update="updateChatUnreadCountFromChild" />
+        <chat-window :visible="chatVisible" @close="closeChat" @unread-count-update="updateChatUnreadCountFromChild" />
 
 <!--        <router-view/>-->
 
@@ -50,7 +50,6 @@ import MessageSidebar from "@/components/MessageSidebar.vue";
 import ChatWindow from "@/page/chat/index.vue";
 import { ChatLineRound, ChatDotRound } from '@element-plus/icons-vue';
 import websocketManager from '@/utils/websocketManager';
-import { listConversations } from '@/api/chat';
 
 export default {
     name: 'App',
@@ -62,33 +61,8 @@ export default {
         const padSet = ref(true);
         const sidebarVisible = ref(false);
         const chatVisible = ref(false);
-        const unreadCount = ref(2); // 模拟未读消息数量
-        const chatUnreadCount = ref(0); // 聊天未读消息数量
-
-        // 获取会话列表并计算聊天未读数量
-        const updateChatUnreadCount = async () => {
-            try {
-                console.log('🔄 App.vue: 开始更新聊天未读数量...')
-                const conversationList = await listConversations();
-                if (conversationList && conversationList.length > 0) {
-                    const unread = conversationList.reduce((total, conv) => total + (conv.unreadMessageCount || 0), 0);
-                    console.log(`🔢 App.vue: 计算得到聊天未读数量: ${unread}`)
-                    console.log('📋 App.vue: 会话详情:', conversationList.map(conv => ({
-                        id: conv.id,
-                        name: conv.chatUserVO.name,
-                        unreadCount: conv.unreadMessageCount
-                    })))
-                    chatUnreadCount.value = unread;
-                    console.log('✅ App.vue: 聊天未读数量已更新')
-                } else {
-                    console.log('🔢 App.vue: 没有会话，设置聊天未读数量为0')
-                    chatUnreadCount.value = 0;
-                }
-            } catch (error) {
-                console.error('❌ App.vue: 获取会话列表失败:', error);
-                chatUnreadCount.value = 0;
-            }
-        };
+        const unreadCount = ref(0); // 初始化为0，等待子组件emit更新
+        const chatUnreadCount = ref(0); // 初始化为0，等待子组件emit更新
 
         const tokenInfo = () => {
             callInfo('使用人工智能前请先登录');
@@ -139,26 +113,23 @@ export default {
                     websocketManager.disconnect()
                     // 用户登出时清空聊天未读数
                     chatUnreadCount.value = 0;
+                    unreadCount.value = 0;
                 }
             })
             
-            // 监听用户ID变化，确保在用户切换时更新聊天未读数
+            // 监听用户ID变化，确保在用户切换时清空未读数
             watch(() => store.getters.getId, async (newUserId, oldUserId) => {
                 if (newUserId && newUserId !== oldUserId) {
-                    // 用户ID变化（登录或切换用户），如果WebSocket已连接则更新聊天未读数
-                    if (websocketManager.isConnected()) {
-                        await updateChatUnreadCount();
-                    }
+                    // 用户ID变化（登录或切换用户），清空未读数等待子组件更新
+                    chatUnreadCount.value = 0;
+                    unreadCount.value = 0;
                 }
             })
             
             // 全局注册聊天消息处理器，确保无论是否打开聊天窗口都能处理消息
             websocketManager.registerMessageHandler('chat_message', async (msg) => {
-                console.log('📨 App.vue: 收到聊天消息，开始更新未读数量')
-                // 每次收到聊天消息时，重新获取会话列表并计算未读数
-                await updateChatUnreadCount();
-                
-                // 通过自定义事件将聊天消息传递给聊天组件
+                console.log('📨 App.vue: 收到聊天消息，转发给聊天组件')
+                // 只转发消息给聊天组件，不主动更新未读数
                 window.dispatchEvent(new CustomEvent('chatMessageReceived', { detail: msg }))
             });
             
@@ -183,10 +154,11 @@ export default {
                 // 通过自定义事件将连接状态变化传递给所有组件
                 window.dispatchEvent(new CustomEvent('websocketConnectionChanged', { detail: { connected } }))
                 
-                // 连接成功后，获取会话列表并计算未读数
+                // 连接成功后，清空未读数等待子组件更新
                 if (connected) {
-                    console.log('🔌 App.vue: WebSocket连接成功，开始更新未读数量')
-                    await updateChatUnreadCount();
+                    console.log('🔌 App.vue: WebSocket连接成功，清空未读数等待子组件更新')
+                    chatUnreadCount.value = 0;
+                    unreadCount.value = 0;
                 }
             });
             
