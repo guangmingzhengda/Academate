@@ -167,13 +167,13 @@ export function createAnnotationPersistence() {
             // 清理URL对象
             URL.revokeObjectURL(url)
             
-            console.log(`✅ 标注数据已保存到: ${fileName}`)
-            console.log(`📊 导出统计:`, {
-                高亮数量: exportData.annotations.highlights.length,
-                批注数量: exportData.annotations.notes.length,
-                绘制数量: exportData.annotations.drawings.length,
-                文件大小: `${(jsonString.length / 1024).toFixed(2)} KB`
-            })
+            // console.log(`✅ 标注数据已保存到: ${fileName}`)
+            // console.log(`📊 导出统计:`, {
+            //     高亮数量: exportData.annotations.highlights.length,
+            //     批注数量: exportData.annotations.notes.length,
+            //     绘制数量: exportData.annotations.drawings.length,
+            //     文件大小: `${(jsonString.length / 1024).toFixed(2)} KB`
+            // })
             
             return { success: true, fileName, size: jsonString.length }
         } catch (error) {
@@ -199,14 +199,14 @@ export function createAnnotationPersistence() {
                 console.warn(`⚠️ 数据版本不匹配: 当前${DATA_VERSION}, 文件${data.version}`)
             }
             
-            console.log(`📖 加载标注数据成功:`, {
-                PDF文件: data.pdfInfo.fileName,
-                总页数: data.pdfInfo.totalPages,
-                高亮数量: data.annotations.highlights.length,
-                批注数量: data.annotations.notes.length,
-                绘制数量: data.annotations.drawings.length,
-                导出时间: data.metadata.exportedAt
-            })
+            // console.log(`📖 加载标注数据成功:`, {
+            //     PDF文件: data.pdfInfo.fileName,
+            //     总页数: data.pdfInfo.totalPages,
+            //     高亮数量: data.annotations.highlights.length,
+            //     批注数量: data.annotations.notes.length,
+            //     绘制数量: data.annotations.drawings.length,
+            //     导出时间: data.metadata.exportedAt
+            // })
             
             return { success: true, data }
         } catch (error) {
@@ -288,10 +288,10 @@ export function createAnnotationPersistence() {
                 targetDrawingData.set(page, data)
             })
             
-            console.log(`✅ 标注数据应用成功:`)
-            console.log(`  - 恢复 ${highlights.length} 个高亮`)
-            console.log(`  - 恢复 ${annotations.length} 个批注`) 
-            console.log(`  - 恢复 ${drawings.size} 页绘制内容`)
+            // console.log(`✅ 标注数据应用成功:`)
+            // console.log(`  - 恢复 ${highlights.length} 个高亮`)
+            // console.log(`  - 恢复 ${annotations.length} 个批注`) 
+            // console.log(`  - 恢复 ${drawings.size} 页绘制内容`)
             
             return {
                 success: true,

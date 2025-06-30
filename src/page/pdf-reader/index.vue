@@ -1995,7 +1995,7 @@ export default {
             })
             
             if (erasedCount > 0) {
-                console.log(`删除了${erasedCount}个高亮`)
+                // console.log(`删除了${erasedCount}个高亮`)
             }
         }
 
@@ -2065,7 +2065,7 @@ export default {
             })
             
             if (erasedCount > 0) {
-                console.log(`删除了${erasedCount}个批注`)
+                // console.log(`删除了${erasedCount}个批注`)
             }
         }
 
@@ -2110,7 +2110,7 @@ export default {
                 ctx.clearRect(eraseArea.x, eraseArea.y, eraseArea.width, eraseArea.height)
                 // 重新保存绘制数据
                 saveDrawingData(currentPage.value)
-                console.log('清除了绘制内容')
+                // console.log('清除了绘制内容')
             }
         }
 
