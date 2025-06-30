@@ -91,6 +91,21 @@
                                     </div>
                                 </div>
                                 
+                                <!-- 成果版权确认的同意/拒绝按钮/状态 -->
+                                <div v-if="message.type === 'agree_url'">
+                                    <div v-if="message.status === null" class="message-actions">
+                                        <el-button type="default" size="small" @click="handleCopyrightConfirm(message.id, true)">
+                                            同意
+                                        </el-button>
+                                        <el-button type="default" size="small" @click="handleCopyrightConfirm(message.id, false)">
+                                            拒绝
+                                        </el-button>
+                                    </div>
+                                    <div v-else class="message-status" :class="message.status">
+                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    </div>
+                                </div>
+                                
                                 <!-- 研究人员更新、问题回复的标记已读按钮/状态 -->
                                 <div v-if="['researcher_update', 'question_reply'].includes(message.type)">
                                     <!-- 调试信息（临时） -->
@@ -108,7 +123,7 @@
                                 </div>
                                 
                                 <!-- 其他类型消息的标记已读按钮/状态 -->
-                                <div v-if="!['project_invite', 'project_apply', 'data_request', 'researcher_update', 'question_reply'].includes(message.type)">
+                                <div v-if="!['project_invite', 'project_apply', 'data_request', 'agree_url', 'researcher_update', 'question_reply'].includes(message.type)">
                                     <div v-if="!message.read" class="message-actions">
                                         <el-button type="default" size="small" @click="handleMarkAsRead(message.id)">
                                             标记已读
@@ -181,7 +196,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Close, UploadFilled } from '@element-plus/icons-vue'
 import { agree_project_invite, reject_project_invite } from '@/api/project'
-import { pullAllMessages, MessageVO, markAsRead, handleApplyAgree, ApplyAgreeRequest } from '@/api/msg'
+import { pullAllMessages, MessageVO, markAsRead, handleApplyAgree, ApplyAgreeRequest, confirmCopyright } from '@/api/msg'
 import { get_user_detail } from '@/api/profile'
 import { callSuccess, callError } from '@/call'
 import store from '@/store'
@@ -245,8 +260,8 @@ const filteredMessages = computed(() => {
 // 计算非项目类型的未读消息（用于全部已读功能）
 const unreadNonProjectMessages = computed(() => {
     return filteredMessages.value.filter(message => {
-        // 项目类型和数据请求的消息不包括在内（它们有自己的同意/拒绝逻辑）
-        if (['project_invite', 'project_apply', 'data_request'].includes(message.type)) {
+        // 项目类型、数据请求和版权确认的消息不包括在内（它们有自己的同意/拒绝逻辑）
+        if (['project_invite', 'project_apply', 'data_request', 'agree_url'].includes(message.type)) {
             return false
         }
         
@@ -369,8 +384,8 @@ const handleIncomingMessage = async (messageData) => {
             // 项目相关消息使用isAccepted字段，新消息默认为null
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
-        } else if (messageType === 'data_request') {
-            // 数据请求也使用isAccepted字段，类似项目邀请
+        } else if (messageType === 'data_request' || messageType === 'agree_url') {
+            // 数据请求和版权确认都使用isAccepted字段，类似项目邀请
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
         } else if (['researcher_update', 'question_reply'].includes(messageType)) {
@@ -460,6 +475,8 @@ const convertMessageVOToMessage = async (messageVO) => {
             messageType = 'data_request'
         } else if (messageVO.message.includes('回复了您关注的问题') || messageVO.message.includes('问题回复') || messageVO.message.includes('回复了问题')) {
             messageType = 'question_reply'
+        } else if (messageVO.message.includes('版权确认') || messageVO.message.includes('确认版权') || messageVO.message.includes('版权授权')) {
+            messageType = 'agree_url'
         }
         console.log(`历史消息通过内容推断类型: ${messageType}, 消息内容: "${messageVO.message}"`)
     }
@@ -479,8 +496,8 @@ const convertMessageVOToMessage = async (messageVO) => {
         // 项目邀请和申请使用 isAccepted 字段
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
-    } else if (messageType === 'data_request') {
-        // 数据请求也使用 isAccepted 字段，类似项目邀请
+    } else if (messageType === 'data_request' || messageType === 'agree_url') {
+        // 数据请求和版权确认都使用 isAccepted 字段，类似项目邀请
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
     } else if (['researcher_update', 'question_reply'].includes(messageType)) {
@@ -677,6 +694,37 @@ const handleDataRequest = async (messageId, accepted) => {
             console.error('拒绝数据请求失败:', error)
             callError('拒绝数据请求失败')
         }
+    }
+}
+
+// 处理成果版权确认
+const handleCopyrightConfirm = async (messageId, accepted) => {
+    const message = messages.value.find(m => m.id === messageId)
+    if (!message) {
+        callError('消息不存在')
+        return
+    }
+    
+    if (!message.outcomeId) {
+        callError('消息中缺少成果ID，无法处理')
+        return
+    }
+    
+    try {
+        const success = await confirmCopyright({
+            outcomeId: message.outcomeId,
+            agreeUrl: accepted
+        })
+        
+        if (success) {
+            message.status = accepted ? 'accepted' : 'rejected'
+            message.read = true
+            console.log(`消息ID ${message.id} 已设置为${accepted ? '同意' : '拒绝'}状态，未读数量将更新`)
+            callSuccess(accepted ? '已同意版权确认' : '已拒绝版权确认')
+        }
+    } catch (error) {
+        console.error('版权确认处理失败:', error)
+        callError('版权确认处理失败')
     }
 }
 

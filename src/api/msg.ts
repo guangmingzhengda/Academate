@@ -49,6 +49,19 @@ export interface ApplyAgreeResponse {
     message: string;
 }
 
+// 成果版权确认请求类型
+export interface OutcomeCopyrightConfirmRequest {
+    outcomeId: number;
+    agreeUrl: boolean;
+}
+
+// 成果版权确认响应类型
+export interface OutcomeCopyrightConfirmResponse {
+    code: number;
+    data: any;
+    message: string;
+}
+
 /**
  * 拉取所有消息
  * 根据prompt.md实现
@@ -131,6 +144,49 @@ export async function markAsRead(data: MessageMarkReadRequest): Promise<boolean>
             callError('网络连接错误');
         } else {
             callError('标记已读失败，请重试');
+        }
+        return false;
+    }
+}
+
+/**
+ * 处理成果版权确认（同意/拒绝）
+ * 接口地址: /api/research_outcome/confirm_copyright
+ * 请求方式: POST
+ * 请求数据类型: application/json
+ */
+export async function confirmCopyright(data: OutcomeCopyrightConfirmRequest): Promise<boolean> {
+    try {
+        console.log('开始处理成果版权确认:', data);
+        
+        const response = await axios.post<OutcomeCopyrightConfirmResponse>('/research_outcome/confirm_copyright', data, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('成果版权确认响应:', response.data);
+        
+        if (response.status === 200) {
+            if (response.data.code === 0) {
+                console.log('成果版权确认处理成功');
+                return true;
+            } else {
+                callError(response.data.message || '版权确认失败');
+                return false;
+            }
+        } else {
+            callError('网络错误');
+            return false;
+        }
+    } catch (error: any) {
+        console.error('成果版权确认错误:', error);
+        if (error.response) {
+            callError(error.response.data?.message || '版权确认失败');
+        } else if (error.request) {
+            callError('网络连接错误');
+        } else {
+            callError('版权确认失败，请重试');
         }
         return false;
     }
