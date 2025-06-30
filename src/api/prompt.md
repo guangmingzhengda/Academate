@@ -1,9 +1,9 @@
 
 
-## 批量标记学术动态消息为已消费
+## 成果版权确认
 
 
-**接口地址**:`/api/message/markAsConsumed`
+**接口地址**:`/api/research_outcome/confirm_copyright`
 
 
 **请求方式**:`POST`
@@ -23,7 +23,9 @@
 
 ```javascript
 {
-  "messageIds": []
+  "outcomeId": 0,
+  "agreeUrl": true,
+  "messageId": 0
 }
 ```
 
@@ -36,8 +38,10 @@
 
 | 参数名称 | 参数说明 | 请求类型    | 是否必须 | 数据类型 | schema |
 | -------- | -------- | ----- | -------- | -------- | ------ |
-|messageMarkConsumedRequest|MessageMarkConsumedRequest|body|true|MessageMarkConsumedRequest|MessageMarkConsumedRequest|
-|&emsp;&emsp;messageIds|||false|array|integer(int64)|
+|outcomeCopyrightConfirmRequest|OutcomeCopyrightConfirmRequest|body|true|OutcomeCopyrightConfirmRequest|OutcomeCopyrightConfirmRequest|
+|&emsp;&emsp;outcomeId|||false|integer(int64)||
+|&emsp;&emsp;agreeUrl|||false|boolean||
+|&emsp;&emsp;messageId|||false|integer(int64)||
 
 
 **响应状态**:
@@ -45,7 +49,7 @@
 
 | 状态码 | 说明 | schema |
 | -------- | -------- | ----- | 
-|200|OK|BaseResponseInteger|
+|200|OK|BaseResponseVoid|
 
 
 **响应参数**:
@@ -54,7 +58,7 @@
 | 参数名称 | 参数说明 | 类型 | schema |
 | -------- | -------- | ----- |----- | 
 |code||integer(int32)|integer(int32)|
-|data||integer(int32)|integer(int32)|
+|data||object||
 |message||string||
 
 
@@ -62,7 +66,7 @@
 ```javascript
 {
 	"code": 0,
-	"data": 0,
+	"data": {},
 	"message": ""
 }
 ```

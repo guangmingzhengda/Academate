@@ -644,7 +644,7 @@ const toggleFullscreen = () => {
 const closeChat = () => {
     // 触发关闭事件
     emit('close')
-    ElMessage.success('聊天窗口已关闭')
+    // ElMessage.success('聊天窗口已关闭')
 }
 
 const showFriendsList = () => {

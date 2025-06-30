@@ -53,6 +53,7 @@ export interface ApplyAgreeResponse {
 export interface OutcomeCopyrightConfirmRequest {
     outcomeId: number;
     agreeUrl: boolean;
+    messageId: number;
 }
 
 // 成果版权确认响应类型

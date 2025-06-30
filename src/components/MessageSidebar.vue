@@ -93,7 +93,7 @@
                                 
                                 <!-- 成果版权确认的同意/拒绝按钮/状态 -->
                                 <div v-if="message.type === 'agree_url'">
-                                    <div v-if="message.status === null" class="message-actions">
+                                    <div v-if="message.status !== 'processed'" class="message-actions">
                                         <el-button type="default" size="small" @click="handleCopyrightConfirm(message.id, true)">
                                             同意
                                         </el-button>
@@ -101,8 +101,8 @@
                                             拒绝
                                         </el-button>
                                     </div>
-                                    <div v-else class="message-status" :class="message.status">
-                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    <div v-else class="message-status processed">
+                                        已处理
                                     </div>
                                 </div>
                                 
@@ -339,6 +339,94 @@
             <el-button type="primary" @click="handleCreateFolder" :loading="creatingFolder">创建</el-button>
         </template>
     </el-dialog>
+    
+    <!-- 版权确认弹窗 -->
+    <el-dialog
+        v-model="copyrightDialogVisible"
+        title="版权声明与隐私确认"
+        width="650px"
+        :close-on-click-modal="false"
+    >
+        <div class="copyright-dialog-content">
+            <div class="terms-container">
+                <h3>版权声明与隐私确认</h3>
+                
+                <div class="terms-section">
+                    <h4><i class="el-icon-document"></i> 版权确认条款</h4>
+                    <div class="terms-quote">
+                        "我确认我有权利公开分享此文档，我理解并同意本网站的上传条件。我保证上传的内容不侵犯任何第三方的版权或其他知识产权。如果我上传的内容包含他人的受版权保护的材料，我已获得必要的许可。"
+                    </div>
+                </div>
+                
+                <div class="terms-section">
+                    <h4><i class="el-icon-lock"></i> 隐私保护</h4>
+                    <ul>
+                        <li>用户需确认上传内容不包含任何个人隐私信息或敏感数据</li>
+                        <li>对于涉及人类受试者的研究，需确认已获得必要的伦理审查和参与者同意</li>
+                    </ul>
+                </div>
+                
+                <div class="terms-section">
+                    <h4><i class="el-icon-refresh"></i> 回溯确认</h4>
+                    <ul>
+                        <li>对于本政策实施前已上传的全文，系统将通知相关用户在30天内完成版权确认</li>
+                        <li>未在规定时间内确认的全文将被转为"仅元数据"可见状态</li>
+                    </ul>
+                </div>
+                
+                <div class="terms-section">
+                    <h4><i class="el-icon-s-claim"></i> 权利与责任</h4>
+                    <div class="terms-subsection">
+                        <h5>用户权利</h5>
+                        <ul>
+                            <li>随时可以撤回已上传的全文（元数据将保留）</li>
+                            <li>可以更新或更正已上传成果的信息</li>
+                        </ul>
+                    </div>
+                    <div class="terms-subsection">
+                        <h5>网站权利</h5>
+                        <ul>
+                            <li>有权移除任何涉嫌侵权或不符合政策的内容</li>
+                            <li>保留展示成果元数据的权利，即使全文被撤回</li>
+                        </ul>
+                    </div>
+                    <div class="terms-subsection">
+                        <h5>免责声明</h5>
+                        <ul>
+                            <li>网站不承担用户上传内容引发的版权纠纷责任</li>
+                            <li>用户需自行确保上传内容的合法性和适当性</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="terms-section">
+                    <h4><i class="el-icon-s-operation"></i> 实施条款</h4>
+                    <ol>
+                        <li>本条件自发布之日起生效</li>
+                        <li>所有用户上传行为视为已阅读并同意本条件</li>
+                        <li>网站保留修改本条件的权利，修改后将通过公告通知用户</li>
+                    </ol>
+                </div>
+                
+                <div class="terms-agreement">
+                    <el-checkbox v-model="copyrightTermsAgreed">我已阅读并同意上述版权声明与隐私确认条款</el-checkbox>
+                </div>
+            </div>
+        </div>
+        
+        <template #footer>
+            <span class="dialog-footer">
+                <el-button @click="copyrightDialogVisible = false">取消</el-button>
+                <el-button 
+                    type="primary" 
+                    @click="confirmCopyrightTerms"
+                    :disabled="!copyrightTermsAgreed"
+                >
+                    确认同意
+                </el-button>
+            </span>
+        </template>
+    </el-dialog>
 </template>
 
 <script setup>
@@ -401,6 +489,11 @@ const showCreateFolderDialog = ref(false)
 const newFolderName = ref('')
 const creatingFolder = ref(false)
 const currentResearcherUpdateMessage = ref(null) // 当前处理的研究更新消息
+
+// 版权确认弹窗相关状态
+const copyrightDialogVisible = ref(false)
+const copyrightTermsAgreed = ref(false)
+const currentCopyrightMessage = ref(null) // 当前处理的版权确认消息
 
 // 过滤消息，只显示别人发给我的消息
 const filteredMessages = computed(() => {
@@ -554,10 +647,13 @@ const handleIncomingMessage = async (messageData) => {
             // 项目相关消息使用isAccepted字段，新消息默认为null
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
-        } else if (messageType === 'data_request' || messageType === 'agree_url') {
-            // 数据请求和版权确认都使用isAccepted字段，类似项目邀请
+        } else if (messageType === 'data_request') {
+            // 数据请求使用isAccepted字段，类似项目邀请
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
+        } else if (messageType === 'agree_url') {
+            // 版权确认消息：使用status字段，如果已处理则为processed
+            messageStatus = messageData.status === 'processed' ? 'processed' : null
         } else if (messageType === 'researcher_update') {
             // 研究人员更新消息：状态只管理已读状态
             messageStatus = messageData.status === 'processed' ? 'processed' : 'pending'
@@ -574,7 +670,8 @@ const handleIncomingMessage = async (messageData) => {
             content: messageData.message,
             time: new Date(messageData.sentAt || Date.now()),
             avatar: getValidAvatarUrl(messageData.avatar),
-            read: messageData.status === 'processed' || messageData.isAccepted === 'agree' || messageData.isAccepted === 'reject' || messageData.isAccepted === 'consumed',
+            read: messageType === 'agree_url' ? messageData.status === 'processed' : 
+                  (messageData.status === 'processed' || messageData.isAccepted === 'agree' || messageData.isAccepted === 'reject' || messageData.isAccepted === 'consumed'),
             projectId: messageData.projectId || null,
             senderId: messageData.senderId || null, // 添加发送者ID，用于拒绝接口
             outcomeId: messageData.outcomeId || null, // 添加成果ID，用于数据请求处理
@@ -659,11 +756,19 @@ const convertMessageVOToMessage = async (messageVO) => {
     const senderName = await getUserRealName(messageVO.senderId)
     
     // 判断消息是否已读：明确标记为已读 或 已经操作过的消息
-    const isRead = messageVO.status === 'read' || 
-                   messageVO.isAccepted === 'agree' || 
-                   messageVO.isAccepted === 'reject' ||
-                   messageVO.isAccepted === 'consumed' ||
-                   messageVO.status === 'processed'
+    let isRead = messageVO.status === 'read' || messageVO.status === 'processed'
+    
+    // 对于不同类型的消息，判断已读的逻辑不同
+    if (messageType === 'agree_url') {
+        // 版权确认消息：只根据 status 字段判断
+        isRead = isRead || messageVO.status === 'processed'
+    } else {
+        // 其他类型消息：根据 isAccepted 字段判断
+        isRead = isRead || 
+                 messageVO.isAccepted === 'agree' || 
+                 messageVO.isAccepted === 'reject' ||
+                 messageVO.isAccepted === 'consumed'
+    }
     
     // 根据消息类型设置status
     let messageStatus = null
@@ -671,10 +776,13 @@ const convertMessageVOToMessage = async (messageVO) => {
         // 项目邀请和申请使用 isAccepted 字段
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
-    } else if (messageType === 'data_request' || messageType === 'agree_url') {
-        // 数据请求和版权确认都使用 isAccepted 字段，类似项目邀请
+    } else if (messageType === 'data_request') {
+        // 数据请求使用 isAccepted 字段，类似项目邀请
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
+    } else if (messageType === 'agree_url') {
+        // 版权确认消息：使用 status 字段，如果已处理则为 processed
+        messageStatus = messageVO.status === 'processed' ? 'processed' : null
     } else if (messageType === 'researcher_update') {
         // 研究人员更新消息：状态只管理已读状态
         messageStatus = messageVO.status === 'processed' ? 'processed' : 'pending'
@@ -889,22 +997,63 @@ const handleCopyrightConfirm = async (messageId, accepted) => {
         return
     }
     
+    if (accepted) {
+        // 同意：显示版权确认弹窗
+        currentCopyrightMessage.value = message
+        copyrightTermsAgreed.value = false
+        copyrightDialogVisible.value = true
+    } else {
+        // 拒绝：直接调用版权确认接口
+        await processCopyrightConfirm(messageId, false)
+    }
+}
+
+// 实际处理版权确认的函数
+const processCopyrightConfirm = async (messageId, accepted) => {
+    const message = messages.value.find(m => m.id === messageId)
+    if (!message) {
+        callError('消息不存在')
+        return
+    }
+    
     try {
         const success = await confirmCopyright({
             outcomeId: message.outcomeId,
-            agreeUrl: accepted
+            agreeUrl: accepted,
+            messageId: messageId
         })
         
         if (success) {
-            message.status = accepted ? 'accepted' : 'rejected'
+            message.status = 'processed'
             message.read = true
-            console.log(`消息ID ${message.id} 已设置为${accepted ? '同意' : '拒绝'}状态，未读数量将更新`)
+            console.log(`消息ID ${message.id} 已设置为已处理状态，未读数量将更新`)
             callSuccess(accepted ? '已同意版权确认' : '已拒绝版权确认')
         }
     } catch (error) {
         console.error('版权确认处理失败:', error)
         callError('版权确认处理失败')
     }
+}
+
+// 确认版权条款
+const confirmCopyrightTerms = async () => {
+    if (!copyrightTermsAgreed.value) {
+        callError('请先阅读并同意版权声明与隐私确认条款')
+        return
+    }
+    
+    if (!currentCopyrightMessage.value) {
+        callError('消息信息丢失')
+        return
+    }
+    
+    // 调用实际的版权确认处理
+    await processCopyrightConfirm(currentCopyrightMessage.value.id, true)
+    
+    // 关闭弹窗
+    copyrightDialogVisible.value = false
+    currentCopyrightMessage.value = null
+    copyrightTermsAgreed.value = false
 }
 
 // 处理研究人员更新消息（入库或标记已读）
@@ -1981,5 +2130,144 @@ onUnmounted(() => {
 .selected-tag {
     margin: 0;
     font-size: 13px;
+}
+
+/* 版权确认弹窗样式 */
+.copyright-dialog-content {
+    padding: 10px 0;
+}
+
+.terms-container {
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 0 10px;
+    background-color: #ffffff;
+    border-radius: 6px;
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.terms-container h3 {
+    font-size: 20px;
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+    border-bottom: 1px solid #eaeaea;
+    padding-bottom: 12px;
+    font-weight: 600;
+    position: relative;
+}
+
+.terms-container h3:after {
+    content: "";
+    position: absolute;
+    bottom: -1px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 3px;
+    background: linear-gradient(90deg, #409eff, #67c23a);
+}
+
+.terms-section {
+    margin-bottom: 25px;
+    text-align: left;
+    padding: 0 5px;
+}
+
+.terms-section h4 {
+    font-size: 16px;
+    color: #409eff;
+    margin-bottom: 12px;
+    font-weight: 600;
+    border-left: 4px solid #409eff;
+    padding: 8px 12px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+}
+
+.terms-section h4 i {
+    margin-right: 8px;
+    font-size: 18px;
+}
+
+.terms-subsection h5 {
+    font-size: 14px;
+    color: #606266;
+    margin: 12px 0 8px;
+    font-weight: 600;
+    border-left: 3px solid #67c23a;
+    padding-left: 8px;
+}
+
+.terms-quote {
+    background-color: #f8f9fa;
+    border-left: 4px solid #409eff;
+    padding: 12px;
+    margin: 10px 0;
+    font-style: italic;
+    color: #606266;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.terms-container ul, .terms-container ol {
+    padding-left: 20px;
+    margin: 10px 0;
+    line-height: 1.6;
+}
+
+.terms-container li {
+    margin-bottom: 8px;
+    line-height: 1.5;
+    color: #606266;
+    position: relative;
+}
+
+.terms-container ul li {
+    list-style-type: none;
+    padding-left: 5px;
+}
+
+.terms-container ul li:before {
+    content: "•";
+    color: #409eff;
+    font-weight: bold;
+    display: inline-block;
+    width: 1em;
+    margin-left: -1em;
+    font-size: 16px;
+}
+
+.terms-container ol li {
+    list-style-type: decimal;
+    padding-left: 5px;
+}
+
+.terms-agreement {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px dashed #dcdfe6;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.terms-agreement:hover {
+    border-color: #409eff;
+    background-color: #ecf5ff;
+}
+
+.terms-agreement .el-checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.terms-agreement .el-checkbox__label {
+    font-weight: 500;
 }
 </style> 
