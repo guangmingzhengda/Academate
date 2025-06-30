@@ -34,28 +34,28 @@
             <el-button-group v-if="pdfDocument" class="annotation-controls">
                 <el-button 
                     :type="annotationMode === 'highlight' ? 'primary' : 'default'"
-                    @click="$emit('set-annotation-mode', 'highlight')"
+                    @click="toggleAnnotationMode('highlight')"
                     class="annotation-btn"
                 >
                     高亮
                 </el-button>
                 <el-button 
                     :type="annotationMode === 'note' ? 'primary' : 'default'"
-                    @click="$emit('set-annotation-mode', 'note')"
+                    @click="toggleAnnotationMode('note')"
                     class="annotation-btn"
                 >
                     批注
                 </el-button>
                 <el-button 
                     :type="annotationMode === 'draw' ? 'primary' : 'default'"
-                    @click="$emit('set-annotation-mode', 'draw')"
+                    @click="toggleAnnotationMode('draw')"
                     class="annotation-btn"
                 >
                     绘制
                 </el-button>
                 <el-button 
                     :type="annotationMode === 'eraser' ? 'primary' : 'default'"
-                    @click="$emit('set-annotation-mode', 'eraser')"
+                    @click="toggleAnnotationMode('eraser')"
                     class="annotation-btn"
                 >
                     橡皮擦
@@ -81,15 +81,7 @@
                 >
                     保存标注
                 </el-button>
-                <el-button 
-                    @click="$emit('import-annotations')"
-                    class="persistence-btn"
-                    type="info"
-                    :icon="UploadFilled"
-                    title="导入标注数据"
-                >
-                    加载标注
-                </el-button>
+
             </el-button-group>
             
             <!-- 颜色和透明度控制器 -->
@@ -123,7 +115,7 @@
 
 <script>
 import { 
-    Upload, ZoomIn, ZoomOut, ArrowLeft, ArrowRight, Download, UploadFilled
+    Upload, ZoomIn, ZoomOut, ArrowLeft, ArrowRight, Download
 } from '@element-plus/icons-vue'
 
 export default {
@@ -131,7 +123,7 @@ export default {
     emits: [
         'file-upload', 'zoom-in', 'zoom-out', 'reset-zoom', 
         'prev-page', 'next-page', 'set-annotation-mode',
-        'clear-drawing', 'update-color', 'update-highlight-opacity', 'export-annotations', 'import-annotations'
+        'clear-drawing', 'update-color', 'update-highlight-opacity', 'export-annotations'
     ],
     props: {
         pdfDocument: Object,
@@ -156,17 +148,28 @@ export default {
             const opacity = parseFloat(event.target.value)
             emit('update-highlight-opacity', opacity)
         }
+        
+        // 切换批注模式，如果已选中则取消选中
+        const toggleAnnotationMode = (mode) => {
+            if (props.annotationMode === mode) {
+                // 如果当前模式已经是该模式，则取消选中（设置为none）
+                emit('set-annotation-mode', 'none')
+            } else {
+                // 否则设置为新模式
+                emit('set-annotation-mode', mode)
+            }
+        }
 
         return {
             handleFileUpload,
             updateOpacity,
+            toggleAnnotationMode,
             Upload,
             ZoomIn,
             ZoomOut,
             ArrowLeft,
             ArrowRight,
-            Download,
-            UploadFilled
+            Download
         }
     }
 }
