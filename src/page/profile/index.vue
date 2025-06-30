@@ -400,6 +400,8 @@ export default {
             editData.value = {}
             // 重置编辑资料对话框状态
             editProfileDialogVisible.value = false
+            // 滚动到页面顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' })
             
             try {
                 const userDetail = await get_user_detail({ userId: parseInt(userId) })
@@ -444,6 +446,8 @@ export default {
         // 页面加载时获取用户信息
         onMounted(() => {
             fetchUserDetail()
+            // 确保页面加载时默认显示"项目/学术成果"选项卡
+            activeTab.value = 'projects'
         })
 
         // 监听路由参数变化，当用户ID变化时重新获取用户信息
@@ -838,22 +842,18 @@ export default {
         // 监听用户ID变化，处理标签页切换
         watch(userId, (newUserId, oldUserId) => {
             if (newUserId !== oldUserId) {
-                // 如果当前标签页在新的用户页面中不可用，则切换到第一个可用的标签页
-                const availableTabs = tabs.value.map(tab => tab.key);
-                if (!availableTabs.includes(activeTab.value)) {
-                    activeTab.value = availableTabs[0];
-                }
+                // 当用户ID变化时，始终将标签页切换到"项目/学术成果"
+                activeTab.value = 'projects';
+                // 滚动到页面顶部
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         });
 
         // 监听isOwnProfile变化，处理标签页切换
         watch(isOwnProfile, (newIsOwnProfile, oldIsOwnProfile) => {
             if (newIsOwnProfile !== oldIsOwnProfile) {
-                // 如果当前标签页在新的用户页面中不可用，则切换到第一个可用的标签页
-                const availableTabs = tabs.value.map(tab => tab.key);
-                if (!availableTabs.includes(activeTab.value)) {
-                    activeTab.value = availableTabs[0];
-                }
+                // 当用户类型变化时（从自己的页面到他人页面，或从他人页面到自己的页面），始终切换到"项目/学术成果"
+                activeTab.value = 'projects';
             }
         });
 
