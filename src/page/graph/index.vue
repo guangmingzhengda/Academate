@@ -42,16 +42,18 @@
                     @change="handleResearcherSelect"
                     @clear="handleResearcherClear"
                     size="large"
+                    popper-class="researcher-select-dropdown"
                   >
                     <el-option
                       v-for="item in researcherOptions"
                       :key="item.id"
-                      :label="item.account"
+                      :label="item.name"
                       :value="item.id"
+                      class="researcher-option"
                     >
-                      <div style="display: flex; align-items: center; gap: 12px;">
+                      <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0; width: 100%;">
                         <div 
-                          style="width: 32px; height: 32px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; overflow: hidden;"
+                          style="width: 28px; height: 28px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;"
                         >
                           <img 
                             v-if="item.avatar" 
@@ -64,12 +66,12 @@
                             v-if="!item.avatar"
                             style="color: #999; font-size: 12px; font-weight: bold;"
                           >
-                            {{ item.account ? item.account.charAt(0) : '?' }}
+                            {{ item.name ? item.name.charAt(0) : '?' }}
                           </span>
                         </div>
-                        <div style="flex: 1;">
-                          <div style="font-weight: 500; color: #333;">{{ item.account }}</div>
-                          <div style="font-size: 12px; color: #666; margin-top: 2px;" v-if="item.institution">
+                        <div style="flex: 1; min-width: 0; overflow: hidden;">
+                          <div style="font-weight: 500; color: #333; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.name }}</div>
+                          <div style="font-size: 11px; color: #666; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" v-if="item.institution">
                             {{ item.institution }}
                           </div>
                         </div>
@@ -218,7 +220,7 @@ export default {
                                         <div style="text-align:center;">
                                             <div style="font-size:20px;font-weight:bold;margin-bottom:4px;">${data.name}</div>
                                             <div style="color:#666;font-size:15px;">机构：${data.institution}</div>
-                                            <div style="color:#666;font-size:15px;">影响力：${data.influence}</div>
+                                            <div style="color:#666;font-size:15px;">ACADEMATE力：${data.influence}</div>
                                             ${data.field ? `<div style='color:#666;font-size:15px;'>领域：${data.field}</div>` : ''}
                                         </div>
                                     `;
@@ -227,7 +229,7 @@ export default {
                                         <div style="text-align:center;">
                                             <div style="font-size:20px;font-weight:bold;margin-bottom:4px;">${data.name}</div>
                                             <div style="color:#666;font-size:15px;">类型：科研机构</div>
-                                            <div style="color:#666;font-size:15px;">影响力：${data.influence}</div>
+                                            <div style="color:#666;font-size:15px;">ACADEMATE力：${data.influence}</div>
                                         </div>
                                     `;
                                 }
@@ -416,10 +418,18 @@ export default {
             
             researcherSearchTimer = setTimeout(async () => {
                 try {
-                    const result = await searchResearchers({
+                    const searchParams = {
                         userName: query.trim(),
-                        pageSize: 10
-                    });
+                        current: 1,
+                        pageSize: 3
+                    };
+                    
+                    // 如果用户填入了机构名，也要考虑institution的填入
+                    if (institutionKeyword.value && institutionKeyword.value.trim() !== '') {
+                        searchParams.institution = institutionKeyword.value.trim();
+                    }
+                    
+                    const result = await searchResearchers(searchParams);
                     
                     if (result && result.list) {
                         researcherOptions.value = result.list;
@@ -514,5 +524,26 @@ select {
     background-repeat: no-repeat;
     background-position: right .7em top 50%, 0 0;
     background-size: .65em auto, 100%;
+}
+</style>
+
+<style>
+/* 科研人员搜索下拉框样式 */
+.researcher-select-dropdown .el-select-dropdown__item {
+    height: auto !important;
+    min-height: 44px !important;
+    padding: 2px 16px !important;
+    line-height: normal !important;
+}
+
+.researcher-select-dropdown .el-select-dropdown__item.hover {
+    background-color: #f5f7fa !important;
+}
+
+.researcher-option {
+    height: auto !important;
+    min-height: 44px !important;
+    padding: 2px 0 !important;
+    line-height: normal !important;
 }
 </style>

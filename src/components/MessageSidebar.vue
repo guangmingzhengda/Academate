@@ -186,7 +186,6 @@ import { get_user_detail } from '@/api/profile'
 import { callSuccess, callError } from '@/call'
 import store from '@/store'
 import { useRouter } from 'vue-router'
-import websocketManager from '@/utils/websocketManager'
 
 const props = defineProps({
     visible: {
@@ -200,22 +199,12 @@ const emit = defineEmits(['close', 'unread-count-update'])
 // 路由实例
 const router = useRouter()
 
-// WebSocket连接状态（改为ref，每次打开时主动检查）
+// WebSocket相关状态
+const ws = ref(null)
 const wsConnected = ref(false)
-
-// 检查WebSocket连接状态
-const checkConnectionStatus = () => {
-    wsConnected.value = websocketManager.isConnected()
-    console.log('MessageSidebar检查连接状态:', wsConnected.value)
-}
-
-// 监听visible属性变化，每次打开时检查连接状态
-watch(() => props.visible, (newVisible) => {
-    if (newVisible) {
-        // 消息中心打开时，主动检查连接状态
-        checkConnectionStatus()
-    }
-}, { immediate: true })
+const reconnectTimer = ref(null)
+const reconnectAttempts = ref(0)
+const maxReconnectAttempts = 5
 
 // 消息数据改为响应式数组，初始为空
 const messages = ref([])
@@ -295,6 +284,66 @@ const formatTime = (time) => {
     }
 }
 
+// WebSocket连接函数
+const connectWebSocket = () => {
+    const userId = store.getters.getId
+    if (!userId) {
+        console.error('用户ID未找到，无法建立WebSocket连接')
+        return
+    }
+
+    const wsUrl = `ws://123.56.50.152:8081/api/websocket/${userId}`
+    console.log('正在连接WebSocket:', wsUrl)
+
+    try {
+        ws.value = new WebSocket(wsUrl)
+
+        ws.value.onopen = () => {
+            console.log('WebSocket连接成功')
+            wsConnected.value = true
+            reconnectAttempts.value = 0
+        }
+
+        ws.value.onmessage = (event) => {
+            console.log('收到WebSocket消息:', event.data)
+            
+            try {
+                const messageData = JSON.parse(event.data)
+                console.log('解析后的消息数据:', messageData)
+                
+                // 处理接收到的消息
+                handleIncomingMessage(messageData)
+                
+            } catch (error) {
+                // console.log('解析WebSocket消息失败，不是JSON:', error)
+                console.log('解析WebSocket消息失败，不是JSON: ', event.data)
+            }
+        }
+
+        ws.value.onclose = (event) => {
+            console.log('WebSocket连接关闭:', event.code, event.reason)
+            wsConnected.value = false
+            
+            // 非正常关闭时尝试重连
+            if (event.code !== 1000 && reconnectAttempts.value < maxReconnectAttempts) {
+                console.log(`尝试重连 (${reconnectAttempts.value + 1}/${maxReconnectAttempts})`)
+                reconnectAttempts.value++
+                reconnectTimer.value = setTimeout(() => {
+                    connectWebSocket()
+                }, 3000 * reconnectAttempts.value) // 递增延迟重连
+            }
+        }
+
+        ws.value.onerror = (error) => {
+            console.error('WebSocket连接错误:', error)
+            wsConnected.value = false
+        }
+
+    } catch (error) {
+        console.error('创建WebSocket连接失败:', error)
+    }
+}
+
 // 处理接收到的消息
 const handleIncomingMessage = async (messageData) => {
     console.log('=== WebSocket消息调试信息 ===')
@@ -370,7 +419,17 @@ const handleIncomingMessage = async (messageData) => {
 
 // 断开WebSocket连接
 const disconnectWebSocket = () => {
-    websocketManager.unregisterMessageHandler('system_message')
+    if (reconnectTimer.value) {
+        clearTimeout(reconnectTimer.value)
+        reconnectTimer.value = null
+    }
+    
+    if (ws.value) {
+        console.log('断开WebSocket连接')
+        ws.value.close(1000, '组件卸载')
+        ws.value = null
+    }
+    wsConnected.value = false
 }
 
 // 将API返回的MessageVO转换为前端消息格式
@@ -876,7 +935,7 @@ watch(unreadCount, (newCount) => {
     emit('unread-count-update', newCount)
 }, { immediate: true })
 
-// 监听用户ID变化，自动处理消息列表
+// 监听用户ID变化，自动连接/断开WebSocket
 watch(() => store.getters.getId, async (newUserId, oldUserId) => {
     console.log('用户ID变化:', { oldUserId, newUserId })
     
@@ -888,48 +947,35 @@ watch(() => store.getters.getId, async (newUserId, oldUserId) => {
             clearMessages()
         }
         
+        if (!wsConnected.value) {
+            // 建立WebSocket连接
+            console.log('用户已登录，建立WebSocket连接')
+            connectWebSocket()
+        }
+        
         // 拉取历史消息
         console.log('拉取用户历史消息')
         await pullHistoryMessages()
         
     } else if (!newUserId || newUserId === null) {
-        // 用户退出登录，清空消息
-        console.log('用户已退出，清空消息')
+        // 用户退出登录，断开连接并清空消息
+        console.log('用户已退出，断开WebSocket连接并清空消息')
+        disconnectWebSocket()
         clearMessages()
     }
 }, { immediate: true })
 
-// 处理WebSocket连接状态变化
-const handleConnectionChange = (event) => {
-    // 更新本地连接状态
-    wsConnected.value = event.detail.connected
-    console.log('MessageSidebar收到WebSocket连接状态变化:', event.detail.connected)
-}
-
 // 组件挂载时初始化
 onMounted(() => {
     console.log('MessageSidebar组件挂载')
-    
-    // 监听系统消息事件
-    window.addEventListener('systemMessageReceived', (event) => {
-        handleIncomingMessage(event.detail)
-    })
-    
-    // 监听WebSocket连接状态变化
-    window.addEventListener('websocketConnectionChanged', handleConnectionChange)
-    
     emit('unread-count-update', unreadCount.value)
+    // WebSocket连接由watch监听用户ID变化自动处理
 })
 
-// 组件卸载时清理
+// 组件卸载时断开WebSocket连接
 onUnmounted(() => {
-    console.log('MessageSidebar组件卸载')
-    
-    // 移除系统消息事件监听
-    window.removeEventListener('systemMessageReceived', handleIncomingMessage)
-    
-    // 移除WebSocket连接状态变化监听
-    window.removeEventListener('websocketConnectionChanged', handleConnectionChange)
+    console.log('MessageSidebar组件卸载，断开WebSocket连接')
+    disconnectWebSocket()
 })
 </script>
 

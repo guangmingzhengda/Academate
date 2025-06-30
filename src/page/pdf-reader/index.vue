@@ -246,13 +246,15 @@ export default {
                 // 构建代理URL，避免CORS问题
                 let proxyUrl = outcome.url
                 
+                // console.log('PDF链接：'+proxyUrl);
+
                 // 如果是阿里云OSS的完整URL，转换为代理路径
                 if (outcome.url.includes('chkbigevent.oss-cn-beijing.aliyuncs.com')) {
                     const urlPath = outcome.url.replace('https://chkbigevent.oss-cn-beijing.aliyuncs.com', '')
                     proxyUrl = `/postFile${urlPath}`
-                } else if (!outcome.url.startsWith('/postFile')) {
-                    // 如果是相对路径，添加代理前缀
-                    proxyUrl = `/postFile/${outcome.url.replace(/^\/+/, '')}`
+                } else {
+                    // 直接使用原URL，不做任何处理
+                    proxyUrl = outcome.url
                 }
                 
                 // 通过代理下载PDF文件

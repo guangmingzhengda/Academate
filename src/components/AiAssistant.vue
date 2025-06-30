@@ -249,10 +249,10 @@ export default {
                 return md.render(content)
             } else {
                 // 用户消息保持简单的文本格式
-                return content
-                    .replace(/\n/g, '<br>')
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+            return content
+                .replace(/\n/g, '<br>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
             }
         }
 
@@ -306,10 +306,10 @@ export default {
                 if (!context.trim()) {
                     emit('error', '当前页面暂无可提取的文字内容')
                     return
-                }
+            }
 
-                // 添加用户消息
-                addMessage(question, 'user')
+            // 添加用户消息
+            addMessage(question, 'user')
 
                 // 构建完整的问题，包含页面内容
                 const fullMessage = `当前页面内容：\n${context}\n\n请总结第${props.currentPage}页的内容，包括主要观点、关键信息和核心结论。`
