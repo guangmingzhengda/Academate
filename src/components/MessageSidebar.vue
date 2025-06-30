@@ -91,6 +91,21 @@
                                     </div>
                                 </div>
                                 
+                                <!-- 成果版权确认的同意/拒绝按钮/状态 -->
+                                <div v-if="message.type === 'agree_url'">
+                                    <div v-if="message.status === null" class="message-actions">
+                                        <el-button type="default" size="small" @click="handleCopyrightConfirm(message.id, true)">
+                                            同意
+                                        </el-button>
+                                        <el-button type="default" size="small" @click="handleCopyrightConfirm(message.id, false)">
+                                            拒绝
+                                        </el-button>
+                                    </div>
+                                    <div v-else class="message-status" :class="message.status">
+                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    </div>
+                                </div>
+                                
                                 <!-- 研究人员更新、问题回复的标记已读按钮/状态 -->
                                 <div v-if="['researcher_update', 'question_reply'].includes(message.type)">
                                     <!-- 调试信息（临时） -->
@@ -108,7 +123,7 @@
                                 </div>
                                 
                                 <!-- 其他类型消息的标记已读按钮/状态 -->
-                                <div v-if="!['project_invite', 'project_apply', 'data_request', 'researcher_update', 'question_reply'].includes(message.type)">
+                                <div v-if="!['project_invite', 'project_apply', 'data_request', 'agree_url', 'researcher_update', 'question_reply'].includes(message.type)">
                                     <div v-if="!message.read" class="message-actions">
                                         <el-button type="default" size="small" @click="handleMarkAsRead(message.id)">
                                             标记已读
@@ -181,12 +196,11 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Close, UploadFilled } from '@element-plus/icons-vue'
 import { agree_project_invite, reject_project_invite } from '@/api/project'
-import { pullAllMessages, MessageVO, markAsRead, handleApplyAgree, ApplyAgreeRequest } from '@/api/msg'
+import { pullAllMessages, MessageVO, markAsRead, handleApplyAgree, ApplyAgreeRequest, confirmCopyright } from '@/api/msg'
 import { get_user_detail } from '@/api/profile'
 import { callSuccess, callError } from '@/call'
 import store from '@/store'
 import { useRouter } from 'vue-router'
-import websocketManager from '@/utils/websocketManager'
 
 const props = defineProps({
     visible: {
@@ -200,22 +214,12 @@ const emit = defineEmits(['close', 'unread-count-update'])
 // 路由实例
 const router = useRouter()
 
-// WebSocket连接状态（改为ref，每次打开时主动检查）
+// WebSocket相关状态
+const ws = ref(null)
 const wsConnected = ref(false)
-
-// 检查WebSocket连接状态
-const checkConnectionStatus = () => {
-    wsConnected.value = websocketManager.isConnected()
-    console.log('MessageSidebar检查连接状态:', wsConnected.value)
-}
-
-// 监听visible属性变化，每次打开时检查连接状态
-watch(() => props.visible, (newVisible) => {
-    if (newVisible) {
-        // 消息中心打开时，主动检查连接状态
-        checkConnectionStatus()
-    }
-}, { immediate: true })
+const reconnectTimer = ref(null)
+const reconnectAttempts = ref(0)
+const maxReconnectAttempts = 5
 
 // 消息数据改为响应式数组，初始为空
 const messages = ref([])
@@ -256,8 +260,8 @@ const filteredMessages = computed(() => {
 // 计算非项目类型的未读消息（用于全部已读功能）
 const unreadNonProjectMessages = computed(() => {
     return filteredMessages.value.filter(message => {
-        // 项目类型和数据请求的消息不包括在内（它们有自己的同意/拒绝逻辑）
-        if (['project_invite', 'project_apply', 'data_request'].includes(message.type)) {
+        // 项目类型、数据请求和版权确认的消息不包括在内（它们有自己的同意/拒绝逻辑）
+        if (['project_invite', 'project_apply', 'data_request', 'agree_url'].includes(message.type)) {
             return false
         }
         
@@ -295,6 +299,66 @@ const formatTime = (time) => {
     }
 }
 
+// WebSocket连接函数
+const connectWebSocket = () => {
+    const userId = store.getters.getId
+    if (!userId) {
+        console.error('用户ID未找到，无法建立WebSocket连接')
+        return
+    }
+
+    const wsUrl = `ws://123.56.50.152:8081/api/websocket/${userId}`
+    console.log('正在连接WebSocket:', wsUrl)
+
+    try {
+        ws.value = new WebSocket(wsUrl)
+
+        ws.value.onopen = () => {
+            console.log('WebSocket连接成功')
+            wsConnected.value = true
+            reconnectAttempts.value = 0
+        }
+
+        ws.value.onmessage = (event) => {
+            console.log('收到WebSocket消息:', event.data)
+            
+            try {
+                const messageData = JSON.parse(event.data)
+                console.log('解析后的消息数据:', messageData)
+                
+                // 处理接收到的消息
+                handleIncomingMessage(messageData)
+                
+            } catch (error) {
+                // console.log('解析WebSocket消息失败，不是JSON:', error)
+                console.log('解析WebSocket消息失败，不是JSON: ', event.data)
+            }
+        }
+
+        ws.value.onclose = (event) => {
+            console.log('WebSocket连接关闭:', event.code, event.reason)
+            wsConnected.value = false
+            
+            // 非正常关闭时尝试重连
+            if (event.code !== 1000 && reconnectAttempts.value < maxReconnectAttempts) {
+                console.log(`尝试重连 (${reconnectAttempts.value + 1}/${maxReconnectAttempts})`)
+                reconnectAttempts.value++
+                reconnectTimer.value = setTimeout(() => {
+                    connectWebSocket()
+                }, 3000 * reconnectAttempts.value) // 递增延迟重连
+            }
+        }
+
+        ws.value.onerror = (error) => {
+            console.error('WebSocket连接错误:', error)
+            wsConnected.value = false
+        }
+
+    } catch (error) {
+        console.error('创建WebSocket连接失败:', error)
+    }
+}
+
 // 处理接收到的消息
 const handleIncomingMessage = async (messageData) => {
     console.log('=== WebSocket消息调试信息 ===')
@@ -320,8 +384,8 @@ const handleIncomingMessage = async (messageData) => {
             // 项目相关消息使用isAccepted字段，新消息默认为null
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
-        } else if (messageType === 'data_request') {
-            // 数据请求也使用isAccepted字段，类似项目邀请
+        } else if (messageType === 'data_request' || messageType === 'agree_url') {
+            // 数据请求和版权确认都使用isAccepted字段，类似项目邀请
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
         } else if (['researcher_update', 'question_reply'].includes(messageType)) {
@@ -370,7 +434,17 @@ const handleIncomingMessage = async (messageData) => {
 
 // 断开WebSocket连接
 const disconnectWebSocket = () => {
-    websocketManager.unregisterMessageHandler('system_message')
+    if (reconnectTimer.value) {
+        clearTimeout(reconnectTimer.value)
+        reconnectTimer.value = null
+    }
+    
+    if (ws.value) {
+        console.log('断开WebSocket连接')
+        ws.value.close(1000, '组件卸载')
+        ws.value = null
+    }
+    wsConnected.value = false
 }
 
 // 将API返回的MessageVO转换为前端消息格式
@@ -401,6 +475,8 @@ const convertMessageVOToMessage = async (messageVO) => {
             messageType = 'data_request'
         } else if (messageVO.message.includes('回复了您关注的问题') || messageVO.message.includes('问题回复') || messageVO.message.includes('回复了问题')) {
             messageType = 'question_reply'
+        } else if (messageVO.message.includes('版权确认') || messageVO.message.includes('确认版权') || messageVO.message.includes('版权授权')) {
+            messageType = 'agree_url'
         }
         console.log(`历史消息通过内容推断类型: ${messageType}, 消息内容: "${messageVO.message}"`)
     }
@@ -420,8 +496,8 @@ const convertMessageVOToMessage = async (messageVO) => {
         // 项目邀请和申请使用 isAccepted 字段
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
-    } else if (messageType === 'data_request') {
-        // 数据请求也使用 isAccepted 字段，类似项目邀请
+    } else if (messageType === 'data_request' || messageType === 'agree_url') {
+        // 数据请求和版权确认都使用 isAccepted 字段，类似项目邀请
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
     } else if (['researcher_update', 'question_reply'].includes(messageType)) {
@@ -618,6 +694,37 @@ const handleDataRequest = async (messageId, accepted) => {
             console.error('拒绝数据请求失败:', error)
             callError('拒绝数据请求失败')
         }
+    }
+}
+
+// 处理成果版权确认
+const handleCopyrightConfirm = async (messageId, accepted) => {
+    const message = messages.value.find(m => m.id === messageId)
+    if (!message) {
+        callError('消息不存在')
+        return
+    }
+    
+    if (!message.outcomeId) {
+        callError('消息中缺少成果ID，无法处理')
+        return
+    }
+    
+    try {
+        const success = await confirmCopyright({
+            outcomeId: message.outcomeId,
+            agreeUrl: accepted
+        })
+        
+        if (success) {
+            message.status = accepted ? 'accepted' : 'rejected'
+            message.read = true
+            console.log(`消息ID ${message.id} 已设置为${accepted ? '同意' : '拒绝'}状态，未读数量将更新`)
+            callSuccess(accepted ? '已同意版权确认' : '已拒绝版权确认')
+        }
+    } catch (error) {
+        console.error('版权确认处理失败:', error)
+        callError('版权确认处理失败')
     }
 }
 
@@ -876,7 +983,7 @@ watch(unreadCount, (newCount) => {
     emit('unread-count-update', newCount)
 }, { immediate: true })
 
-// 监听用户ID变化，自动处理消息列表
+// 监听用户ID变化，自动连接/断开WebSocket
 watch(() => store.getters.getId, async (newUserId, oldUserId) => {
     console.log('用户ID变化:', { oldUserId, newUserId })
     
@@ -888,48 +995,35 @@ watch(() => store.getters.getId, async (newUserId, oldUserId) => {
             clearMessages()
         }
         
+        if (!wsConnected.value) {
+            // 建立WebSocket连接
+            console.log('用户已登录，建立WebSocket连接')
+            connectWebSocket()
+        }
+        
         // 拉取历史消息
         console.log('拉取用户历史消息')
         await pullHistoryMessages()
         
     } else if (!newUserId || newUserId === null) {
-        // 用户退出登录，清空消息
-        console.log('用户已退出，清空消息')
+        // 用户退出登录，断开连接并清空消息
+        console.log('用户已退出，断开WebSocket连接并清空消息')
+        disconnectWebSocket()
         clearMessages()
     }
 }, { immediate: true })
 
-// 处理WebSocket连接状态变化
-const handleConnectionChange = (event) => {
-    // 更新本地连接状态
-    wsConnected.value = event.detail.connected
-    console.log('MessageSidebar收到WebSocket连接状态变化:', event.detail.connected)
-}
-
 // 组件挂载时初始化
 onMounted(() => {
     console.log('MessageSidebar组件挂载')
-    
-    // 监听系统消息事件
-    window.addEventListener('systemMessageReceived', (event) => {
-        handleIncomingMessage(event.detail)
-    })
-    
-    // 监听WebSocket连接状态变化
-    window.addEventListener('websocketConnectionChanged', handleConnectionChange)
-    
     emit('unread-count-update', unreadCount.value)
+    // WebSocket连接由watch监听用户ID变化自动处理
 })
 
-// 组件卸载时清理
+// 组件卸载时断开WebSocket连接
 onUnmounted(() => {
-    console.log('MessageSidebar组件卸载')
-    
-    // 移除系统消息事件监听
-    window.removeEventListener('systemMessageReceived', handleIncomingMessage)
-    
-    // 移除WebSocket连接状态变化监听
-    window.removeEventListener('websocketConnectionChanged', handleConnectionChange)
+    console.log('MessageSidebar组件卸载，断开WebSocket连接')
+    disconnectWebSocket()
 })
 </script>
 
