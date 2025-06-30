@@ -244,15 +244,17 @@ export default {
                     size: projectPageSize.value
                 });
                 if (result) {
-                    projects.value = result.records.map(item => ({
+                    // 过滤出 isPublic 为 true 的项目
+                    const publicProjects = result.records.filter(item => item.isPublic);
+                    projects.value = publicProjects.map(item => ({
                         id: item.projectId,
                         name: item.title,
                         description: item.description,
                         startDate: item.startDate,
                         status: item.status
                     }));
-                    projectTotal.value = result.total;
-                    console.log(`成功加载 ${projects.value.length} 条项目数据，总计 ${projectTotal.value} 条`);
+                    projectTotal.value = publicProjects.length;
+                    console.log(`成功加载 ${projects.value.length} 条公开项目数据，总计 ${projectTotal.value} 条`);
                 } else {
                     projects.value = [];
                     projectTotal.value = 0;
