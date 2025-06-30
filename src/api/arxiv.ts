@@ -257,7 +257,7 @@ export async function getArxivAuthorSubscriptionList(): Promise<ArxivAuthorSubsc
  * 取消订阅arXiv关键词-分类
  * 
  * 接口地址: /arxiv/subscription/unsubscribe
- * 请求方式: DELETE
+ * 请求方式: POST
  * 请求数据类型: application/x-www-form-urlencoded
  * 
  * @param keyword 要取消订阅的关键词
@@ -268,10 +268,8 @@ export async function unsubscribeArxivKeyword(keyword: string): Promise<boolean>
     console.log('取消订阅arXiv关键词请求，关键词:', keyword);
     
     // 使用专门的arXiv axios实例
-    const response = await axios.delete<BaseResponseString>('/arxiv/subscription/unsubscribe', {
-      params: {
-        keyword: keyword
-      },
+    const response = await axios.post<BaseResponseString>('/arxiv/subscription/unsubscribe', null, {
+      params: { keyword },
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
@@ -308,7 +306,7 @@ export async function unsubscribeArxivKeyword(keyword: string): Promise<boolean>
  * 取消订阅arXiv作者
  * 
  * 接口地址: /arxiv/subscription/author/unsubscribe
- * 请求方式: DELETE
+ * 请求方式: POST
  * 请求数据类型: application/x-www-form-urlencoded
  * 
  * @param author 要取消订阅的作者
@@ -319,10 +317,8 @@ export async function unsubscribeArxivAuthor(author: string): Promise<boolean> {
     console.log('取消订阅arXiv作者请求，作者:', author);
     
     // 使用专门的arXiv axios实例
-    const response = await axios.delete<BaseResponseString>('/arxiv/subscription/author/unsubscribe', {
-      params: {
-        author: author
-      },
+    const response = await axios.post<BaseResponseString>('/arxiv/subscription/author/unsubscribe', null, {
+      params: { author },
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
