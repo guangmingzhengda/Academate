@@ -231,6 +231,7 @@ export interface ResearchProject {
     description: string;
     startDate: string;
     status: string;
+    isPublic: boolean;
 }
 
 // 基础响应接口
