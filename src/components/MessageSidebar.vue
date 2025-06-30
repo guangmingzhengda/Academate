@@ -91,12 +91,50 @@
                                     </div>
                                 </div>
                                 
-                                <!-- 研究人员更新、问题回复的标记已读按钮/状态 -->
-                                <div v-if="['researcher_update', 'question_reply'].includes(message.type)">
-                                    <!-- 调试信息（临时） -->
-                                    <!-- <div style="font-size: 10px; color: #999;">
-                                        [调试] 类型: {{ message.type }}, 状态: {{ message.status }}
-                                    </div> -->
+                                <!-- 成果版权确认的同意/拒绝按钮/状态 -->
+                                <div v-if="message.type === 'agree_url'">
+                                    <div v-if="message.status === null" class="message-actions">
+                                        <el-button type="default" size="small" @click="handleCopyrightConfirm(message.id, true)">
+                                            同意
+                                        </el-button>
+                                        <el-button type="default" size="small" @click="handleCopyrightConfirm(message.id, false)">
+                                            拒绝
+                                        </el-button>
+                                    </div>
+                                    <div v-else class="message-status" :class="message.status">
+                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    </div>
+                                </div>
+                                
+                                <!-- 研究人员更新的入库/标记已读按钮 -->
+                                <div v-if="message.type === 'researcher_update'">
+                                    <div class="message-actions">
+                                        <!-- 入库按钮/状态 -->
+                                        <el-button 
+                                            v-if="!message.isLibraryAdded" 
+                                            type="primary" 
+                                            size="small" 
+                                            @click="handleResearcherUpdate(message.id, true)"
+                                        >
+                                            入库
+                                        </el-button>
+                                        <span v-else class="message-status accepted">已入库</span>
+                                        
+                                        <!-- 标记已读按钮/状态 -->
+                                        <el-button 
+                                            v-if="message.status !== 'processed'" 
+                                            type="default" 
+                                            size="small" 
+                                            @click="handleResearcherUpdate(message.id, false)"
+                                        >
+                                            标记已读
+                                        </el-button>
+                                        <span v-else class="message-status processed">已阅</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- 问题回复的标记已读按钮/状态 -->
+                                <div v-if="message.type === 'question_reply'">
                                     <div v-if="message.status === 'pending'" class="message-actions">
                                         <el-button type="default" size="small" @click="handleMarkAsRead(message.id)">
                                             标记已读
@@ -108,7 +146,7 @@
                                 </div>
                                 
                                 <!-- 其他类型消息的标记已读按钮/状态 -->
-                                <div v-if="!['project_invite', 'project_apply', 'data_request', 'researcher_update', 'question_reply'].includes(message.type)">
+                                <div v-if="!['project_invite', 'project_apply', 'data_request', 'agree_url', 'researcher_update', 'question_reply'].includes(message.type)">
                                     <div v-if="!message.read" class="message-actions">
                                         <el-button type="default" size="small" @click="handleMarkAsRead(message.id)">
                                             标记已读
@@ -175,18 +213,144 @@
             </span>
         </template>
     </el-dialog>
+    
+    <!-- 收藏夹对话框 -->
+    <el-dialog
+        v-model="favoriteDialogVisible"
+        title="选择收藏夹"
+        width="800px"
+        :close-on-click-modal="false"
+    >
+        <div class="favorite-dialog-content">
+            <!-- 面包屑导航 -->
+            <div class="breadcrumb-container">
+                <div class="breadcrumb-title">文献库目录</div>
+                <div class="breadcrumb-list">
+                    <span 
+                        v-for="(item, index) in breadcrumbList" 
+                        :key="index"
+                        class="breadcrumb-item"
+                        :class="{ 'active': index === breadcrumbList.length - 1 }"
+                        @click="navigateToBreadcrumb(index)"
+                    >
+                        {{ item.name }}
+                        <span v-if="index < breadcrumbList.length - 1" class="breadcrumb-separator">/</span>
+                    </span>
+                </div>
+                <el-button 
+                    v-if="breadcrumbList.length > 1"
+                    type="text" 
+                    @click="backToParentFolder"
+                    class="back-button"
+                >
+                    ← 返回上一级
+                </el-button>
+            </div>
+            
+            <!-- 新建收藏夹按钮 -->
+            <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                <el-tooltip :content="createFolderTooltip" placement="right">
+                    <el-button type="primary" @click="showCreateFolderDialog = true">
+                        新建收藏夹
+                    </el-button>
+                </el-tooltip>
+            </div>
+            
+            <!-- 收藏夹列表 -->
+            <div class="folders-container" v-loading="loadingFolders">
+                <div v-if="!loadingFolders && folders.length === 0" class="empty-folders">
+                    <el-empty description="当前目录下暂无收藏夹"></el-empty>
+                </div>
+                
+                <div v-else class="folders-grid">
+                    <div 
+                        v-for="folder in folders" 
+                        :key="folder.favoriteId"
+                        class="folder-item"
+                        :class="{ 'selected': selectedFolders.some(f => f.favoriteId === folder.favoriteId) }"
+                        @click="toggleFolderSelection(folder)"
+                    >
+                        <div class="folder-icon">📁</div>
+                        <div class="folder-name">{{ folder.name }}</div>
+                        <div class="folder-actions">
+                            <el-button
+                                @click.stop="openFolder(folder)"
+                                class="open-folder-btn"
+                            >
+                                打开
+                            </el-button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 分页 -->
+            <div class="pagination-container" v-if="total > folderPageSize">
+                <el-pagination
+                    v-model:current-page="folderCurrentPage"
+                    :page-size="folderPageSize"
+                    :total="total"
+                    layout="prev, pager, next"
+                    @current-change="handleFolderPageChange"
+                />
+            </div>
+            
+            <!-- 已选择的收藏夹 -->
+            <div class="selected-folders" v-if="selectedFolders.length > 0">
+                <div class="selected-title">已选择的收藏夹：</div>
+                <div class="selected-list">
+                    <el-tag 
+                        v-for="folder in selectedFolders" 
+                        :key="folder.favoriteId"
+                        closable
+                        @close="toggleFolderSelection(folder)"
+                        class="selected-tag"
+                    >
+                        {{ folder.name }}
+                    </el-tag>
+                </div>
+            </div>
+        </div>
+        
+        <template #footer>
+            <span class="dialog-footer">
+                <el-button @click="favoriteDialogVisible = false">取消</el-button>
+                <el-button 
+                    type="primary" 
+                    @click="confirmFavorite"
+                    :disabled="selectedFolders.length === 0"
+                >
+                    确认入库
+                </el-button>
+            </span>
+        </template>
+    </el-dialog>
+
+    <!-- 新建收藏夹对话框 -->
+    <el-dialog
+        v-model="showCreateFolderDialog"
+        title="新建收藏夹"
+        width="400px"
+        :close-on-click-modal="false"
+    >
+        <el-input v-model="newFolderName" placeholder="请输入收藏夹名称" maxlength="50" show-word-limit />
+        <template #footer>
+            <el-button @click="showCreateFolderDialog = false">取消</el-button>
+            <el-button type="primary" @click="handleCreateFolder" :loading="creatingFolder">创建</el-button>
+        </template>
+    </el-dialog>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Close, UploadFilled } from '@element-plus/icons-vue'
 import { agree_project_invite, reject_project_invite } from '@/api/project'
-import { pullAllMessages, MessageVO, markAsRead, handleApplyAgree, ApplyAgreeRequest } from '@/api/msg'
+import { pullAllMessages, MessageVO, markAsRead, handleApplyAgree, ApplyAgreeRequest, confirmCopyright, markAsConsumed, MessageMarkConsumedRequest } from '@/api/msg'
 import { get_user_detail } from '@/api/profile'
+import { getFavoritePage, addOutcomeToFavorite, Favorite, createFavorite } from '@/api/favorite'
 import { callSuccess, callError } from '@/call'
 import store from '@/store'
 import { useRouter } from 'vue-router'
-import websocketManager from '@/utils/websocketManager'
 
 const props = defineProps({
     visible: {
@@ -200,22 +364,12 @@ const emit = defineEmits(['close', 'unread-count-update'])
 // 路由实例
 const router = useRouter()
 
-// WebSocket连接状态（改为ref，每次打开时主动检查）
+// WebSocket相关状态
+const ws = ref(null)
 const wsConnected = ref(false)
-
-// 检查WebSocket连接状态
-const checkConnectionStatus = () => {
-    wsConnected.value = websocketManager.isConnected()
-    console.log('MessageSidebar检查连接状态:', wsConnected.value)
-}
-
-// 监听visible属性变化，每次打开时检查连接状态
-watch(() => props.visible, (newVisible) => {
-    if (newVisible) {
-        // 消息中心打开时，主动检查连接状态
-        checkConnectionStatus()
-    }
-}, { immediate: true })
+const reconnectTimer = ref(null)
+const reconnectAttempts = ref(0)
+const maxReconnectAttempts = 5
 
 // 消息数据改为响应式数组，初始为空
 const messages = ref([])
@@ -232,6 +386,21 @@ const selectedFile = ref(null)
 const fileList = ref([])
 const uploadLoading = ref(false)
 const currentDataRequestMessage = ref(null) // 当前处理的数据请求消息
+
+// 收藏夹相关状态（用于入库功能）
+const favoriteDialogVisible = ref(false)
+const folders = ref([])
+const selectedFolders = ref([])
+const loadingFolders = ref(false)
+const currentParentId = ref(0)
+const breadcrumbList = ref([{ favoriteId: 0, name: '文献库' }])
+const folderCurrentPage = ref(1)
+const folderPageSize = ref(6)
+const total = ref(0)
+const showCreateFolderDialog = ref(false)
+const newFolderName = ref('')
+const creatingFolder = ref(false)
+const currentResearcherUpdateMessage = ref(null) // 当前处理的研究更新消息
 
 // 过滤消息，只显示别人发给我的消息
 const filteredMessages = computed(() => {
@@ -256,13 +425,18 @@ const filteredMessages = computed(() => {
 // 计算非项目类型的未读消息（用于全部已读功能）
 const unreadNonProjectMessages = computed(() => {
     return filteredMessages.value.filter(message => {
-        // 项目类型和数据请求的消息不包括在内（它们有自己的同意/拒绝逻辑）
-        if (['project_invite', 'project_apply', 'data_request'].includes(message.type)) {
+        // 项目类型、数据请求和版权确认的消息不包括在内（它们有自己的同意/拒绝逻辑）
+        if (['project_invite', 'project_apply', 'data_request', 'agree_url'].includes(message.type)) {
             return false
         }
         
-        // 对于已知的两种类型，检查status是否为pending
-        if (['researcher_update', 'question_reply'].includes(message.type)) {
+        // 对于研究人员更新消息，只要没有标记已读就包括在内
+        if (message.type === 'researcher_update') {
+            return message.status !== 'processed' && !message.read
+        }
+        
+        // 对于问题回复消息，检查status是否为pending
+        if (message.type === 'question_reply') {
             return message.status === 'pending' && !message.read
         }
         
@@ -295,6 +469,66 @@ const formatTime = (time) => {
     }
 }
 
+// WebSocket连接函数
+const connectWebSocket = () => {
+    const userId = store.getters.getId
+    if (!userId) {
+        console.error('用户ID未找到，无法建立WebSocket连接')
+        return
+    }
+
+    const wsUrl = `ws://123.56.50.152:8081/api/websocket/${userId}`
+    console.log('正在连接WebSocket:', wsUrl)
+
+    try {
+        ws.value = new WebSocket(wsUrl)
+
+        ws.value.onopen = () => {
+            console.log('WebSocket连接成功')
+            wsConnected.value = true
+            reconnectAttempts.value = 0
+        }
+
+        ws.value.onmessage = (event) => {
+            console.log('收到WebSocket消息:', event.data)
+            
+            try {
+                const messageData = JSON.parse(event.data)
+                console.log('解析后的消息数据:', messageData)
+                
+                // 处理接收到的消息
+                handleIncomingMessage(messageData)
+                
+            } catch (error) {
+                // console.log('解析WebSocket消息失败，不是JSON:', error)
+                console.log('解析WebSocket消息失败，不是JSON: ', event.data)
+            }
+        }
+
+        ws.value.onclose = (event) => {
+            console.log('WebSocket连接关闭:', event.code, event.reason)
+            wsConnected.value = false
+            
+            // 非正常关闭时尝试重连
+            if (event.code !== 1000 && reconnectAttempts.value < maxReconnectAttempts) {
+                console.log(`尝试重连 (${reconnectAttempts.value + 1}/${maxReconnectAttempts})`)
+                reconnectAttempts.value++
+                reconnectTimer.value = setTimeout(() => {
+                    connectWebSocket()
+                }, 3000 * reconnectAttempts.value) // 递增延迟重连
+            }
+        }
+
+        ws.value.onerror = (error) => {
+            console.error('WebSocket连接错误:', error)
+            wsConnected.value = false
+        }
+
+    } catch (error) {
+        console.error('创建WebSocket连接失败:', error)
+    }
+}
+
 // 处理接收到的消息
 const handleIncomingMessage = async (messageData) => {
     console.log('=== WebSocket消息调试信息 ===')
@@ -320,12 +554,15 @@ const handleIncomingMessage = async (messageData) => {
             // 项目相关消息使用isAccepted字段，新消息默认为null
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
-        } else if (messageType === 'data_request') {
-            // 数据请求也使用isAccepted字段，类似项目邀请
+        } else if (messageType === 'data_request' || messageType === 'agree_url') {
+            // 数据请求和版权确认都使用isAccepted字段，类似项目邀请
             messageStatus = messageData.isAccepted === 'agree' ? 'accepted' : 
                            messageData.isAccepted === 'reject' ? 'rejected' : null
-        } else if (['researcher_update', 'question_reply'].includes(messageType)) {
-            // 其他类型消息使用status字段，如果WebSocket消息有status字段则使用，否则默认pending
+        } else if (messageType === 'researcher_update') {
+            // 研究人员更新消息：状态只管理已读状态
+            messageStatus = messageData.status === 'processed' ? 'processed' : 'pending'
+        } else if (messageType === 'question_reply') {
+            // 问题回复消息：使用status字段，如果WebSocket消息有status字段则使用，否则默认pending
             messageStatus = messageData.status || 'pending'
         }
         
@@ -337,11 +574,12 @@ const handleIncomingMessage = async (messageData) => {
             content: messageData.message,
             time: new Date(messageData.sentAt || Date.now()),
             avatar: getValidAvatarUrl(messageData.avatar),
-            read: messageData.status === 'processed' || messageData.isAccepted === 'agree' || messageData.isAccepted === 'reject',
+            read: messageData.status === 'processed' || messageData.isAccepted === 'agree' || messageData.isAccepted === 'reject' || messageData.isAccepted === 'consumed',
             projectId: messageData.projectId || null,
             senderId: messageData.senderId || null, // 添加发送者ID，用于拒绝接口
             outcomeId: messageData.outcomeId || null, // 添加成果ID，用于数据请求处理
-            status: messageStatus
+            status: messageStatus,
+            isLibraryAdded: messageType === 'researcher_update' && messageData.isAccepted === 'consumed' // 入库状态
         }
         
         console.log('创建的新消息对象:', newMessage)
@@ -370,7 +608,17 @@ const handleIncomingMessage = async (messageData) => {
 
 // 断开WebSocket连接
 const disconnectWebSocket = () => {
-    websocketManager.unregisterMessageHandler('system_message')
+    if (reconnectTimer.value) {
+        clearTimeout(reconnectTimer.value)
+        reconnectTimer.value = null
+    }
+    
+    if (ws.value) {
+        console.log('断开WebSocket连接')
+        ws.value.close(1000, '组件卸载')
+        ws.value = null
+    }
+    wsConnected.value = false
 }
 
 // 将API返回的MessageVO转换为前端消息格式
@@ -401,6 +649,8 @@ const convertMessageVOToMessage = async (messageVO) => {
             messageType = 'data_request'
         } else if (messageVO.message.includes('回复了您关注的问题') || messageVO.message.includes('问题回复') || messageVO.message.includes('回复了问题')) {
             messageType = 'question_reply'
+        } else if (messageVO.message.includes('版权确认') || messageVO.message.includes('确认版权') || messageVO.message.includes('版权授权')) {
+            messageType = 'agree_url'
         }
         console.log(`历史消息通过内容推断类型: ${messageType}, 消息内容: "${messageVO.message}"`)
     }
@@ -412,6 +662,7 @@ const convertMessageVOToMessage = async (messageVO) => {
     const isRead = messageVO.status === 'read' || 
                    messageVO.isAccepted === 'agree' || 
                    messageVO.isAccepted === 'reject' ||
+                   messageVO.isAccepted === 'consumed' ||
                    messageVO.status === 'processed'
     
     // 根据消息类型设置status
@@ -420,12 +671,15 @@ const convertMessageVOToMessage = async (messageVO) => {
         // 项目邀请和申请使用 isAccepted 字段
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
-    } else if (messageType === 'data_request') {
-        // 数据请求也使用 isAccepted 字段，类似项目邀请
+    } else if (messageType === 'data_request' || messageType === 'agree_url') {
+        // 数据请求和版权确认都使用 isAccepted 字段，类似项目邀请
         messageStatus = messageVO.isAccepted === 'agree' ? 'accepted' : 
                        messageVO.isAccepted === 'reject' ? 'rejected' : null
-    } else if (['researcher_update', 'question_reply'].includes(messageType)) {
-        // 其他类型使用 status 字段，默认为 pending
+    } else if (messageType === 'researcher_update') {
+        // 研究人员更新消息：状态只管理已读状态
+        messageStatus = messageVO.status === 'processed' ? 'processed' : 'pending'
+    } else if (messageType === 'question_reply') {
+        // 问题回复消息：使用 status 字段，默认为 pending
         messageStatus = messageVO.status === 'processed' ? 'processed' : 'pending'
     }
     
@@ -440,7 +694,8 @@ const convertMessageVOToMessage = async (messageVO) => {
         projectId: messageVO.projectId || null,
         senderId: messageVO.senderId || null,
         outcomeId: messageVO.outcomeId || null, // 添加成果ID，用于数据请求处理
-        status: messageStatus
+        status: messageStatus,
+        isLibraryAdded: messageType === 'researcher_update' && messageVO.isAccepted === 'consumed' // 入库状态
     }
         
         console.log(`历史消息转换: ID=${messageVO.messageId}, 消息内容="${messageVO.message}", 推断类型="${messageType}", 发送者="${senderName}", 原始头像="${messageVO.avatar}", 处理后头像="${convertedMessage.avatar}", status="${messageVO.status}", isAccepted="${messageVO.isAccepted}" → read=${isRead}, status="${convertedMessage.status}"`)
@@ -618,6 +873,78 @@ const handleDataRequest = async (messageId, accepted) => {
             console.error('拒绝数据请求失败:', error)
             callError('拒绝数据请求失败')
         }
+    }
+}
+
+// 处理成果版权确认
+const handleCopyrightConfirm = async (messageId, accepted) => {
+    const message = messages.value.find(m => m.id === messageId)
+    if (!message) {
+        callError('消息不存在')
+        return
+    }
+    
+    if (!message.outcomeId) {
+        callError('消息中缺少成果ID，无法处理')
+        return
+    }
+    
+    try {
+        const success = await confirmCopyright({
+            outcomeId: message.outcomeId,
+            agreeUrl: accepted
+        })
+        
+        if (success) {
+            message.status = accepted ? 'accepted' : 'rejected'
+            message.read = true
+            console.log(`消息ID ${message.id} 已设置为${accepted ? '同意' : '拒绝'}状态，未读数量将更新`)
+            callSuccess(accepted ? '已同意版权确认' : '已拒绝版权确认')
+        }
+    } catch (error) {
+        console.error('版权确认处理失败:', error)
+        callError('版权确认处理失败')
+    }
+}
+
+// 处理研究人员更新消息（入库或标记已读）
+const handleResearcherUpdate = async (messageId, isLibrary) => {
+    console.log('handleResearcherUpdate 被调用:', { messageId, isLibrary })
+    
+    const message = messages.value.find(m => m.id === messageId)
+    if (!message) {
+        console.error('未找到消息:', messageId)
+        callError('未找到消息')
+        return
+    }
+    
+    console.log('找到消息:', message)
+    
+    if (isLibrary) {
+        // 入库操作：显示收藏夹选择对话框
+        console.log('开始入库操作')
+        
+        if (!message.outcomeId) {
+            console.error('消息中缺少成果ID:', message)
+            callError('消息中缺少成果ID，无法入库')
+            return
+        }
+        
+        console.log('设置当前研究更新消息:', message)
+        currentResearcherUpdateMessage.value = message
+        
+        console.log('调用 showFavoriteDialog')
+        try {
+            await showFavoriteDialog()
+            console.log('showFavoriteDialog 调用完成')
+        } catch (error) {
+            console.error('showFavoriteDialog 调用失败:', error)
+            callError('显示收藏夹对话框失败')
+        }
+    } else {
+        // 标记已读操作
+        console.log('开始标记已读操作')
+        await handleMarkAsRead(messageId)
     }
 }
 
@@ -854,6 +1181,240 @@ const handleUploadConfirm = async () => {
     }
 }
 
+// 显示收藏夹对话框
+const showFavoriteDialog = async () => {
+    console.log('showFavoriteDialog 开始执行')
+    
+    const currentUserId = store.getters.getId
+    console.log('当前用户ID:', currentUserId)
+    
+    if (!currentUserId) {
+        console.error('用户未登录')
+        callError('请先登录')
+        return
+    }
+    
+    console.log('设置收藏夹对话框状态')
+    favoriteDialogVisible.value = true
+    selectedFolders.value = []
+    currentParentId.value = 0
+    breadcrumbList.value = [{ favoriteId: 0, name: '文献库' }]
+    folderCurrentPage.value = 1
+    
+    console.log('收藏夹对话框状态设置完成，开始加载文件夹')
+    // 加载收藏夹列表
+    try {
+        await loadFolders()
+        console.log('收藏夹列表加载完成')
+    } catch (error) {
+        console.error('加载收藏夹列表失败:', error)
+        callError('加载收藏夹列表失败')
+    }
+}
+
+// 加载收藏夹列表
+const loadFolders = async () => {
+    loadingFolders.value = true
+    try {
+        const result = await getFavoritePage({
+            pageSize: folderPageSize.value,
+            pageNum: folderCurrentPage.value,
+            parentId: currentParentId.value
+        })
+        
+        if (result) {
+            folders.value = result.list
+            total.value = result.total
+        } else {
+            folders.value = []
+            total.value = 0
+        }
+    } catch (error) {
+        console.error('加载收藏夹失败:', error)
+        folders.value = []
+        total.value = 0
+    } finally {
+        loadingFolders.value = false
+    }
+}
+
+// 导航到指定收藏夹
+const navigateToFolder = async (parentId) => {
+    currentParentId.value = parentId
+    folderCurrentPage.value = 1
+    await loadFolders()
+    updateBreadcrumb(parentId)
+}
+
+// 更新面包屑导航
+const updateBreadcrumb = (parentId) => {
+    breadcrumbList.value = [{ favoriteId: 0, name: '文献库' }]
+    if (parentId !== 0) {
+        breadcrumbList.value.push({
+            favoriteId: parentId,
+            name: '收藏夹'
+        })
+    }
+}
+
+// 面包屑导航点击
+const navigateToBreadcrumb = async (index) => {
+    if (index < breadcrumbList.value.length - 1) {
+        const targetItem = breadcrumbList.value[index]
+        currentParentId.value = targetItem.favoriteId
+        
+        breadcrumbList.value = breadcrumbList.value.slice(0, index + 1)
+        await loadFolders()
+    }
+}
+
+// 返回上一级收藏夹
+const backToParentFolder = async () => {
+    if (breadcrumbList.value.length > 1) {
+        breadcrumbList.value.pop()
+        
+        const newCurrentItem = breadcrumbList.value[breadcrumbList.value.length - 1]
+        currentParentId.value = newCurrentItem.favoriteId
+        
+        await loadFolders()
+    }
+}
+
+// 打开收藏夹
+const openFolder = async (folder) => {
+    breadcrumbList.value.push({
+        favoriteId: folder.favoriteId,
+        name: folder.name
+    })
+    
+    currentParentId.value = folder.favoriteId
+    await loadFolders()
+}
+
+// 选择/取消选择收藏夹
+const toggleFolderSelection = (folder) => {
+    const index = selectedFolders.value.findIndex(f => f.favoriteId === folder.favoriteId)
+    if (index > -1) {
+        selectedFolders.value.splice(index, 1)
+    } else {
+        selectedFolders.value.push(folder)
+    }
+}
+
+// 确认收藏（入库）
+const confirmFavorite = async () => {
+    if (!currentResearcherUpdateMessage.value || !currentResearcherUpdateMessage.value.outcomeId) {
+        callError('无法获取成果ID')
+        return
+    }
+    
+    if (selectedFolders.value.length === 0) {
+        callError('请选择至少一个收藏夹')
+        return
+    }
+    
+    try {
+        let successCount = 0
+        let errorCount = 0
+        
+        // 添加到选中的收藏夹
+        for (const folder of selectedFolders.value) {
+            const success = await addOutcomeToFavorite({
+                favoriteId: folder.favoriteId,
+                outcomeId: currentResearcherUpdateMessage.value.outcomeId
+            })
+            if (success) {
+                successCount++
+            } else {
+                errorCount++
+            }
+        }
+        
+        if (errorCount === 0) {
+            // 入库成功，调用 markAsConsumed 接口
+            const consumedSuccess = await markAsConsumed({
+                messageIds: [currentResearcherUpdateMessage.value.id]
+            })
+            
+            if (consumedSuccess) {
+                // 更新入库状态
+                currentResearcherUpdateMessage.value.isLibraryAdded = true
+                
+                // 如果还没有标记已读，同时标记已读
+                if (currentResearcherUpdateMessage.value.status !== 'processed') {
+                    const readSuccess = await markAsRead({
+                        messageIds: [currentResearcherUpdateMessage.value.id]
+                    })
+                    
+                    if (readSuccess) {
+                        currentResearcherUpdateMessage.value.status = 'processed'
+                        currentResearcherUpdateMessage.value.read = true
+                    }
+                }
+                
+                callSuccess(`成功入库到 ${successCount} 个收藏夹`)
+                favoriteDialogVisible.value = false
+                currentResearcherUpdateMessage.value = null
+            } else {
+                callError('入库成功但标记消费状态失败')
+            }
+        } else {
+            callError(`部分操作失败，成功：${successCount}，失败：${errorCount}`)
+        }
+    } catch (error) {
+        console.error('入库操作失败:', error)
+        callError('入库操作失败')
+    }
+}
+
+// 分页处理
+const handleFolderPageChange = async (page) => {
+    folderCurrentPage.value = page
+    await loadFolders()
+}
+
+// 新建收藏夹
+const handleCreateFolder = async () => {
+    if (!newFolderName.value.trim()) {
+        callError('请输入收藏夹名称')
+        return
+    }
+    
+    creatingFolder.value = true
+    try {
+        const result = await createFavorite({ 
+            name: newFolderName.value.trim(), 
+            parentId: currentParentId.value 
+        })
+        if (result) {
+            callSuccess('创建成功')
+            showCreateFolderDialog.value = false
+            newFolderName.value = ''
+            await loadFolders()
+        } else {
+            callError('创建失败')
+        }
+    } catch (e) {
+        callError('创建失败')
+    } finally {
+        creatingFolder.value = false
+    }
+}
+
+// 获取当前目录名称
+const getCurrentFolderName = () => {
+    if (breadcrumbList.value.length > 0) {
+        return breadcrumbList.value[breadcrumbList.value.length - 1].name
+    }
+    return '文献库'
+}
+
+// 计算属性：新建收藏夹的tooltip内容
+const createFolderTooltip = computed(() => {
+    const currentName = getCurrentFolderName()
+    return `在"${currentName}"下新建收藏夹`
+})
+
 // 计算未读消息数量
 const unreadCount = computed(() => {
     return filteredMessages.value.filter(message => {
@@ -876,7 +1437,7 @@ watch(unreadCount, (newCount) => {
     emit('unread-count-update', newCount)
 }, { immediate: true })
 
-// 监听用户ID变化，自动处理消息列表
+// 监听用户ID变化，自动连接/断开WebSocket
 watch(() => store.getters.getId, async (newUserId, oldUserId) => {
     console.log('用户ID变化:', { oldUserId, newUserId })
     
@@ -888,48 +1449,35 @@ watch(() => store.getters.getId, async (newUserId, oldUserId) => {
             clearMessages()
         }
         
+        if (!wsConnected.value) {
+            // 建立WebSocket连接
+            console.log('用户已登录，建立WebSocket连接')
+            connectWebSocket()
+        }
+        
         // 拉取历史消息
         console.log('拉取用户历史消息')
         await pullHistoryMessages()
         
     } else if (!newUserId || newUserId === null) {
-        // 用户退出登录，清空消息
-        console.log('用户已退出，清空消息')
+        // 用户退出登录，断开连接并清空消息
+        console.log('用户已退出，断开WebSocket连接并清空消息')
+        disconnectWebSocket()
         clearMessages()
     }
 }, { immediate: true })
 
-// 处理WebSocket连接状态变化
-const handleConnectionChange = (event) => {
-    // 更新本地连接状态
-    wsConnected.value = event.detail.connected
-    console.log('MessageSidebar收到WebSocket连接状态变化:', event.detail.connected)
-}
-
 // 组件挂载时初始化
 onMounted(() => {
     console.log('MessageSidebar组件挂载')
-    
-    // 监听系统消息事件
-    window.addEventListener('systemMessageReceived', (event) => {
-        handleIncomingMessage(event.detail)
-    })
-    
-    // 监听WebSocket连接状态变化
-    window.addEventListener('websocketConnectionChanged', handleConnectionChange)
-    
     emit('unread-count-update', unreadCount.value)
+    // WebSocket连接由watch监听用户ID变化自动处理
 })
 
-// 组件卸载时清理
+// 组件卸载时断开WebSocket连接
 onUnmounted(() => {
-    console.log('MessageSidebar组件卸载')
-    
-    // 移除系统消息事件监听
-    window.removeEventListener('systemMessageReceived', handleIncomingMessage)
-    
-    // 移除WebSocket连接状态变化监听
-    window.removeEventListener('websocketConnectionChanged', handleConnectionChange)
+    console.log('MessageSidebar组件卸载，断开WebSocket连接')
+    disconnectWebSocket()
 })
 </script>
 
@@ -1253,5 +1801,185 @@ onUnmounted(() => {
     color: #909399 !important;
     font-size: 12px !important;
     margin-top: 8px !important;
+}
+
+/* 收藏夹对话框样式 */
+.favorite-dialog-content {
+    padding: 20px 0;
+}
+
+.breadcrumb-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.breadcrumb-title {
+    font-weight: 600;
+    color: #333;
+    margin-right: 15px;
+    font-size: 16px;
+}
+
+.breadcrumb-list {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.breadcrumb-item {
+    cursor: pointer;
+    color: #409eff;
+    font-size: 14px;
+    transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+.breadcrumb-item:hover {
+    color: #66b1ff;
+    text-decoration: underline;
+}
+
+.breadcrumb-item.active {
+    color: #606266;
+    cursor: default;
+}
+
+.breadcrumb-item.active:hover {
+    color: #606266;
+    text-decoration: none;
+}
+
+.breadcrumb-separator {
+    margin: 0 8px;
+    color: #c0c4cc;
+}
+
+.back-button {
+    margin-left: auto;
+    color: #409eff;
+    font-size: 14px;
+}
+
+.back-button:hover {
+    color: #66b1ff;
+}
+
+.folders-container {
+    min-height: 300px;
+    margin-bottom: 20px;
+}
+
+.empty-folders {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 200px;
+}
+
+.folders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.folder-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #fff;
+    position: relative;
+}
+
+.folder-item:hover {
+    border-color: #409eff;
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.folder-item.selected {
+    border-color: #409eff;
+    background-color: #ecf5ff;
+    box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+}
+
+.folder-icon {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.folder-name {
+    font-size: 14px;
+    color: #333;
+    text-align: center;
+    margin-bottom: 10px;
+    font-weight: 500;
+    word-break: break-word;
+}
+
+.folder-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.folder-item:hover .folder-actions {
+    opacity: 1;
+}
+
+.open-folder-btn {
+    padding: 2px 12px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.open-folder-btn:hover {
+    color: #007afc;
+    background-color: #d7eaff;
+}
+
+.pagination-container {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+
+.selected-folders {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.selected-title {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.selected-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.selected-tag {
+    margin: 0;
+    font-size: 13px;
 }
 </style> 

@@ -18,46 +18,64 @@
                 </div>
                 <div style="margin-top: 30px; width: 100%;">
                     <label for="institution-filter" style="font-family: '微软雅黑', sans-serif; font-size: 16px;">按机构筛选：</label>
-                    <el-select
-                      v-model="selectedInstitution"
-                      placeholder="选择机构"
-                      filterable
+                    <el-input
+                      v-model="institutionKeyword"
+                      placeholder="输入机构名称"
                       clearable
-                      @change="filterByInstitution"
+                      @input="handleInstitutionInput"
+                      @clear="handleInstitutionClear"
                       style="width: 100%; margin-top: 10px;"
                       size="large"
-                    >
-                      <el-option label="所有机构" value="" />
-                      <el-option
-                        v-for="inst in institutions"
-                        :key="inst"
-                        :label="inst"
-                        :value="inst"
                       />
-                    </el-select>
                 </div>
                 <div style="margin-top: 20px; width: 100%;">
-                  <label for="institution-filter" style="font-family: '微软雅黑', sans-serif; font-size: 16px;">搜索科研人员：</label>
+                  <label for="researcher-search" style="font-family: '微软雅黑', sans-serif; font-size: 16px;">搜索科研人员：</label>
                   <el-select
-                    v-model="researcherKeyword"
+                    v-model="selectedResearcherId"
                     filterable
                     remote
                     clearable
                     placeholder="输入科研人员姓名"
                     :remote-method="handleResearcherSearch"
-                    :loading="false"
+                    :loading="researcherSearchLoading"
                     style="width: 100%; margin-top: 10px;"
-                    @change="highlightResearcherNode"
+                    @change="handleResearcherSelect"
+                    @clear="handleResearcherClear"
                     size="large"
+                    popper-class="researcher-select-dropdown"
                   >
                     <el-option
                       v-for="item in researcherOptions"
                       :key="item.id"
-                      :label="item.name + (item.institution ? '（' + item.institution + '）' : '')"
+                      :label="item.name"
                       :value="item.id"
+                      class="researcher-option"
                     >
-                      <span>{{ item.name }}</span>
-                      <span v-if="item.institution" style="color: #888; margin-left: 8px; font-size: 13px;">（{{ item.institution }}）</span>
+                      <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0; width: 100%;">
+                        <div 
+                          style="width: 28px; height: 28px; border-radius: 50%; background: #f0f0f0; display: flex; align-items: center; justify-content: center; overflow: hidden; flex-shrink: 0;"
+                        >
+                          <img 
+                            v-if="item.avatar" 
+                            :src="item.avatar" 
+                            alt="头像"
+                            style="width: 100%; height: 100%; object-fit: cover;"
+                            @error="e => e.target.style.display = 'none'"
+                          />
+                          <span 
+                            v-if="!item.avatar"
+                            style="color: #999; font-size: 12px; font-weight: bold;"
+                          >
+                            {{ item.name ? item.name.charAt(0) : '?' }}
+                          </span>
+                        </div>
+                        <div style="flex: 1; min-width: 0; overflow: hidden;">
+                          <div style="font-weight: 500; color: #333; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ item.name }}</div>
+                          <div style="font-size: 11px; color: #666; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" v-if="item.institution">
+                            {{ item.institution }}
+                          </div>
+                        </div>
+                      </div>
                     </el-option>
                   </el-select>
                 </div>
@@ -71,24 +89,36 @@
 </template>
 
 <script>
-import { ref, onMounted, nextTick } from "vue";
+import { ref, onMounted, nextTick, watch } from "vue";
 import * as echarts from "echarts";
 import { useRoute } from "vue-router";
 import router from "@/router";
-import axios from "axios";
-import { ElSelect, ElOption } from 'element-plus';
+import { ElSelect, ElOption, ElInput } from 'element-plus';
+import { getKnowledgeGraphNetwork } from '@/api/graph';
+import { searchResearchers } from '@/api/search';
 
 export default {
     name: "SocialGraph",
+    components: {
+        ElSelect,
+        ElOption,
+        ElInput
+    },
     setup() {
         const chartContainer = ref(null);
         const route = useRoute();
         const showPanel = ref(false);
         const selectedNode = ref(null);
-        const institutions = ref([]);
-        const selectedInstitution = ref("");
-        const researcherKeyword = ref("");
+        
+        // 机构搜索相关
+        const institutionKeyword = ref("");
+        
+        // 科研人员搜索相关
+        const selectedResearcherId = ref(null);
         const researcherOptions = ref([]);
+        const researcherSearchLoading = ref(false);
+        
+        // 高亮状态
         const persistentHighlight = ref(false);
         const lastHighlightIndexes = ref([]);
         const panelPosition = ref({ x: 0, y: 0 });
@@ -163,27 +193,8 @@ export default {
             if (params.data.category === 0) { // 科研人员
                 router.push(`/profile/${params.data.id}`);
             } else if (params.data.category === 1) { // 机构
-                selectedInstitution.value = params.name;
-                filterByInstitution();
-                if (chartInstance) {
-                    persistentHighlight.value = true;
-                    const highlightIndexes = allNodes.reduce((acc, node, idx) => {
-                        if (node.name === params.name || node.institution === params.name) {
-                            acc.push(idx);
-                        }
-                        return acc;
-                    }, []);
-                    lastHighlightIndexes.value = highlightIndexes;
-                    chartInstance.dispatchAction({
-                        type: 'downplay',
-                        seriesIndex: 0,
-                    });
-                    chartInstance.dispatchAction({
-                        type: 'highlight',
-                        seriesIndex: 0,
-                        dataIndex: highlightIndexes
-                    });
-                }
+                institutionKeyword.value = params.name;
+                loadGraphData();
             }
         };
 
@@ -209,7 +220,7 @@ export default {
                                         <div style="text-align:center;">
                                             <div style="font-size:20px;font-weight:bold;margin-bottom:4px;">${data.name}</div>
                                             <div style="color:#666;font-size:15px;">机构：${data.institution}</div>
-                                            <div style="color:#666;font-size:15px;">影响力：${data.influence}</div>
+                                            <div style="color:#666;font-size:15px;">ACADEMATE力：${data.influence}</div>
                                             ${data.field ? `<div style='color:#666;font-size:15px;'>领域：${data.field}</div>` : ''}
                                         </div>
                                     `;
@@ -218,7 +229,7 @@ export default {
                                         <div style="text-align:center;">
                                             <div style="font-size:20px;font-weight:bold;margin-bottom:4px;">${data.name}</div>
                                             <div style="color:#666;font-size:15px;">类型：科研机构</div>
-                                            <div style="color:#666;font-size:15px;">影响力：${data.influence}</div>
+                                            <div style="color:#666;font-size:15px;">ACADEMATE力：${data.influence}</div>
                                         </div>
                                     `;
                                 }
@@ -334,109 +345,149 @@ export default {
             }
         };
         
-        const filterByInstitution = () => {
-            if (!chartInstance) return;
-            const institution = selectedInstitution.value;
-
-            chartInstance.dispatchAction({
-                type: 'downplay',
-                seriesIndex: 0,
-            });
-
-            if (!institution) {
-                 chartInstance.dispatchAction({
-                    type: 'highlight',
-                    seriesIndex: 0,
-                });
+        // 加载图谱数据
+        const loadGraphData = async () => {
+            // 如果两个框都没有填内容，不请求数据
+            if (!institutionKeyword.value && !selectedResearcherId.value) {
+                if (chartInstance) {
+                    // 清空图谱
+                    chartInstance.setOption({
+                        series: [{
+                            data: [],
+                            links: []
+                        }]
+                    });
+                }
                 return;
             }
 
-            const relatedNodes = new Set();
-            relatedNodes.add(institution);
-
-            allNodes.forEach(node => {
-                if(node.institution === institution) {
-                    relatedNodes.add(node.name);
+            try {
+                const response = await getKnowledgeGraphNetwork(
+                    selectedResearcherId.value ? Number(selectedResearcherId.value) : undefined,
+                    institutionKeyword.value || undefined
+                );
+                
+                if (response && response.code === 0 && response.data) {
+                    allNodes = response.data.nodes || [];
+                    allLinks = response.data.links || [];
+                    
+                    await nextTick(() => {
+                        initChart(allNodes, allLinks);
+                    });
                 }
-            });
-
-             chartInstance.dispatchAction({
-                type: 'highlight',
-                seriesIndex: 0,
-                dataIndex: allNodes.reduce((acc, node, index) => {
-                    if (relatedNodes.has(node.name)) {
-                        acc.push(index);
+            } catch (error) {
+                console.error('加载图谱数据失败:', error);
                     }
-                    return acc;
-                }, [])
-            });
         };
 
-        const highlightResearcherNode = (id) => {
-            if (!chartInstance) return;
-            // 先取消所有高亮
-            chartInstance.dispatchAction({
-                type: 'downplay',
-                seriesIndex: 0,
-            });
-            // 找到该科研人员节点的索引
-            const idx = allNodes.findIndex(node => node.category === 0 && node.id === id);
-            if (idx !== -1) {
-                chartInstance.dispatchAction({
-                    type: 'highlight',
-                    seriesIndex: 0,
-                    dataIndex: idx
-                });
-                // 可选：自动居中该节点
-                chartInstance.dispatchAction({
-                    type: 'focusNodeAdjacency',
-                    seriesIndex: 0,
-                    dataIndex: idx
-                });
+        // 防抖计时器
+        let institutionDebounceTimer = null;
+        
+        // 机构输入处理（防抖）
+        const handleInstitutionInput = () => {
+            if (institutionDebounceTimer) {
+                clearTimeout(institutionDebounceTimer);
             }
+            
+            institutionDebounceTimer = setTimeout(() => {
+                loadGraphData();
+            }, 500); // 500ms防抖
+        };
+        
+        const handleInstitutionClear = () => {
+            institutionKeyword.value = '';
+            loadGraphData();
         };
 
-        const handleResearcherSearch = (query) => {
-            if (!query) {
+        // 科研人员搜索防抖计时器
+        let researcherSearchTimer = null;
+        
+        // 科研人员搜索处理（防抖）
+        const handleResearcherSearch = async (query) => {
+            if (!query || query.trim() === '') {
                 researcherOptions.value = [];
                 return;
             }
-            researcherOptions.value = allNodes.filter(
-                node => node.category === 0 && node.name && node.name.startsWith(query)
-            );
+            
+            // 清除之前的计时器
+            if (researcherSearchTimer) {
+                clearTimeout(researcherSearchTimer);
+            }
+            
+            researcherSearchLoading.value = true;
+            
+            researcherSearchTimer = setTimeout(async () => {
+                try {
+                    const searchParams = {
+                        userName: query.trim(),
+                        current: 1,
+                        pageSize: 3
+                    };
+                    
+                    // 如果用户填入了机构名，也要考虑institution的填入
+                    if (institutionKeyword.value && institutionKeyword.value.trim() !== '') {
+                        searchParams.institution = institutionKeyword.value.trim();
+                    }
+                    
+                    const result = await searchResearchers(searchParams);
+                    
+                    if (result && result.list) {
+                        researcherOptions.value = result.list;
+                    } else {
+                        researcherOptions.value = [];
+                    }
+                } catch (error) {
+                    console.error('搜索科研人员失败:', error);
+                    researcherOptions.value = [];
+                } finally {
+                    researcherSearchLoading.value = false;
+                }
+            }, 300); // 300ms防抖
+        };
+        
+        const handleResearcherSelect = (userId) => {
+            if (userId) {
+                loadGraphData();
+            }
+        };
+        
+        const handleResearcherClear = () => {
+            selectedResearcherId.value = null;
+            researcherOptions.value = [];
+            loadGraphData();
         };
 
         onMounted(async () => {
-            try {
-                const response = await axios.get(window.location.origin + '/social-graph.json');
-                const graphData = response.data;
-                allNodes = graphData.nodes;
-                allLinks = graphData.links;
-                
-                const insts = new Set(allNodes.filter(n => n.category === 1).map(n => n.name));
-                institutions.value = Array.from(insts);
-                researcherOptions.value = [];
+            // 初始化空图谱，等待用户输入搜索条件
+            allNodes = [];
+            allLinks = [];
                 
                 await nextTick(() => {
                     initChart(allNodes, allLinks);
                 });
-            } catch (error) {
-                console.error("Error fetching or processing graph data:", error);
-            }
         });
 
         return {
             chartContainer,
             showPanel,
             selectedNode,
-            institutions,
-            selectedInstitution,
-            filterByInstitution,
-            researcherKeyword,
-            researcherOptions,
-            handleResearcherSearch,
-            highlightResearcherNode,
             panelPosition,
+            
+            // 机构搜索
+            institutionKeyword,
+            handleInstitutionInput,
+            handleInstitutionClear,
+            
+            // 科研人员搜索
+            selectedResearcherId,
+            researcherOptions,
+            researcherSearchLoading,
+            handleResearcherSearch,
+            handleResearcherSelect,
+            handleResearcherClear,
+            
+            // 数据加载
+            loadGraphData,
         };
     },
 };
@@ -473,5 +524,26 @@ select {
     background-repeat: no-repeat;
     background-position: right .7em top 50%, 0 0;
     background-size: .65em auto, 100%;
+}
+</style>
+
+<style>
+/* 科研人员搜索下拉框样式 */
+.researcher-select-dropdown .el-select-dropdown__item {
+    height: auto !important;
+    min-height: 44px !important;
+    padding: 2px 16px !important;
+    line-height: normal !important;
+}
+
+.researcher-select-dropdown .el-select-dropdown__item.hover {
+    background-color: #f5f7fa !important;
+}
+
+.researcher-option {
+    height: auto !important;
+    min-height: 44px !important;
+    padding: 2px 0 !important;
+    line-height: normal !important;
 }
 </style>

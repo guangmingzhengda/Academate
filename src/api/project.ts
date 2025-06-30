@@ -231,6 +231,7 @@ export interface ResearchProject {
     description: string;
     startDate: string;
     status: string;
+    isPublic: boolean;
 }
 
 // 基础响应接口
@@ -467,6 +468,135 @@ export async function deleteProjectComment(commentId: number): Promise<boolean> 
       }
     } else {
       callError("删除评论失败: " + (error.message || error));
+    }
+    return false;
+  }
+}
+
+/**
+ * 更新项目公开状态
+ * @param projectId 项目ID
+ * @param isPublic 是否公开
+ * @returns Promise<boolean> 是否更新成功
+ */
+export async function updateProjectVisibility(projectId: number, isPublic: boolean): Promise<boolean> {
+  try {
+    const response = await axios.post('/project/visibility/update', {
+      projectId,
+      isPublic
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess(isPublic ? '项目已设为公开' : '项目已设为私密');
+      return true;
+    } else {
+      callError('更新项目可见性失败: ' + (response.data.message || '未知错误'));
+      return false;
+    }
+  } catch (error: any) {
+    if (error.response) {
+      callError('更新项目可见性失败: ' + (error.response.data?.message || '服务器错误'));
+    } else {
+      callError('更新项目可见性失败: 网络错误或服务器异常');
+    }
+    return false;
+  }
+}
+
+/**
+ * 上传项目文件
+ * @param formData 包含文件和参数的FormData对象
+ * @returns Promise<BaseResponse> 上传结果
+ */
+export async function uploadProjectFile(formData: FormData): Promise<BaseResponse> {
+  try {
+    const response = await axios.post('/project/upload_file', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    
+    if (response.status === 200) {
+      if (response.data.code === 0) {
+        callSuccess('文件上传成功');
+      } else {
+        callError(response.data.message || '上传失败');
+      }
+      return response.data;
+    } else {
+      callError('网络错误');
+      return {
+        code: -1,
+        data: null,
+        message: '网络错误'
+      };
+    }
+  } catch (error: any) {
+    console.error('上传项目文件错误:', error);
+    if (error.response) {
+      callError(error.response.data?.message || '上传失败');
+      return error.response.data;
+    } else {
+      callError('网络错误或服务器异常，请稍后重试');
+      return {
+        code: -1,
+        data: null,
+        message: '网络错误或服务器异常'
+      };
+    }
+  }
+}
+
+/**
+ * 下载项目文件
+ * @param fileUrl 文件URL
+ * @param filename 文件名
+ */
+export function downloadProjectFile(fileUrl: string, filename: string): void {
+  try {
+    // 创建一个隐藏的a标签来触发下载
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.target = '_blank';
+    link.download = filename || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('下载文件错误:', error);
+    callError('下载文件失败');
+  }
+}
+
+/**
+ * 删除项目文件
+ * @param projectFileId 项目文件ID
+ * @returns Promise<boolean> 是否删除成功
+ */
+export async function deleteProjectFile(projectFileId: number): Promise<boolean> {
+  try {
+    const response = await axios.post('/project/delete_file', null, {
+      params: { projectFileId }
+    });
+    
+    if (response.status === 200) {
+      if (response.data.code === 0) {
+        callSuccess('文件已成功删除');
+        return true;
+      } else {
+        callError(response.data.message || '删除文件失败');
+        return false;
+      }
+    } else {
+      callError('网络错误');
+      return false;
+    }
+  } catch (error: any) {
+    console.error('删除项目文件错误:', error);
+    if (error.response) {
+      callError(error.response.data?.message || '删除文件失败');
+    } else {
+      callError('网络错误或服务器异常，请稍后重试');
     }
     return false;
   }

@@ -1,18 +1,22 @@
 import axios from "axios";
 import {callError} from "@/call";
 
-export async function getGraph(id: number) : Promise<any> {
+// 获取用户关系网络
+export const getKnowledgeGraphNetwork = async (userId?: number, institution?: string) => {
     try {
-        const response = await axios.get(`/author/relationship?id=${id}`);
-        if (response.status === 200) {
-            if (response.data.code == 0) {
+        const params: any = {};
+        if (userId) params.userId = userId;
+        if (institution) params.institution = institution;
+        
+        const response = await axios.get('/knowledge-graph/network', { params });
+        return response.data;
+    } catch (error) {
+        console.error('获取知识图谱网络失败:', error);
+        callError('获取知识图谱数据失败');
+        return null;
+    }
+};
 
-                // console.log('专家网络')
-                // console.log(response)
-                return response.data.data;
 
-            }else callError(response.data.message);
-        } else callError('网络错误');
-    }catch (error) {}
-    return [];
-}
+
+
