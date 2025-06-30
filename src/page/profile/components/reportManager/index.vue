@@ -46,7 +46,7 @@
                     <div v-else class="reports-list">
                         <div v-for="(report, idx) in reports" :key="report.id" class="report-item" @click="viewReport(report, idx)">
                             <div class="report-info">
-                                <div class="report-title">第{{ idx + 1 }}期</div>
+                                <div class="report-title">第{{ total - ((currentPage - 1) * pageSize + idx) }}期</div>
                                 <div class="report-date">生成日期：{{ formatDate(report.genDate) }}</div>
                             </div>
                             <div class="report-actions">
@@ -75,7 +75,7 @@
                             <el-icon><ArrowLeft /></el-icon>
                             返回报告列表
                         </el-button>
-                        <h3>第{{ currentReportIndex + 1 }}期</h3>
+                        <h3 style="text-align: left;">{{ currentSub.paperTopic ? currentSub.paperTopic + '-' : '' }}第{{ total - ((currentPage - 1) * pageSize + currentReportIndex) }}期</h3>
                     </div>
                     <div class="report-meta">
                         <span class="report-date">{{ formatDate(currentReport.genDate) }}</span>
@@ -86,15 +86,21 @@
                         <div class="markdown-content" v-html="renderedMarkdown"></div>
                         <template v-if="currentReport.mindmap">
                             <h3 style="margin-top:32px;">思维导图</h3>
-                            <div ref="mindmapContainer"></div>
+                            <div style="text-align:right;">
+                                <span style="font-size: 13px; color: #888;">点击图片可查看大图预览</span>
+                            </div>
+                            <div ref="mindmapContainer" style="display: flex; justify-content: center; align-items: center; cursor: pointer;" @click="showBigMermaid('mindmap')"></div>
                         </template>
                         <template v-if="currentReport.trendGraph">
                             <h3 style="margin-top:32px;">技术趋势图</h3>
-                            <div ref="trendGraphContainer"></div>
+                            <div style="text-align:right;">
+                                <span style="font-size: 13px; color: #888;">点击图片可查看大图预览</span>
+                            </div>
+                            <div ref="trendGraphContainer" style="display: flex; justify-content: center; align-items: center; cursor: pointer;" @click="showBigMermaid('trendGraph')"></div>
                         </template>
                         <template v-if="currentReport.wordCloud">
-                            <h3 style="margin-top:32px;">词云</h3>
-                            <div ref="wordCloudContainer" style="width:100%;height:400px;"></div>
+                            <h3 style="margin-top:32px;">词云图</h3>
+                            <div ref="wordCloudContainer" style="width:100%;height:400px; display: flex; justify-content: center; align-items: center;"></div>
                         </template>
                     </div>
                 </div>
@@ -140,6 +146,10 @@
                 </div>
             </div>
         </el-dialog>
+        <!-- 大图弹窗 -->
+        <el-dialog v-model="showBigImageModal" width="95vw" top="2vh" :close-on-click-modal="true" title="大图预览">
+            <div v-html="bigImageSvg" style="text-align:center;"></div>
+        </el-dialog>
     </div>
 </template>
 
@@ -181,6 +191,9 @@ export default {
         const mindmapContainer = ref(null)
         const trendGraphContainer = ref(null)
         const wordCloudContainer = ref(null)
+        // 大图弹窗相关
+        const showBigImageModal = ref(false)
+        const bigImageSvg = ref('')
 
         // 分页相关状态
         const currentPage = ref(1)
@@ -331,19 +344,23 @@ export default {
         }
         // mermaid渲染
         const renderMermaid = () => {
+            // 渲染思维导图
             if (currentReport.value.mindmap && mindmapContainer.value) {
                 try {
-                    mermaid.render('mindmapSvg', currentReport.value.mindmap, (svgCode) => {
-                        mindmapContainer.value.innerHTML = svgCode
-                    })
-                } catch {}
+                    mindmapContainer.value.innerHTML = `${currentReport.value.mindmap}`
+                    mermaid.init(undefined, mindmapContainer.value)
+                } catch (e) {
+                    mindmapContainer.value.innerHTML = '<div style="color:red;">思维导图渲染失败</div>'
+                }
             }
+            // 渲染技术趋势图
             if (currentReport.value.trendGraph && trendGraphContainer.value) {
                 try {
-                    mermaid.render('trendGraphSvg', currentReport.value.trendGraph, (svgCode) => {
-                        trendGraphContainer.value.innerHTML = svgCode
-                    })
-                } catch {}
+                    trendGraphContainer.value.innerHTML = `${currentReport.value.trendGraph}`
+                    mermaid.init(undefined, trendGraphContainer.value)
+                } catch (e) {
+                    trendGraphContainer.value.innerHTML = '<div style="color:red;">技术趋势图渲染失败</div>'
+                }
             }
         }
         // 词云渲染
@@ -351,8 +368,13 @@ export default {
             if (currentReport.value.wordCloud && wordCloudContainer.value) {
                 let data = []
                 try {
-                    const obj = JSON.parse(currentReport.value.wordCloud)
-                    data = Object.entries(obj).map(([name, value]) => ({ name, value }))
+                    // 解析后端返回的 JSON 字符串
+                    const arr = JSON.parse(currentReport.value.wordCloud)
+                    // 将每项的 text 字段映射为 name
+                    data = arr.map(item => ({
+                        name: item.text,
+                        value: item.value
+                    }))
                 } catch {}
                 if (data.length) {
                     const chart = echarts.init(wordCloudContainer.value)
@@ -378,6 +400,19 @@ export default {
                 }
             }
         }
+        // 显示大图方法
+        const showBigMermaid = (type) => {
+            let svg = ''
+            if (type === 'mindmap' && mindmapContainer.value) {
+                svg = mindmapContainer.value.innerHTML
+            } else if (type === 'trendGraph' && trendGraphContainer.value) {
+                svg = trendGraphContainer.value.innerHTML
+            }
+            if (svg) {
+                bigImageSvg.value = svg.replace('<svg ', '<svg style="width:90vw;height:auto;max-height:80vh;" ')
+                showBigImageModal.value = true
+            }
+        }
         // 首次加载订阅
         onMounted(() => {
             fetchSubscriptions()
@@ -393,7 +428,9 @@ export default {
             // 分页相关
             currentPage, pageSize, total,
             // 方法
-            enterReportList, backToSubList, viewReport, backToReportList, formatDate
+            enterReportList, backToSubList, viewReport, backToReportList, formatDate,
+            // 大图弹窗
+            showBigImageModal, bigImageSvg, showBigMermaid
         }
     }
 }
@@ -460,6 +497,8 @@ export default {
     font-size: 14px;
     color: #666;
     text-align: left;
+    min-width: 100px;
+    margin-left: 15px;
 }
 
 .empty-state {
