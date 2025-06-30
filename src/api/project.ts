@@ -471,3 +471,33 @@ export async function deleteProjectComment(commentId: number): Promise<boolean> 
     return false;
   }
 }
+
+/**
+ * 更新项目公开状态
+ * @param projectId 项目ID
+ * @param isPublic 是否公开
+ * @returns Promise<boolean> 是否更新成功
+ */
+export async function updateProjectVisibility(projectId: number, isPublic: boolean): Promise<boolean> {
+  try {
+    const response = await axios.post('/project/visibility/update', {
+      projectId,
+      isPublic
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess(isPublic ? '项目已设为公开' : '项目已设为私密');
+      return true;
+    } else {
+      callError('更新项目可见性失败: ' + (response.data.message || '未知错误'));
+      return false;
+    }
+  } catch (error: any) {
+    if (error.response) {
+      callError('更新项目可见性失败: ' + (error.response.data?.message || '服务器错误'));
+    } else {
+      callError('更新项目可见性失败: 网络错误或服务器异常');
+    }
+    return false;
+  }
+}

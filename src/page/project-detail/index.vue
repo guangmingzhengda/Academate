@@ -139,7 +139,7 @@
             </el-col>
             <el-col :span="7">
                 <div class="side-container">
-                    <side-component :work="project" :role="role"/>
+                    <side-component :work="project" :role="role" @visibility-changed="handleVisibilityChange"/>
                 </div>
             </el-col>
 
@@ -159,7 +159,7 @@ import FunctionBar from "@/page/project-detail/function-bar/index.vue";
 import Comments from "@/page/project-detail/comments/index.vue";
 import {setNav} from "@/nav/set";
 import {getProjectDetail} from "@/page/project-detail/api/api";
-import {callInfo, callSuccess, callError} from "@/call";
+import {callInfo, callSuccess, callError, callWarning} from "@/call";
 import store from "@/store";
 import NavButton from "@/nav/navButton/index.vue";
 import homeBottom from "@/page/home/component/homeBottom/index.vue";
@@ -239,7 +239,7 @@ export default {
                             researchOutcomes: Array.isArray(projectData.researchOutcomes) ? projectData.researchOutcomes : []
                         };
                         
-                        // console.log("处理后的项目数据:", JSON.stringify(this.project));
+                        console.log("项目可见性状态:", projectData.isPublic, this.project.projectDetail.isPublic);
                     } else {
                         this.project = null; // 确保项目数据为null
                         callError("项目不存在或未公开，3秒后将自动跳转到首页");
@@ -308,29 +308,37 @@ export default {
                 this.applyLoading = false;
             }
         },
-        pullProjectData() {
-            // console.log("调用getProjectDetail API");
-            return getProjectDetail(this.$route.params.id);
+        async pullProjectData() {
+            try {
+                const res = await getProjectDetail(this.$route.params.id);
+                return res;
+            } catch (error) {
+                console.error("获取项目数据出错:", error);
+                return null;
+            }
         },
         goToHome() {
-            this.$router.push('/');
+            this.$router.push("/");
         },
+        formatDate(dateString) {
+            if (!dateString) return "";
+            const date = new Date(dateString);
+            return date.toLocaleDateString();
+        },
+        handleVisibilityChange(isPublic) {
+            // 更新当前页面的项目公开状态
+            console.log("主页面接收到可见性变更通知:", isPublic);
+            if (this.project && this.project.projectDetail) {
+                this.project.projectDetail.isPublic = isPublic;
+                console.log("主页面更新项目可见性为:", this.project.projectDetail.isPublic);
+            }
+        }
     },
     setup() {
         const activeName = ref('third');
         function goToResearcher(id) {
             if (!id) return;
             window.open("/profile/"+id,'_blank');
-        }
-        function formatDate(dateString) {
-            if (!dateString) return '';
-            try {
-                const date = new Date(dateString);
-                return date.toLocaleDateString('zh-CN');
-            } catch (e) {
-                // console.error("日期格式化错误:", e);
-                return dateString;
-            }
         }
         function getStatusClass(status) {
             if (!status) return 'status-default';
@@ -354,7 +362,6 @@ export default {
         return {
             activeName,
             goToResearcher,
-            formatDate,
             getStatusClass,
             modifyTitle,
         };
