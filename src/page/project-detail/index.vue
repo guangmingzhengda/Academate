@@ -73,6 +73,27 @@
                                     </div>
                                 </div>
                             </div>
+                            <div v-if="(role === 'creator' || role === 'participant')" class="info-card">
+                                <div class="info-card-title">
+                                    项目资料
+                                    <el-button 
+                                        type="primary" 
+                                        size="small" 
+                                        @click="showFileDialog = true" 
+                                        class="file-button"
+                                    >
+                                        查看文件
+                                    </el-button>
+                                </div>
+                                <div class="info-card-content">
+                                    <div v-if="project.fileList && project.fileList.length > 0">
+                                        <p>项目共有 {{ project.fileList.length }} 个文件资料</p>
+                                    </div>
+                                    <div v-else>
+                                        <p>项目暂无文件资料</p>
+                                    </div>
+                                </div>
+                            </div>
                             <div class="info-card">
                                 <div class="info-card-title">评论</div>
                                 <div class="info-card-content">
@@ -150,6 +171,64 @@
 
 <!--    <home-bottom/>-->
 
+    <!-- 项目文件对话框 -->
+    <el-dialog
+        title="项目文件资料"
+        v-model="showFileDialog"
+        width="650px"
+    >
+        <div class="file-dialog-content">
+            <!-- 上传文件区域 (仅项目创建者可见) -->
+            <div v-if="role === 'creator'" class="file-upload-section">
+                <el-upload
+                    class="file-uploader"
+                    action="#"
+                    :http-request="handleCustomUpload"
+                    :before-upload="beforeFileUpload"
+                    :show-file-list="false"
+                    :disabled="uploadLoading"
+                >
+                    <el-button type="primary" :loading="uploadLoading">
+                        {{ uploadLoading ? '上传中...' : '上传文件' }}
+                    </el-button>
+                    <span v-if="currentFile && !uploadLoading" class="selected-filename">
+                        已选择: {{ currentFile.name }}
+                    </span>
+                </el-upload>
+            </div>
+            
+            <!-- 文件列表 -->
+            <div class="file-list">
+                <el-table :data="project.fileList || []" style="width: 100%">
+                    <el-table-column prop="filename" label="文件名称"></el-table-column>
+                    <el-table-column label="操作" width="180">
+                        <template #default="scope">
+                            <el-button 
+                                type="primary" 
+                                size="small" 
+                                @click="handleDownloadFile(scope.row)"
+                            >
+                                下载
+                            </el-button>
+                            <el-button 
+                                v-if="role === 'creator'"
+                                type="danger" 
+                                size="small" 
+                                @click="handleDeleteFile(scope.row)"
+                            >
+                                删除
+                            </el-button>
+                        </template>
+                    </el-table-column>
+                </el-table>
+                
+                <div v-if="!project.fileList || project.fileList.length === 0" class="empty-files">
+                    暂无文件资料
+                </div>
+            </div>
+        </div>
+    </el-dialog>
+
 </template>
 
 <script lang="js">
@@ -163,7 +242,8 @@ import {callInfo, callSuccess, callError, callWarning} from "@/call";
 import store from "@/store";
 import NavButton from "@/nav/navButton/index.vue";
 import homeBottom from "@/page/home/component/homeBottom/index.vue";
-import {applyJoinProject} from "@/api/project";
+import {applyJoinProject, uploadProjectFile, downloadProjectFile, deleteProjectFile} from "@/api/project";
+import { ElMessageBox } from 'element-plus';
 
 export default {
     name: "project-detail",
@@ -176,6 +256,9 @@ export default {
             role: "visitor", // 设置默认值为visitor
             applyLoading: false, // 申请加入项目的加载状态
             hasApplied: false, // 新增已申请状态
+            showFileDialog: false,
+            uploadLoading: false, // 文件上传加载状态
+            currentFile: null, // 当前选择的文件
         };
     },
     mounted() {
@@ -236,7 +319,8 @@ export default {
                                 favorites: projectData.favoriteCount || 0,
                                 memberCount: (projectData.participantUserDetail?.length || 0) + 1 // 成员数量为参与者数量+1(创建者)
                             },
-                            researchOutcomes: Array.isArray(projectData.researchOutcomes) ? projectData.researchOutcomes : []
+                            researchOutcomes: Array.isArray(projectData.researchOutcomes) ? projectData.researchOutcomes : [],
+                            fileList: Array.isArray(projectData.fileList) ? projectData.fileList : [],
                         };
                         
                         console.log("项目可见性状态:", projectData.isPublic, this.project.projectDetail.isPublic);
@@ -332,7 +416,91 @@ export default {
                 this.project.projectDetail.isPublic = isPublic;
                 console.log("主页面更新项目可见性为:", this.project.projectDetail.isPublic);
             }
-        }
+        },
+        beforeFileUpload(file) {
+            // 处理上传前的逻辑
+            console.log("上传前:", file);
+            
+            // 文件大小限制（10MB）
+            const isLt10M = file.size / 1024 / 1024 < 10;
+            if (!isLt10M) {
+                callError('文件大小不能超过 10MB!');
+                return false;
+            }
+            
+            // 保存当前文件以便后续上传
+            this.currentFile = file;
+            
+            return true;
+        },
+        async handleCustomUpload(options) {
+            if (!this.currentFile || !this.project?.projectDetail?.projectId) {
+                callError('上传失败：文件或项目ID不存在');
+                return;
+            }
+            
+            this.uploadLoading = true;
+            
+            try {
+                // 创建FormData对象
+                const formData = new FormData();
+                formData.append('multipartFile', this.currentFile);
+                formData.append('projectId', this.project.projectDetail.projectId);
+                formData.append('filename', this.currentFile.name); // 使用文件的原始名称
+                
+                // 调用API上传文件
+                const response = await uploadProjectFile(formData);
+                
+                if (response && response.code === 0) {
+                    this.currentFile = null;
+                    // 重新获取项目数据以更新文件列表
+                    this.initializeProject();
+                }
+            } catch (error) {
+                console.error('上传文件出错:', error);
+            } finally {
+                this.uploadLoading = false;
+            }
+        },
+        handleDownloadFile(file) {
+            if (file && file.url) {
+                downloadProjectFile(file.url, file.filename);
+            } else {
+                callError('下载链接不可用');
+            }
+        },
+        async handleDeleteFile(file) {
+            if (!file || !file.projectFileId) {
+                callError('无法删除文件：文件ID不存在');
+                return;
+            }
+            
+            try {
+                // 显示确认对话框
+                await ElMessageBox.confirm(
+                    '确定要删除此文件吗？此操作不可恢复',
+                    '提示',
+                    {
+                        confirmButtonText: '确定',
+                        cancelButtonText: '取消',
+                        type: 'warning',
+                    }
+                );
+                
+                // 用户确认删除，执行删除操作
+                const success = await deleteProjectFile(file.projectFileId);
+                if (success) {
+                    // 重新获取项目数据以更新文件列表
+                    this.initializeProject();
+                }
+            } catch (error) {
+                if (error === 'cancel') {
+                    // 用户取消删除操作
+                    return;
+                }
+                console.error('删除文件出错:', error);
+            }
+        },
     },
     setup() {
         const activeName = ref('third');
@@ -707,5 +875,47 @@ export default {
         padding-left: 12px;
         padding-right: 12px;
     }
+}
+
+.file-button {
+    float: right;
+    margin-top: -3px;
+}
+
+.file-dialog-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.file-upload-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #ebeef5;
+}
+
+.selected-filename {
+    margin-left: 10px;
+    color: #606266;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 300px;
+}
+
+.empty-files {
+    text-align: center;
+    color: #909399;
+    padding: 20px 0;
+}
+
+.info-card-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 </style>
