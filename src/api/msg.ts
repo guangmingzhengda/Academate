@@ -62,6 +62,18 @@ export interface OutcomeCopyrightConfirmResponse {
     message: string;
 }
 
+// 批量标记学术动态消息为已消费请求类型
+export interface MessageMarkConsumedRequest {
+    messageIds: number[];
+}
+
+// 批量标记学术动态消息为已消费响应类型
+export interface MessageMarkConsumedResponse {
+    code: number;
+    data: number;
+    message: string;
+}
+
 /**
  * 拉取所有消息
  * 根据prompt.md实现
@@ -240,6 +252,49 @@ export async function handleApplyAgree(data: ApplyAgreeRequest): Promise<boolean
             callError('网络连接错误');
         } else {
             callError('处理申请失败，请重试');
+        }
+        return false;
+    }
+}
+
+/**
+ * 批量标记学术动态消息为已消费
+ * 接口地址: /message/markAsConsumed
+ * 请求方式: POST
+ * 请求数据类型: application/json
+ */
+export async function markAsConsumed(data: MessageMarkConsumedRequest): Promise<boolean> {
+    try {
+        console.log('开始标记学术动态消息为已消费:', data);
+        
+        const response = await axios.post<MessageMarkConsumedResponse>('/message/markAsConsumed', data, {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        console.log('标记已消费响应:', response.data);
+        
+        if (response.status === 200) {
+            if (response.data.code === 0) {
+                console.log(`成功标记 ${data.messageIds.length} 条学术动态消息为已消费`);
+                return true;
+            } else {
+                callError(response.data.message || '标记已消费失败');
+                return false;
+            }
+        } else {
+            callError('网络错误');
+            return false;
+        }
+    } catch (error: any) {
+        console.error('标记已消费错误:', error);
+        if (error.response) {
+            callError(error.response.data?.message || '标记已消费失败');
+        } else if (error.request) {
+            callError('网络连接错误');
+        } else {
+            callError('标记已消费失败，请重试');
         }
         return false;
     }
