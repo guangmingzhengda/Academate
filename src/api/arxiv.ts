@@ -2,21 +2,6 @@ import axios from "axios";
 import { callError, callSuccess } from "@/call";
 import store from "@/store";
 
-// 创建专门的arXiv axios实例
-const arxivAxios = axios.create({
-  baseURL: '/arxiv', // arXiv接口的baseURL
-  timeout: 10000
-});
-
-// 为arXiv axios实例添加请求拦截器
-arxivAxios.interceptors.request.use(config => {
-  config.headers['token'] = store.getters.getToken;
-  config.headers.Authorization = `Bearer ${store.getters.getToken}`;
-  return config;
-}, error => {
-  return Promise.reject(error);
-});
-
 // arXiv关键词订阅请求参数类型
 export interface ArxivSubscriptionRequest {
   /** 关键词 */
@@ -95,7 +80,7 @@ export async function subscribeArxivKeyword(data: ArxivSubscriptionRequest): Pro
     console.log('订阅arXiv关键词请求数据:', data);
     
     // 使用专门的arXiv axios实例
-    const response = await arxivAxios.post<BaseResponseString>('/subscription/subscribe', data, {
+    const response = await axios.post<BaseResponseString>('/arxiv/subscription/subscribe', data, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -143,7 +128,7 @@ export async function subscribeArxivAuthor(data: ArxivAuthorSubscriptionRequest)
     console.log('订阅arXiv作者请求数据:', data);
     
     // 使用专门的arXiv axios实例
-    const response = await arxivAxios.post<BaseResponseString>('/subscription/author/subscribe', data, {
+    const response = await axios.post<BaseResponseString>('/arxiv/subscription/author/subscribe', data, {
       headers: {
         'Content-Type': 'application/json'
       }
@@ -190,7 +175,7 @@ export async function getArxivSubscriptionList(): Promise<ArxivSubscriptionVO[] 
     console.log('获取arXiv订阅列表请求');
     
     // 使用专门的arXiv axios实例
-    const response = await arxivAxios.get<BaseResponseListArxivSubscriptionVO>('/subscription/list', {
+    const response = await axios.get<BaseResponseListArxivSubscriptionVO>('/arxiv/subscription/list', {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
@@ -236,7 +221,7 @@ export async function getArxivAuthorSubscriptionList(): Promise<ArxivAuthorSubsc
     console.log('获取arXiv作者订阅列表请求');
     
     // 使用专门的arXiv axios实例
-    const response = await arxivAxios.get<BaseResponseListArxivAuthorSubscriptionVO>('/subscription/author/list', {
+    const response = await axios.get<BaseResponseListArxivAuthorSubscriptionVO>('/arxiv/subscription/author/list', {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
@@ -283,7 +268,7 @@ export async function unsubscribeArxivKeyword(keyword: string): Promise<boolean>
     console.log('取消订阅arXiv关键词请求，关键词:', keyword);
     
     // 使用专门的arXiv axios实例
-    const response = await arxivAxios.delete<BaseResponseString>('/subscription/unsubscribe', {
+    const response = await axios.delete<BaseResponseString>('/arxiv/subscription/unsubscribe', {
       params: {
         keyword: keyword
       },
@@ -334,7 +319,7 @@ export async function unsubscribeArxivAuthor(author: string): Promise<boolean> {
     console.log('取消订阅arXiv作者请求，作者:', author);
     
     // 使用专门的arXiv axios实例
-    const response = await arxivAxios.delete<BaseResponseString>('/subscription/author/unsubscribe', {
+    const response = await axios.delete<BaseResponseString>('/arxiv/subscription/author/unsubscribe', {
       params: {
         author: author
       },

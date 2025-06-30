@@ -25,13 +25,6 @@ module.exports = defineConfig({
           "^/api": "/api"
         }
       },
-      '/arxiv': {
-        target: 'http://123.56.50.152:8081',
-        changeOrigin: true,
-        pathRewrite: {
-          "^/arxiv": "/arxiv"
-        }
-      },
       '/postFile': {
         target: 'https://chkbigevent.oss-cn-beijing.aliyuncs.com',
         changeOrigin: true,
