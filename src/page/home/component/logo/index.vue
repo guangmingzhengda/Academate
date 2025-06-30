@@ -8,7 +8,7 @@
         </div> -->
 
         <div class="content-font">
-            Research is a mix of excitement and frustration—endless experiments, unexpected results, and late-night breakthroughs. Coffee fuels the grind, while curiosity drives the chase for answers. Failed trials teach resilience; small victories bring joy. It’s a journey of persistence, where every discovery, big or small, feels like unlocking a piece of the universe’s puzzle.
+            Research is a mix of excitement and frustration—endless experiments, unexpected results, and late-night breakthroughs. Coffee fuels the grind, while curiosity drives the chase for answers. Failed trials teach resilience; small victories bring joy. It's a journey of persistence, where every discovery, big or small, feels like unlocking a piece of the universe's puzzle.
         </div>
 
         <div class="author-font">
