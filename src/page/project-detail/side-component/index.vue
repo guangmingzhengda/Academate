@@ -90,12 +90,38 @@
                 暂无其他项目成员
             </div>
         </div>
+
+        <!-- 项目管理选项 (仅对项目创建者显示) -->
+        <div v-if="work && role === 'creator'" class="card">
+            <div class="card-header">项目管理</div>
+            <div class="management-container">
+                <!-- 项目公开状态切换 -->
+                <div class="management-item">
+                    <div class="management-label">项目可见性</div>
+                    <div class="management-action">
+                        <el-switch
+                            v-model="isPublic"
+                            active-text="公开"
+                            inactive-text="私密"
+                            :active-value="true"
+                            :inactive-value="false"
+                            :loading="visibilityLoading"
+                            @change="toggleVisibility"
+                        />
+                    </div>
+                </div>
+                <div class="management-description">
+                    {{ isPublic ? '所有人都可以查看该项目' : '仅项目成员可以查看该项目' }}
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
 <script>
-import { defineComponent, ref } from 'vue';
+import { defineComponent, ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { updateProjectVisibility } from '@/api/project';
 
 export default defineComponent({
     name: "side-component",
@@ -109,9 +135,25 @@ export default defineComponent({
             default: 'visitor'
         }
     },
-    setup(props) {
+    emits: ['visibility-changed'],
+    setup(props, { emit }) {
         const router = useRouter();
         const defaultAvatar = ref('/api/file/default_avatar.png');
+        
+        // 使用计算属性获取项目公开状态
+        const isPublic = computed({
+            get: () => props.work?.projectDetail?.isPublic ?? true,
+            set: (value) => {
+                toggleVisibility(value);
+            }
+        });
+        
+        const visibilityLoading = ref(false);
+
+        // 调试信息
+        watch(() => props.work?.projectDetail?.isPublic, (newValue) => {
+            console.log("侧边栏组件接收到的项目可见性:", newValue);
+        }, { immediate: true });
 
         const goToUserProfile = (userId) => {
             if (!userId) return;
@@ -124,10 +166,38 @@ export default defineComponent({
             return participantCount + 1;
         };
 
+        const toggleVisibility = async (value) => {
+            if (!props.work?.projectDetail?.projectId) return;
+            
+            visibilityLoading.value = true;
+            try {
+                console.log("尝试更新项目可见性为:", value);
+                const success = await updateProjectVisibility(
+                    props.work.projectDetail.projectId,
+                    value
+                );
+                
+                if (success) {
+                    // 通知父组件可见性已更改
+                    emit('visibility-changed', value);
+                    console.log("项目可见性更新成功:", value);
+                } else {
+                    console.log("项目可见性更新失败");
+                }
+            } catch (error) {
+                console.error('更新项目可见性出错:', error);
+            } finally {
+                visibilityLoading.value = false;
+            }
+        };
+
         return {
             defaultAvatar,
             goToUserProfile,
-            getMemberCount
+            getMemberCount,
+            isPublic,
+            visibilityLoading,
+            toggleVisibility
         };
     }
 });
@@ -341,5 +411,30 @@ export default defineComponent({
     text-align: center;
     color: #909399;
     font-size: 14px;
+}
+
+/* 项目管理样式 */
+.management-container {
+    padding: 15px;
+}
+
+.management-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.management-label {
+    font-size: 14px;
+    color: #606266;
+    font-weight: 500;
+}
+
+.management-description {
+    font-size: 12px;
+    color: #909399;
+    margin-top: 5px;
+    padding-left: 2px;
 }
 </style>
