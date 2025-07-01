@@ -135,7 +135,7 @@
                                 </el-button>
                             </div>
                         </div>
-                        <div v-else class="non-member-container">
+                        <!-- <div v-else class="non-member-container">
                             <div class="card-header">权限不足</div>
                             <p>您不是该项目的成员，无法查看项目详情和评论。</p>
                             <p>请先申请加入项目。</p>
@@ -147,7 +147,7 @@
                             >
                                 {{ hasApplied ? '已申请加入' : '申请加入项目' }}
                             </el-button>
-                        </div>
+                        </div> -->
                     </div>
                     <div v-else class="error-container">
                         <el-empty description="项目不存在或未公开"></el-empty>
@@ -323,7 +323,7 @@ export default {
                             fileList: Array.isArray(projectData.fileList) ? projectData.fileList : [],
                         };
                         
-                        console.log("项目可见性状态:", projectData.isPublic, this.project.projectDetail.isPublic);
+                        // console.log("项目可见性状态:", projectData.isPublic, this.project.projectDetail.isPublic);
                     } else {
                         this.project = null; // 确保项目数据为null
                         callError("项目不存在或未公开，3秒后将自动跳转到首页");
@@ -375,18 +375,16 @@ export default {
                 
                 if (result && result.code === 0) {
                     // 申请成功后显示成功提示，并禁用申请按钮
-                    this.$set(this, 'hasApplied', true);
                     // 可以考虑在一段时间后刷新页面或重新获取项目数据
                     setTimeout(() => {
                         this.initializeProject();
                     }, 2000);
                 } else if (result && result.code === 400 && result.message.includes('已申请')) {
                     // 如果已经申请过，设置已申请状态
-                    this.$set(this, 'hasApplied', true);
                     callInfo('您已经申请过该项目，请等待管理员审核');
                 }
             } catch (error) {
-                // console.error('申请加入项目出错:', error);
+                console.error('申请加入项目出错:', error);
                 callError('申请加入项目失败，请稍后重试');
             } finally {
                 this.applyLoading = false;
@@ -411,15 +409,15 @@ export default {
         },
         handleVisibilityChange(isPublic) {
             // 更新当前页面的项目公开状态
-            console.log("主页面接收到可见性变更通知:", isPublic);
+            // console.log("主页面接收到可见性变更通知:", isPublic);
             if (this.project && this.project.projectDetail) {
                 this.project.projectDetail.isPublic = isPublic;
-                console.log("主页面更新项目可见性为:", this.project.projectDetail.isPublic);
+                // console.log("主页面更新项目可见性为:", this.project.projectDetail.isPublic);
             }
         },
         beforeFileUpload(file) {
             // 处理上传前的逻辑
-            console.log("上传前:", file);
+            // console.log("上传前:", file);
             
             // 文件大小限制（10MB）
             const isLt10M = file.size / 1024 / 1024 < 10;

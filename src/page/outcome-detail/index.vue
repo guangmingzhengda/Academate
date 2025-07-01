@@ -1106,7 +1106,7 @@ export default defineComponent({
             if (data.authorList) {
               // console.log('调试信息 - 成果作者列表:', data.authorList);
             }
-            console.log(outcomeData.value);
+            // console.log(outcomeData.value);
           } else {
             outcomeData.value = null;
             // console.log('调试信息 - 成果数据为空');
@@ -1255,7 +1255,7 @@ export default defineComponent({
         try {
           // 使用dayjs格式化日期为 YYYY-MM-DD HH:mm:ss 格式
           editFormData.value.publishDate = dayjs(editFormData.value.publishDate).format('YYYY-MM-DD 00:00:00');
-          console.log('发送的日期格式:', editFormData.value.publishDate);
+          // console.log('发送的日期格式:', editFormData.value.publishDate);
         } catch (e) {
           console.error('日期格式化错误:', e);
           ElMessage.warning('发表日期格式有误，请重新选择');
