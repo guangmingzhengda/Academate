@@ -1,6 +1,6 @@
 <template>
     <div class="bottom-style">
-        <div :class="{ trademark: true }"> ACADEMATE PLATFORM 2025 </div>
+        <div :class="{ trademark: true }"> Academate Platform 2025 </div>
     </div>
 </template>
 
@@ -16,13 +16,13 @@ export default {
     width: 100%;
     height: 150px;
     display: flex;
-    background-color: rgba(255, 255, 255, 0.5);
+    background-color: rgba(255, 255, 255, 0.2);
 }
 .trademark{
-    font-family: 'meiryo', sans-serif;
-    font-weight: bold;
-    font-size: 30px;
+    font-family: 'Brush Script MT', cursive;
+    /* font-weight: bold; */
+    font-size: 48px;
     margin: auto;
-    color: rgb(49, 49, 49);
+    color: rgb(255, 255, 255);
 }
 </style>

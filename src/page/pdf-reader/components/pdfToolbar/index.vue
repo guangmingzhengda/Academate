@@ -16,12 +16,6 @@
         
         <div class="toolbar-center" v-if="pdfDocument">
             <div class="control-group">
-                <el-button-group class="zoom-controls">
-                    <el-button :icon="ZoomOut" @click="$emit('zoom-out')" :disabled="scale <= 0.3" class="control-btn"></el-button>
-                    <el-button class="scale-display" @click="$emit('reset-zoom')" :title="点击重置缩放">{{ Math.round(scale * 100) }}%</el-button>
-                    <el-button :icon="ZoomIn" @click="$emit('zoom-in')" :disabled="scale >= 4" class="control-btn"></el-button>
-                </el-button-group>
-                
                 <div class="page-controls">
                     <el-button :icon="ArrowLeft" @click="$emit('prev-page')" :disabled="currentPage <= 1" class="control-btn"></el-button>
                     <span class="page-info">{{ currentPage }} / {{ totalPages }}</span>
@@ -115,21 +109,19 @@
 
 <script>
 import { 
-    Upload, ZoomIn, ZoomOut, ArrowLeft, ArrowRight, Download
+    Upload, ArrowLeft, ArrowRight, Download
 } from '@element-plus/icons-vue'
 
 export default {
     name: 'PdfToolbar',
     emits: [
-        'file-upload', 'zoom-in', 'zoom-out', 'reset-zoom', 
-        'prev-page', 'next-page', 'set-annotation-mode',
+        'file-upload', 'prev-page', 'next-page', 'set-annotation-mode',
         'clear-drawing', 'update-color', 'update-highlight-opacity', 'export-annotations'
     ],
     props: {
         pdfDocument: Object,
         currentPage: Number,
         totalPages: Number,
-        scale: Number,
         annotationMode: String,
         highlightColor: String,
         drawColor: String,
@@ -165,8 +157,6 @@ export default {
             updateOpacity,
             toggleAnnotationMode,
             Upload,
-            ZoomIn,
-            ZoomOut,
             ArrowLeft,
             ArrowRight,
             Download

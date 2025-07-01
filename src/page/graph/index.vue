@@ -111,7 +111,7 @@ export default {
         const selectedNode = ref(null);
         
         // 机构搜索相关
-        const institutionKeyword = ref("");
+        const institutionKeyword = ref("北京航空航天大学");
         
         // 科研人员搜索相关
         const selectedResearcherId = ref(null);
@@ -458,13 +458,8 @@ export default {
         };
 
         onMounted(async () => {
-            // 初始化空图谱，等待用户输入搜索条件
-            allNodes = [];
-            allLinks = [];
-                
-                await nextTick(() => {
-                    initChart(allNodes, allLinks);
-                });
+            // 由于预填了机构名称，直接加载对应的图谱数据
+            await loadGraphData();
         });
 
         return {

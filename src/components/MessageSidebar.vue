@@ -571,40 +571,40 @@ const connectWebSocket = () => {
     }
 
     const wsUrl = `ws://123.56.50.152:8081/api/websocket/${userId}`
-    console.log('正在连接WebSocket:', wsUrl)
+    // console.log('正在连接WebSocket:', wsUrl)
 
     try {
         ws.value = new WebSocket(wsUrl)
 
         ws.value.onopen = () => {
-            console.log('WebSocket连接成功')
+            // console.log('WebSocket连接成功')
             wsConnected.value = true
             reconnectAttempts.value = 0
         }
 
         ws.value.onmessage = (event) => {
-            console.log('收到WebSocket消息:', event.data)
+            // console.log('收到WebSocket消息:', event.data)
             
             try {
                 const messageData = JSON.parse(event.data)
-                console.log('解析后的消息数据:', messageData)
+                // console.log('解析后的消息数据:', messageData)
                 
                 // 处理接收到的消息
                 handleIncomingMessage(messageData)
                 
             } catch (error) {
                 // console.log('解析WebSocket消息失败，不是JSON:', error)
-                console.log('解析WebSocket消息失败，不是JSON: ', event.data)
+                // console.log('解析WebSocket消息失败，不是JSON: ', event.data)
             }
         }
 
         ws.value.onclose = (event) => {
-            console.log('WebSocket连接关闭:', event.code, event.reason)
+            // console.log('WebSocket连接关闭:', event.code, event.reason)
             wsConnected.value = false
             
             // 非正常关闭时尝试重连
             if (event.code !== 1000 && reconnectAttempts.value < maxReconnectAttempts) {
-                console.log(`尝试重连 (${reconnectAttempts.value + 1}/${maxReconnectAttempts})`)
+                // console.log(`尝试重连 (${reconnectAttempts.value + 1}/${maxReconnectAttempts})`)
                 reconnectAttempts.value++
                 reconnectTimer.value = setTimeout(() => {
                     connectWebSocket()
@@ -624,14 +624,14 @@ const connectWebSocket = () => {
 
 // 处理接收到的消息
 const handleIncomingMessage = async (messageData) => {
-    console.log('=== WebSocket消息调试信息 ===')
-    console.log('消息类型:', typeof messageData)
-    console.log('消息内容:', messageData)
-    console.log('消息的所有属性:')
-    for (let key in messageData) {
-        console.log(`  ${key}:`, messageData[key], `(类型: ${typeof messageData[key]})`)
-    }
-    console.log('=== 消息调试信息结束 ===')
+    // console.log('=== WebSocket消息调试信息 ===')
+    // console.log('消息类型:', typeof messageData)
+    // console.log('消息内容:', messageData)
+    // console.log('消息的所有属性:')
+    // for (let key in messageData) {
+    //     console.log(`  ${key}:`, messageData[key], `(类型: ${typeof messageData[key]})`)
+    // }
+    // console.log('=== 消息调试信息结束 ===')
     
     // 根据WebSocket消息格式适配到显示格式
     if (messageData.message && messageData.messageId) {
@@ -679,9 +679,9 @@ const handleIncomingMessage = async (messageData) => {
             isLibraryAdded: messageType === 'researcher_update' && messageData.isAccepted === 'consumed' // 入库状态
         }
         
-        console.log('创建的新消息对象:', newMessage)
-        console.log(`WebSocket消息头像: 原始="${messageData.avatar}", 处理后="${newMessage.avatar}"`)
-        console.log(`WebSocket消息类型识别: 直接使用type字段="${messageType}", 消息内容="${messageData.message}", 发送者="${senderName}"`)
+        // console.log('创建的新消息对象:', newMessage)
+        // console.log(`WebSocket消息头像: 原始="${messageData.avatar}", 处理后="${newMessage.avatar}"`)
+        // console.log(`WebSocket消息类型识别: 直接使用type字段="${messageType}", 消息内容="${messageData.message}", 发送者="${senderName}"`)
         
         // 检查消息是否已存在（避免重复添加）
         const existingMessage = messages.value.find(m => m.id === newMessage.id)
@@ -694,12 +694,12 @@ const handleIncomingMessage = async (messageData) => {
                 messages.value = messages.value.slice(0, 100)
             }
             
-            console.log('新消息已添加，当前消息列表长度:', messages.value.length)
+            // console.log('新消息已添加，当前消息列表长度:', messages.value.length)
         } else {
-            console.log('消息已存在，跳过添加:', newMessage.id)
+            // console.log('消息已存在，跳过添加:', newMessage.id)
         }
     } else {
-        console.log('消息格式不符合预期，跳过处理')
+        // console.log('消息格式不符合预期，跳过处理')
     }
 }
 
@@ -711,7 +711,7 @@ const disconnectWebSocket = () => {
     }
     
     if (ws.value) {
-        console.log('断开WebSocket连接')
+        // console.log('断开WebSocket连接')
         ws.value.close(1000, '组件卸载')
         ws.value = null
     }
@@ -720,20 +720,20 @@ const disconnectWebSocket = () => {
 
 // 将API返回的MessageVO转换为前端消息格式
 const convertMessageVOToMessage = async (messageVO) => {
-    console.log('=== 历史消息VO调试信息 ===')
-    console.log('MessageVO结构:', messageVO)
-    console.log('MessageVO的所有属性:')
-    for (let key in messageVO) {
-        console.log(`  ${key}:`, messageVO[key], `(类型: ${typeof messageVO[key]})`)
-    }
-    console.log('=== 历史消息VO调试信息结束 ===')
+    // console.log('=== 历史消息VO调试信息 ===')
+    // console.log('MessageVO结构:', messageVO)
+    // console.log('MessageVO的所有属性:')
+    // for (let key in messageVO) {
+    //     console.log(`  ${key}:`, messageVO[key], `(类型: ${typeof messageVO[key]})`)
+    // }
+    // console.log('=== 历史消息VO调试信息结束 ===')
     // 判断消息类型 - 优先使用type字段，否则通过消息内容推断
     let messageType = 'unknown'
     
     if (messageVO.type) {
         // 如果MessageVO有type字段，直接使用
         messageType = messageVO.type
-        console.log(`历史消息直接使用type字段: ${messageType}`)
+        // console.log(`历史消息直接使用type字段: ${messageType}`)
     } else {
         // 否则通过消息内容推断
         if (messageVO.message.includes('邀请')) {
@@ -749,7 +749,7 @@ const convertMessageVOToMessage = async (messageVO) => {
         } else if (messageVO.message.includes('版权确认') || messageVO.message.includes('确认版权') || messageVO.message.includes('版权授权')) {
             messageType = 'agree_url'
         }
-        console.log(`历史消息通过内容推断类型: ${messageType}, 消息内容: "${messageVO.message}"`)
+        // console.log(`历史消息通过内容推断类型: ${messageType}, 消息内容: "${messageVO.message}"`)
     }
     
     // 获取发送者真实姓名
@@ -806,18 +806,18 @@ const convertMessageVOToMessage = async (messageVO) => {
         isLibraryAdded: messageType === 'researcher_update' && messageVO.isAccepted === 'consumed' // 入库状态
     }
         
-        console.log(`历史消息转换: ID=${messageVO.messageId}, 消息内容="${messageVO.message}", 推断类型="${messageType}", 发送者="${senderName}", 原始头像="${messageVO.avatar}", 处理后头像="${convertedMessage.avatar}", status="${messageVO.status}", isAccepted="${messageVO.isAccepted}" → read=${isRead}, status="${convertedMessage.status}"`)
+        // console.log(`历史消息转换: ID=${messageVO.messageId}, 消息内容="${messageVO.message}", 推断类型="${messageType}", 发送者="${senderName}", 原始头像="${messageVO.avatar}", 处理后头像="${convertedMessage.avatar}", status="${messageVO.status}", isAccepted="${messageVO.isAccepted}" → read=${isRead}, status="${convertedMessage.status}"`)
         
         return convertedMessage
 }
 
 // 拉取所有历史消息
 const pullHistoryMessages = async () => {
-    console.log('开始拉取历史消息')
+    // console.log('开始拉取历史消息')
     const messageVOs = await pullAllMessages()
     
     if (messageVOs && messageVOs.length > 0) {
-        console.log(`拉取到 ${messageVOs.length} 条历史消息`)
+        // console.log(`拉取到 ${messageVOs.length} 条历史消息`)
         
         // 转换为前端消息格式 - 使用Promise.all处理异步转换
         const convertedMessages = await Promise.all(
@@ -830,9 +830,9 @@ const pullHistoryMessages = async () => {
         // 更新消息列表
         messages.value = convertedMessages
         
-        console.log('历史消息已加载:', messages.value.length)
+        // console.log('历史消息已加载:', messages.value.length)
     } else {
-        console.log('没有历史消息或拉取失败')
+        // console.log('没有历史消息或拉取失败')
         messages.value = []
     }
 }
@@ -841,7 +841,7 @@ const pullHistoryMessages = async () => {
 const clearMessages = () => {
     messages.value = []
     userNameCache.value.clear() // 清空用户名缓存
-    console.log('消息列表和用户名缓存已清空')
+    // console.log('消息列表和用户名缓存已清空')
 }
 
 // 处理项目邀请
@@ -860,7 +860,7 @@ const handleProjectInvite = async (messageId, accepted) => {
             if (success) {
                 message.status = 'accepted'
                 message.read = true
-                console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
+                // console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
                 callSuccess('已同意项目邀请')
             } else {
                 // 接口调用失败的错误信息已在API中处理
@@ -881,7 +881,7 @@ const handleProjectInvite = async (messageId, accepted) => {
             if (success) {
                 message.status = 'rejected'
                 message.read = true
-                console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
+                // console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
                 callSuccess('已拒绝项目邀请')
             } else {
                 // 接口调用失败的错误信息已在API中处理
@@ -910,7 +910,7 @@ const handleProjectApply = async (messageId, accepted) => {
             if (success) {
                 message.status = 'accepted'
                 message.read = true
-                console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
+                // console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
                 callSuccess('已同意项目申请')
             } else {
                 // 接口调用失败的错误信息已在API中处理
@@ -931,7 +931,7 @@ const handleProjectApply = async (messageId, accepted) => {
             if (success) {
                 message.status = 'rejected'
                 message.read = true
-                console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
+                // console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
                 callSuccess('已拒绝项目申请')
             } else {
                 // 接口调用失败的错误信息已在API中处理
@@ -974,7 +974,7 @@ const handleDataRequest = async (messageId, accepted) => {
             if (success) {
                 message.status = 'rejected'
                 message.read = true
-                console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
+                // console.log(`消息ID ${message.id} 已设置为拒绝状态，未读数量将更新`)
                 callSuccess('已拒绝数据请求')
             }
         } catch (error) {
@@ -1026,7 +1026,7 @@ const processCopyrightConfirm = async (messageId, accepted) => {
         if (success) {
             message.status = 'processed'
             message.read = true
-            console.log(`消息ID ${message.id} 已设置为已处理状态，未读数量将更新`)
+            // console.log(`消息ID ${message.id} 已设置为已处理状态，未读数量将更新`)
             callSuccess(accepted ? '已同意版权确认' : '已拒绝版权确认')
         }
     } catch (error) {
@@ -1058,41 +1058,41 @@ const confirmCopyrightTerms = async () => {
 
 // 处理研究人员更新消息（入库或标记已读）
 const handleResearcherUpdate = async (messageId, isLibrary) => {
-    console.log('handleResearcherUpdate 被调用:', { messageId, isLibrary })
+    // console.log('handleResearcherUpdate 被调用:', { messageId, isLibrary })
     
     const message = messages.value.find(m => m.id === messageId)
     if (!message) {
-        console.error('未找到消息:', messageId)
+        // console.error('未找到消息:', messageId)
         callError('未找到消息')
         return
     }
     
-    console.log('找到消息:', message)
+    // console.log('找到消息:', message)
     
     if (isLibrary) {
         // 入库操作：显示收藏夹选择对话框
-        console.log('开始入库操作')
+        // console.log('开始入库操作')
         
         if (!message.outcomeId) {
-            console.error('消息中缺少成果ID:', message)
+            // console.error('消息中缺少成果ID:', message)
             callError('消息中缺少成果ID，无法入库')
             return
         }
         
-        console.log('设置当前研究更新消息:', message)
+        // console.log('设置当前研究更新消息:', message)
         currentResearcherUpdateMessage.value = message
         
-        console.log('调用 showFavoriteDialog')
+        // console.log('调用 showFavoriteDialog')
         try {
             await showFavoriteDialog()
-            console.log('showFavoriteDialog 调用完成')
+            // console.log('showFavoriteDialog 调用完成')
         } catch (error) {
-            console.error('showFavoriteDialog 调用失败:', error)
+            // console.error('showFavoriteDialog 调用失败:', error)
             callError('显示收藏夹对话框失败')
         }
     } else {
         // 标记已读操作
-        console.log('开始标记已读操作')
+        // console.log('开始标记已读操作')
         await handleMarkAsRead(messageId)
     }
 }
@@ -1101,12 +1101,12 @@ const handleResearcherUpdate = async (messageId, isLibrary) => {
 const handleMarkAsRead = async (messageId) => {
     const message = messages.value.find(m => m.id === messageId)
     if (!message) {
-        console.error('未找到消息:', messageId)
+        // console.error('未找到消息:', messageId)
         return
     }
     
     try {
-        console.log(`开始标记消息为已读:`, messageId, `消息类型: ${message.type}`)
+        // console.log(`开始标记消息为已读:`, messageId, `消息类型: ${message.type}`)
         
         // 调用后端接口标记消息为已读
         const success = await markAsRead({
@@ -1122,11 +1122,11 @@ const handleMarkAsRead = async (messageId) => {
             // 对于所有类型，都设置read为true
             message.read = true
             
-            console.log(`消息ID ${messageId} 已标记为已读，消息类型: ${message.type}，未读数量将更新`)
+            // console.log(`消息ID ${messageId} 已标记为已读，消息类型: ${message.type}，未读数量将更新`)
             callSuccess('消息已标记为已读')
         } else {
             // 接口调用失败的错误信息已在API中处理
-            console.error('标记已读失败')
+            // console.error('标记已读失败')
         }
     } catch (error) {
         console.error('标记已读时发生错误:', error)
@@ -1138,14 +1138,14 @@ const handleMarkAsRead = async (messageId) => {
 const handleMarkAllAsRead = async () => {
     const unreadMessages = unreadNonProjectMessages.value
     if (unreadMessages.length === 0) {
-        console.log('没有未读的非项目类型消息')
+        // console.log('没有未读的非项目类型消息')
         return
     }
     
     markingAllAsRead.value = true
     
     try {
-        console.log(`开始标记 ${unreadMessages.length} 条消息为已读`)
+        // console.log(`开始标记 ${unreadMessages.length} 条消息为已读`)
         
         // 提取所有未读消息的ID
         const messageIds = unreadMessages.map(message => message.id)
@@ -1166,11 +1166,11 @@ const handleMarkAllAsRead = async () => {
                 message.read = true
             })
             
-            console.log(`成功标记 ${unreadMessages.length} 条消息为已读，未读数量将更新`)
+            // console.log(`成功标记 ${unreadMessages.length} 条消息为已读，未读数量将更新`)
             callSuccess(`已标记 ${unreadMessages.length} 条消息为已读`)
         } else {
             // 接口调用失败的错误信息已在API中处理
-            console.error('批量标记已读失败')
+            // console.error('批量标记已读失败')
         }
     } catch (error) {
         console.error('批量标记已读时发生错误:', error)
@@ -1188,7 +1188,7 @@ const getUserRealName = async (senderId) => {
     
     // 先从缓存中查找
     if (userNameCache.value.has(senderId)) {
-        console.log(`从缓存获取用户${senderId}姓名:`, userNameCache.value.get(senderId))
+        // console.log(`从缓存获取用户${senderId}姓名:`, userNameCache.value.get(senderId))
         return userNameCache.value.get(senderId)
     }
     
@@ -1197,10 +1197,10 @@ const getUserRealName = async (senderId) => {
         if (userDetail && userDetail.name) {
             // 缓存用户名
             userNameCache.value.set(senderId, userDetail.name)
-            console.log(`获取并缓存用户${senderId}姓名:`, userDetail.name)
+            // console.log(`获取并缓存用户${senderId}姓名:`, userDetail.name)
             return userDetail.name
         } else {
-            console.log(`无法获取用户${senderId}的姓名信息`)
+            // console.log(`无法获取用户${senderId}的姓名信息`)
             const fallbackName = `用户${senderId}`
             // 也缓存失败的情况，避免重复请求
             userNameCache.value.set(senderId, fallbackName)
@@ -1248,7 +1248,7 @@ const navigateToUserProfile = (senderId) => {
         return
     }
     
-    console.log(`跳转到用户${senderId}的个人资料页面`)
+    // console.log(`跳转到用户${senderId}的个人资料页面`)
     
     // 关闭消息侧边栏
     emit('close')
@@ -1272,7 +1272,7 @@ const resetUploadDialog = () => {
 
 // 处理文件选择变化
 const handleFileChange = (file, fileList) => {
-    console.log('文件选择变化:', file, fileList)
+    // console.log('文件选择变化:', file, fileList)
     
     // 检查文件类型
     if (file.raw && file.raw.type !== 'application/pdf') {
@@ -1317,7 +1317,7 @@ const handleUploadConfirm = async () => {
         if (success) {
             message.status = 'accepted'
             message.read = true
-            console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
+            // console.log(`消息ID ${message.id} 已设置为同意状态，未读数量将更新`)
             callSuccess('文件上传成功，已同意数据请求')
             uploadDialogVisible.value = false
             resetUploadDialog()
@@ -1332,29 +1332,29 @@ const handleUploadConfirm = async () => {
 
 // 显示收藏夹对话框
 const showFavoriteDialog = async () => {
-    console.log('showFavoriteDialog 开始执行')
+    // console.log('showFavoriteDialog 开始执行')
     
     const currentUserId = store.getters.getId
-    console.log('当前用户ID:', currentUserId)
+    // console.log('当前用户ID:', currentUserId)
     
     if (!currentUserId) {
-        console.error('用户未登录')
+        // console.error('用户未登录')
         callError('请先登录')
         return
     }
     
-    console.log('设置收藏夹对话框状态')
+    // console.log('设置收藏夹对话框状态')
     favoriteDialogVisible.value = true
     selectedFolders.value = []
     currentParentId.value = 0
     breadcrumbList.value = [{ favoriteId: 0, name: '文献库' }]
     folderCurrentPage.value = 1
     
-    console.log('收藏夹对话框状态设置完成，开始加载文件夹')
+    // console.log('收藏夹对话框状态设置完成，开始加载文件夹')
     // 加载收藏夹列表
     try {
         await loadFolders()
-        console.log('收藏夹列表加载完成')
+        // console.log('收藏夹列表加载完成')
     } catch (error) {
         console.error('加载收藏夹列表失败:', error)
         callError('加载收藏夹列表失败')
@@ -1572,7 +1572,7 @@ const unreadCount = computed(() => {
         
         // 已经操作过的消息不计入未读数量
         if (message.status === 'accepted' || message.status === 'rejected' || message.status === 'processed') {
-            console.log(`消息ID ${message.id} 已操作过(${message.status})，不计入未读数量`)
+            // console.log(`消息ID ${message.id} 已操作过(${message.status})，不计入未读数量`)
             return false
         }
         
@@ -1588,29 +1588,29 @@ watch(unreadCount, (newCount) => {
 
 // 监听用户ID变化，自动连接/断开WebSocket
 watch(() => store.getters.getId, async (newUserId, oldUserId) => {
-    console.log('用户ID变化:', { oldUserId, newUserId })
+    // console.log('用户ID变化:', { oldUserId, newUserId })
     
     if (newUserId && newUserId !== null) {
         // 用户已登录
         if (oldUserId && oldUserId !== newUserId) {
             // 用户切换，先清空消息列表
-            console.log('用户切换，清空消息列表')
+            // console.log('用户切换，清空消息列表')
             clearMessages()
         }
         
         if (!wsConnected.value) {
             // 建立WebSocket连接
-            console.log('用户已登录，建立WebSocket连接')
+            // console.log('用户已登录，建立WebSocket连接')
             connectWebSocket()
         }
         
         // 拉取历史消息
-        console.log('拉取用户历史消息')
+        // console.log('拉取用户历史消息')
         await pullHistoryMessages()
         
     } else if (!newUserId || newUserId === null) {
         // 用户退出登录，断开连接并清空消息
-        console.log('用户已退出，断开WebSocket连接并清空消息')
+        // console.log('用户已退出，断开WebSocket连接并清空消息')
         disconnectWebSocket()
         clearMessages()
     }
@@ -1618,14 +1618,14 @@ watch(() => store.getters.getId, async (newUserId, oldUserId) => {
 
 // 组件挂载时初始化
 onMounted(() => {
-    console.log('MessageSidebar组件挂载')
+    // console.log('MessageSidebar组件挂载')
     emit('unread-count-update', unreadCount.value)
     // WebSocket连接由watch监听用户ID变化自动处理
 })
 
 // 组件卸载时断开WebSocket连接
 onUnmounted(() => {
-    console.log('MessageSidebar组件卸载，断开WebSocket连接')
+    // console.log('MessageSidebar组件卸载，断开WebSocket连接')
     disconnectWebSocket()
 })
 </script>

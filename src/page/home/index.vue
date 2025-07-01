@@ -1,7 +1,16 @@
 <template>
+    <!-- 过场动画层 -->
+    <div v-if="showSplash" class="splash-overlay" :class="{ 'splash-fade-out': splashFadingOut }">
+        <div class="splash-content">
+            <div class="splash-text">
+                {{ splashText }}<span v-show="showSplashCursor" class="splash-cursor">|</span>
+            </div>
+        </div>
+    </div>
+
     <div class="bg-container"/>
 
-    <div class="view-set-margin">
+    <div v-show="pageContentVisible" class="view-set-margin">
         <div class="content-container">
 
             <div class="content-left">
@@ -17,62 +26,6 @@
             </div>
 
             <div class="content-right">
-                <!-- 项目展示区域 -->
-                <fade-box>
-                <div class="project-section">
-                    <div class="section-card">
-                        <div class="card-header">
-                            <h3>全部项目</h3>
-                        </div>
-                        
-                        <div class="card-content">
-                            <div v-if="projectLoading" class="empty-state">
-                                正在加载项目数据...
-                            </div>
-                            
-                            <div v-else-if="projects.length === 0" class="empty-state">
-                                暂无项目数据
-                            </div>
-                            
-                            <div v-else class="project-list">
-                                <div 
-                                    v-for="project in currentPageProjects" 
-                                    :key="project.id" 
-                                    class="project-item"
-                                    @click="goToProjectDetail(project)"
-                                    style="cursor: pointer;"
-                                >
-                                    <div class="project-info">
-                                        <div class="project-title-row">
-                                            <div class="project-title">{{ project.name }}</div>
-                                            <img :src="getRandomIcon()" alt="项目图标" class="project-icon" />
-                                        </div>
-                                        <div class="project-desc">{{ project.description }}</div>
-                                        <div class="project-meta">
-                                            <div class="meta-row">
-                                                <span class="meta-item">开始时间：{{ formatDate(project.startDate) }}</span>
-                                                <span class="meta-item">状态：{{ project.status }}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- 项目分页 -->
-                            <el-pagination
-                                v-if="projectTotal > projectPageSize"
-                                v-model:current-page="projectCurrentPage"
-                                :page-size="projectPageSize"
-                                :total="projectTotal"
-                                layout="prev, pager, next"
-                                class="pagination"
-                                small
-                                @current-change="handleProjectPageChange"
-                            />
-                        </div>
-                    </div>
-                </div>
-                </fade-box>
                 <!-- 学术成果展示区域 -->
                  <fade-box>
                 <div class="achievement-section">
@@ -110,6 +63,7 @@
                                     class="achievement-item"
                                     @click="goToAchievementDetail(achievement)"
                                     style="cursor: pointer;"
+                                    :style="{ '--mark-icon': `url(${getRandomMarkIcon()})` }"
                                 >
                                     <div class="achievement-info">
                                         <div class="achievement-header">
@@ -150,6 +104,63 @@
                     </div>
                 </div>
                 </fade-box>
+                <!-- 项目展示区域 -->
+                <fade-box>
+                <div class="project-section">
+                    <div class="section-card">
+                        <div class="card-header">
+                            <h3>全部项目</h3>
+                        </div>
+                        
+                        <div class="card-content">
+                            <div v-if="projectLoading" class="empty-state">
+                                正在加载项目数据...
+                            </div>
+                            
+                            <div v-else-if="projects.length === 0" class="empty-state">
+                                暂无项目数据
+                            </div>
+                            
+                            <div v-else class="project-list">
+                                <div 
+                                    v-for="project in currentPageProjects" 
+                                    :key="project.id" 
+                                    class="project-item"
+                                    @click="goToProjectDetail(project)"
+                                    style="cursor: pointer;"
+                                    :style="{ '--mark-icon': `url(${getRandomMarkIcon()})` }"
+                                >
+                                    <div class="project-info">
+                                        <div class="project-title-row">
+                                            <div class="project-title">{{ project.name }}</div>
+                                            <img :src="getRandomIcon()" alt="项目图标" class="project-icon" />
+                                        </div>
+                                        <div class="project-desc">{{ project.description }}</div>
+                                        <div class="project-meta">
+                                            <div class="meta-row">
+                                                <span class="meta-item">开始时间：{{ formatDate(project.startDate) }}</span>
+                                                <span class="meta-item">状态：{{ project.status }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 项目分页 -->
+                            <el-pagination
+                                v-if="projectTotal > projectPageSize"
+                                v-model:current-page="projectCurrentPage"
+                                :page-size="projectPageSize"
+                                :total="projectTotal"
+                                layout="prev, pager, next"
+                                class="pagination"
+                                small
+                                @current-change="handleProjectPageChange"
+                            />
+                        </div>
+                    </div>
+                </div>
+                </fade-box>
 
             </div>
         </div>
@@ -176,6 +187,7 @@ import leftPin from "@/page/home/component/leftPin/index.vue";
 import { getAllOutcomes, ResourceOutcomeSearchVO } from "@/api/home";
 import { get_all_projects } from "@/api/project";
 import { researchOutcomeLibrarySearch } from "@/api/search";
+import { setNav } from "@/nav/set";
 
 
 export default {
@@ -183,6 +195,14 @@ export default {
     components: {fadeBox, logo, homeBottom, leftPin},
     setup(){
         const router = useRouter();
+
+        // 过场动画相关数据
+        const showSplash = ref(true);
+        const splashFadingOut = ref(false);
+        const splashText = ref('');
+        const showSplashCursor = ref(true);
+        const pageContentVisible = ref(false);
+        const fullSplashText = 'Academate Platform 2025';
 
         // 项目相关数据
         const projectCurrentPage = ref(1);
@@ -338,6 +358,27 @@ export default {
             return require(`@/asset/home/${icons[randomIndex]}`);
         };
 
+        // 随机mark图标函数 - 前四种图标有更高权重
+        const getRandomMarkIcon = () => {
+            const markIcons = [
+                // 前四种图标各出现5次，大幅增加权重
+                'mark-1.png', 'mark-1.png', 'mark-1.png', 'mark-1.png', 'mark-1.png',
+                'mark-2.png', 'mark-2.png', 'mark-2.png', 'mark-2.png', 'mark-2.png',
+                'mark-3.png', 'mark-3.png', 'mark-3.png', 'mark-3.png', 'mark-3.png',
+                'mark-4.png', 'mark-4.png', 'mark-4.png', 'mark-4.png', 'mark-4.png',
+                // 后面7种图标各出现1次
+                'mark-5.png',
+                'mark-6.png',
+                'mark-7.png',
+                'mark-8.png',
+                'mark-9.png',
+                'mark-10.png',
+                'mark-11.png'
+            ];
+            const randomIndex = Math.floor(Math.random() * markIcons.length);
+            return require(`@/asset/home/${markIcons[randomIndex]}`);
+        };
+
         // 跳转到项目详情
         const goToProjectDetail = (project) => {
             router.push(`/project-detail/${project.id}`)
@@ -348,18 +389,55 @@ export default {
             router.push(`/outcome-detail/${achievement.id}`)
         }
 
+        // 过场动画打字机效果
+        const splashTypeWriter = async () => {
+            for (let i = 0; i <= fullSplashText.length; i++) {
+                splashText.value = fullSplashText.slice(0, i);
+                await new Promise(resolve => setTimeout(resolve, 45)); // 45ms每个字符，更快
+            }
+            // 打字完成后停顿
+            await new Promise(resolve => setTimeout(resolve, 150));
+            showSplashCursor.value = false;
+        };
+
+        // 过场动画序列控制
+        const startSplashSequence = async () => {
+            // 1. 隐藏导航栏
+            setNav(false);
+            
+            // 2. 开始打字机效果（约1.5秒）
+            await splashTypeWriter();
+            
+            // 3. 开始淡出过场动画
+            splashFadingOut.value = true;
+            
+            // 4. 淡出完成后显示导航栏和页面内容
+            setTimeout(() => {
+                showSplash.value = false;
+                setNav(true);
+                pageContentVisible.value = true; // 页面内容立即显示，让原有fade-box效果正常工作
+            }, 600); // 等待淡出动画完成（600ms）
+        };
+
         onMounted(async () => {
-            // 设置导航状态
-            //setNav(false);
+            // 启动过场动画序列
+            startSplashSequence();
             
-            // 加载项目数据
-            await loadProjects();
-            
-            // 加载学术成果数据
-            await loadAchievements();
+            // 立即开始预加载数据（在过场动画期间）
+            setTimeout(async () => {
+                await loadProjects();
+                await loadAchievements();
+            }, 200); // 更早开始加载数据
         });
 
         return {
+            // 过场动画相关
+            showSplash,
+            splashFadingOut,
+            splashText,
+            showSplashCursor,
+            pageContentVisible,
+            
             // 项目相关
             projects,
             projectCurrentPage,
@@ -387,6 +465,7 @@ export default {
             
             // 工具函数
             getRandomIcon,
+            getRandomMarkIcon,
             goToProjectDetail,
             goToAchievementDetail,
             formatDate
@@ -397,6 +476,52 @@ export default {
 </script>
 
 <style scoped>
+
+/* 过场动画样式 */
+.splash-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #008cff, #3b82f6); /* 深蓝色到亮蓝色渐变 */
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 1;
+    transition: opacity 0.6s ease-in-out;
+}
+
+.splash-overlay.splash-fade-out {
+    opacity: 0;
+}
+
+.splash-content {
+    text-align: center;
+}
+
+.splash-text {
+    font-family: 'Brush Script MT', cursive;
+    font-size: 48px;
+    font-weight: bold;
+    color: #000000;
+    text-shadow: 2px 2px 4px rgba(255, 255, 255, 0.3);
+    letter-spacing: 2px;
+}
+
+.splash-cursor {
+    font-weight: bold;
+    color: #000000;
+    animation: splashBlink 1s infinite;
+}
+
+@keyframes splashBlink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* 页面内容在过场动画结束后直接显示，保持原有fade-box效果 */
 
 .content-container{
     display: flex;
@@ -525,11 +650,35 @@ export default {
     background-color: #f8f9fa;
     border: 1px solid #e9ecef;
     transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.project-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: var(--mark-icon);
+    background-repeat: no-repeat;
+    background-position: bottom right;
+    background-size: 80px 80px;
+    background-blend-mode: multiply;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+    transition: background-size 0.3s ease;
 }
 
 .project-item:hover {
     background-color: #e3f2fd;
     border-color: #409eff;
+}
+
+.project-item:hover::before {
+    background-size: 85px 85px;
 }
 
 .project-item:hover .project-icon {
@@ -539,6 +688,8 @@ export default {
 
 .project-info {
     flex: 1;
+    position: relative;
+    z-index: 1;
 }
 
 .project-title-row {
@@ -616,6 +767,26 @@ export default {
     background-color: #f8f9fa;
     border: 1px solid #e9ecef;
     transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.achievement-item::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: var(--mark-icon);
+    background-repeat: no-repeat;
+    background-position: bottom right;
+    background-size: 80px 80px;
+    background-blend-mode: multiply;
+    opacity: 0.3;
+    pointer-events: none;
+    z-index: 0;
+    transition: background-size 0.3s ease;
 }
 
 .achievement-item:hover {
@@ -623,8 +794,14 @@ export default {
     border-color: #409eff;
 }
 
+.achievement-item:hover::before {
+    background-size: 85px 85px;
+}
+
 .achievement-info {
     width: 100%;
+    position: relative;
+    z-index: 1;
 }
 
 .achievement-header {

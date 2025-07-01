@@ -44,7 +44,12 @@ export default createStore({
         navOpen: false,
 
         vipSet: false,
-        chatUnreadCount: 0 // 新增：未读聊天消息数
+        chatUnreadCount: 0, // 新增：未读聊天消息数
+        
+        // 推荐内容缓存
+        recommendationList: [],
+        recommendationTimestamp: null,
+        recommendationCacheExpiration: 20 * 60 * 1000 // 20分钟缓存时间
 
     },
 
@@ -157,6 +162,20 @@ export default createStore({
             return state.chatUnreadCount
         },
 
+        // 获取推荐数据
+        getRecommendationList(state) {
+            return state.recommendationList;
+        },
+
+        // 检查推荐数据缓存是否过期
+        isRecommendationCacheExpired(state) {
+            if (!state.recommendationTimestamp) {
+                return true;
+            }
+            const now = Date.now();
+            return (now - state.recommendationTimestamp) > state.recommendationCacheExpiration;
+        },
+
     },
 
 
@@ -266,6 +285,18 @@ export default createStore({
 
         setChatUnreadCount(state, count) {
             state.chatUnreadCount = count
+        },
+
+        // 设置推荐数据和时间戳
+        setRecommendationList(state, data) {
+            state.recommendationList = data;
+            state.recommendationTimestamp = Date.now();
+        },
+
+        // 清空推荐数据缓存
+        clearRecommendationCache(state) {
+            state.recommendationList = [];
+            state.recommendationTimestamp = null;
         },
 
     },
@@ -402,6 +433,53 @@ export default createStore({
             } catch (error) {
                 //console.log('there are some errors in logout');
             }
+        },
+
+        // 获取推荐数据（带缓存逻辑）
+        async fetchRecommendations({ commit, getters, state }) {
+            try {
+                // 检查缓存是否过期
+                if (!getters.isRecommendationCacheExpired && state.recommendationList.length > 0) {
+                    console.log('使用缓存的推荐数据');
+                    return state.recommendationList;
+                }
+
+                console.log('缓存已过期或为空，重新获取推荐数据');
+
+                // 从API获取新数据
+                const response = await axios.get('/recommendation/popular', {
+                    params: {
+                        pageSize: 8,
+                        pageNum: 1
+                    }
+                });
+
+                if (response.status === 200 && response.data.code === 0) {
+                    const recommendationData = response.data.data.list || [];
+                    
+                    // 存储到 Vuex
+                    commit('setRecommendationList', recommendationData);
+                    
+                    console.log(`成功获取并缓存 ${recommendationData.length} 条推荐数据`);
+                    return recommendationData;
+                } else {
+                    console.error('获取推荐数据失败:', response.data.message);
+                    return [];
+                }
+            } catch (error) {
+                console.error('获取推荐数据错误:', error);
+                // 如果有缓存数据，即使过期也返回缓存数据作为降级方案
+                if (state.recommendationList.length > 0) {
+                    console.log('API请求失败，使用过期缓存数据作为降级方案');
+                    return state.recommendationList;
+                }
+                return [];
+            }
+        },
+
+        // 清空推荐数据缓存
+        clearRecommendationCache({ commit }) {
+            commit('clearRecommendationCache');
         },
 
 

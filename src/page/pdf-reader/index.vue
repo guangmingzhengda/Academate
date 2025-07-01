@@ -44,15 +44,11 @@
                 :pdf-document="pdfDocument"
                 :current-page="currentPage"
                 :total-pages="totalPages"
-                :scale="scale"
                 :annotation-mode="annotationMode"
                 :highlight-color="highlightColor"
                 :draw-color="drawColor"
                 :highlight-opacity="highlightOpacity"
                 :show-upload="false"
-                @zoom-in="zoomIn"
-                @zoom-out="zoomOut"
-                @reset-zoom="resetZoom"
                 @prev-page="prevPage"
                 @next-page="nextPage"
                 @set-annotation-mode="setAnnotationMode"
@@ -306,15 +302,6 @@ export default {
                     case 'End':
                         event.preventDefault()
                         scrollToPage(totalPages.value)
-                        break
-                    case '+':
-                    case '=':
-                        event.preventDefault()
-                        zoomIn()
-                        break
-                    case '-':
-                        event.preventDefault()
-                        zoomOut()
                         break
                 }
             }
@@ -1055,28 +1042,7 @@ export default {
             }
         }
 
-        // 缩放控制
-        const zoomIn = async () => {
-            if (scale.value < 4) {
-                scale.value = Math.min(scale.value + 0.2, 4)
-                await nextTick()
-                await renderCurrentPage()
-            }
-        }
 
-        const zoomOut = async () => {
-            if (scale.value > 0.3) {
-                scale.value = Math.max(scale.value - 0.2, 0.3)
-                await nextTick()
-                await renderCurrentPage()
-            }
-        }
-
-        const resetZoom = async () => {
-            scale.value = 1.3
-            await nextTick()
-            await renderCurrentPage()
-        }
 
         // 页面导航
         const nextPage = async () => {
@@ -1995,7 +1961,7 @@ export default {
             })
             
             if (erasedCount > 0) {
-                console.log(`删除了${erasedCount}个高亮`)
+                // console.log(`删除了${erasedCount}个高亮`)
             }
         }
 
@@ -2065,7 +2031,7 @@ export default {
             })
             
             if (erasedCount > 0) {
-                console.log(`删除了${erasedCount}个批注`)
+                // console.log(`删除了${erasedCount}个批注`)
             }
         }
 
@@ -2110,7 +2076,7 @@ export default {
                 ctx.clearRect(eraseArea.x, eraseArea.y, eraseArea.width, eraseArea.height)
                 // 重新保存绘制数据
                 saveDrawingData(currentPage.value)
-                console.log('清除了绘制内容')
+                // console.log('清除了绘制内容')
             }
         }
 
@@ -2172,9 +2138,6 @@ export default {
             
             // 方法
             loadOutcomeAndPDF,
-            zoomIn,
-            zoomOut,
-            resetZoom,
             nextPage,
             prevPage,
             scrollToPage,

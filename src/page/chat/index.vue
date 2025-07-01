@@ -411,21 +411,21 @@ const handleIncomingChatMessage = async (messageData) => {
     if (messageData.type !== 'chat_message') {
         return
     }
-    console.log('🔍===jinru')
+    // console.log('🔍===jinru')
     // -- 判断当前是否开启聊天区，如果开启
     if (props.visible && currentConversation.value) {
-        console.log('🔍 ChatWindow: 当前会话状态检查', {
-            chatWindowVisible: props.visible,
-            currentConversationId: currentConversation.value?.id,
-            currentConversationName: currentConversation.value?.name,
-            currentConversationUserId: currentConversation.value?.chatUserVO?.userId,
-            currentUserId: currentUserId.value,
-            messageData: {
-                senderId: messageData.senderId,
-                receiverId: messageData.receiverId,
-                messageId: messageData.messageId
-            }
-        })
+        // console.log('🔍 ChatWindow: 当前会话状态检查', {
+        //     chatWindowVisible: props.visible,
+        //     currentConversationId: currentConversation.value?.id,
+        //     currentConversationName: currentConversation.value?.name,
+        //     currentConversationUserId: currentConversation.value?.chatUserVO?.userId,
+        //     currentUserId: currentUserId.value,
+        //     messageData: {
+        //         senderId: messageData.senderId,
+        //         receiverId: messageData.receiverId,
+        //         messageId: messageData.messageId
+        //     }
+        // })
         
         // --- 提取字段，并检查是否与当前会话相关，如果相关则创建新消息对象并渲染，并设置为已读
         const senderId = Number(messageData.senderId)
@@ -441,15 +441,15 @@ const handleIncomingChatMessage = async (messageData) => {
             (senderId === currentUserIdNum && receiverId === currentConversation.value.chatUserVO.userId) ||
             (receiverId === currentUserIdNum && senderId === currentConversation.value.chatUserVO.userId)
         
-        console.log('🔍 ChatWindow: 消息相关性判断', {
-            senderId,
-            receiverId,
-            currentUserIdNum,
-            currentConversationUserId: currentConversation.value.chatUserVO.userId,
-            condition1: senderId === currentUserIdNum && receiverId === currentConversation.value.chatUserVO.userId,
-            condition2: receiverId === currentUserIdNum && senderId === currentConversation.value.chatUserVO.userId,
-            isRelatedToCurrentConversation
-        })
+        // console.log('🔍 ChatWindow: 消息相关性判断', {
+        //     senderId,
+        //     receiverId,
+        //     currentUserIdNum,
+        //     currentConversationUserId: currentConversation.value.chatUserVO.userId,
+        //     condition1: senderId === currentUserIdNum && receiverId === currentConversation.value.chatUserVO.userId,
+        //     condition2: receiverId === currentUserIdNum && senderId === currentConversation.value.chatUserVO.userId,
+        //     isRelatedToCurrentConversation
+        // })
         
         if (isRelatedToCurrentConversation) {
             // 创建新消息对象
@@ -474,29 +474,29 @@ const handleIncomingChatMessage = async (messageData) => {
             
             // 调用API标记为已读
             if (typeof messageId === 'number' && !newMessage.isMine) {
-                console.log('🔍 ChatWindow: 开始标记单条消息为已读——处理当前会话时（对方发送）', {
-                    messageId,
-                    senderId,
-                    receiverId,
-                    content: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
-                    currentConversationId: currentConversation.value?.id,
-                    currentConversationName: currentConversation.value?.name,
-                    isMine: newMessage.isMine
-                })
+                // console.log('🔍 ChatWindow: 开始标记单条消息为已读——处理当前会话时（对方发送）', {
+                //     messageId,
+                //     senderId,
+                //     receiverId,
+                //     content: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+                //     currentConversationId: currentConversation.value?.id,
+                //     currentConversationName: currentConversation.value?.name,
+                //     isMine: newMessage.isMine
+                // })
                 
                 try {
                     const markSuccess = await markAsRead({ messageIds: [messageId] })
-                    console.log('✅ ChatWindow: 标记单条消息为已读结果', {
-                        messageId,
-                        success: markSuccess,
-                        timestamp: new Date().toISOString()
-                    })
+                    // console.log('✅ ChatWindow: 标记单条消息为已读结果', {
+                    //     messageId,
+                    //     success: markSuccess,
+                    //     timestamp: new Date().toISOString()
+                    // })
                     
                     if (markSuccess) {
-                        console.log('🔄 ChatWindow: 标记成功，开始重新获取会话列表')
+                        // console.log('🔄 ChatWindow: 标记成功，开始重新获取会话列表')
                         // 标记已读成功后，重新获取会话列表（会自动发送未读数量更新）
                         await fetchConversations()
-                        console.log('✅ ChatWindow: 会话列表重新获取完成')
+                        // console.log('✅ ChatWindow: 会话列表重新获取完成')
                     } else {
                         console.error('❌ ChatWindow: 标记单条消息为已读失败', {
                             messageId,
@@ -511,15 +511,15 @@ const handleIncomingChatMessage = async (messageData) => {
                     })
                 }
             } else if (typeof messageId === 'number' && newMessage.isMine) {
-                console.log('ℹ️ ChatWindow: 跳过标记已读，这是自己发送的消息', {
-                    messageId,
-                    isMine: newMessage.isMine
-                })
+                // console.log('ℹ️ ChatWindow: 跳过标记已读，这是自己发送的消息', {
+                //     messageId,
+                //     isMine: newMessage.isMine
+                // })
             } else {
-                console.log('⚠️ ChatWindow: 跳过标记已读，消息ID不是数字类型', {
-                    messageId,
-                    messageIdType: typeof messageId
-                })
+                // console.log('⚠️ ChatWindow: 跳过标记已读，消息ID不是数字类型', {
+                //     messageId,
+                //     messageIdType: typeof messageId
+                // })
             }
             
             // 滚动到底部
@@ -529,9 +529,9 @@ const handleIncomingChatMessage = async (messageData) => {
         } else {
             // 消息与当前会话无关，只更新会话列表以显示新消息
             try {
-                console.log('🔍 ChatWindow: 消息与当前会话无关，更新会话列表以显示新消息')
+                // console.log('🔍 ChatWindow: 消息与当前会话无关，更新会话列表以显示新消息')
                 await fetchConversations()
-                console.log('✅ ChatWindow: 消息与当前会话无关，会话列表已更新')
+                // console.log('✅ ChatWindow: 消息与当前会话无关，会话列表已更新')
             } catch (error) {
                 console.error('❌ ChatWindow: 更新会话列表信息失败:', error)
             }
@@ -539,24 +539,24 @@ const handleIncomingChatMessage = async (messageData) => {
         
         // --- 调用获取会话列表接口，渲染会话列表（无论消息是否相关都要更新）
         try {
-            console.log('🔄 ChatWindow: 开始重新获取会话列表')
+            // console.log('🔄 ChatWindow: 开始重新获取会话列表')
             await fetchConversations()
             
             // 如果当前有选中的会话，更新其引用（保持消息列表不变）
             if (currentConversation.value) {
-                console.log('🔍 ChatWindow: 开始更新当前会话引用', {
-                    currentConversationId: currentConversation.value.id,
-                    currentConversationName: currentConversation.value.name,
-                    currentMessagesCount: currentConversation.value.messages.length
-                })
+                // console.log('🔍 ChatWindow: 开始更新当前会话引用', {
+                //     currentConversationId: currentConversation.value.id,
+                //     currentConversationName: currentConversation.value.name,
+                //     currentMessagesCount: currentConversation.value.messages.length
+                // })
                 
                 const updatedConversation = conversations.value.find(conv => conv.id === currentConversation.value.id)
                 if (updatedConversation) {
-                    console.log('✅ ChatWindow: 找到更新的会话', {
-                        updatedConversationId: updatedConversation.id,
-                        updatedConversationName: updatedConversation.name,
-                        updatedUnreadCount: updatedConversation.unreadCount
-                    })
+                    // console.log('✅ ChatWindow: 找到更新的会话', {
+                    //     updatedConversationId: updatedConversation.id,
+                    //     updatedConversationName: updatedConversation.name,
+                    //     updatedUnreadCount: updatedConversation.unreadCount
+                    // })
                     
                     // 只更新会话的基本信息，保留当前的消息列表
                     const currentMessages = currentConversation.value.messages
@@ -565,29 +565,29 @@ const handleIncomingChatMessage = async (messageData) => {
                         messages: currentMessages // 保持当前的消息列表不变
                     }
                     
-                    console.log('✅ ChatWindow: 当前会话已更新', {
-                        finalConversationId: currentConversation.value.id,
-                        finalConversationName: currentConversation.value.name,
-                        finalMessagesCount: currentConversation.value.messages.length,
-                        finalUnreadCount: currentConversation.value.unreadCount
-                    })
+                    // console.log('✅ ChatWindow: 当前会话已更新', {
+                    //     finalConversationId: currentConversation.value.id,
+                    //     finalConversationName: currentConversation.value.name,
+                    //     finalMessagesCount: currentConversation.value.messages.length,
+                    //     finalUnreadCount: currentConversation.value.unreadCount
+                    // })
                     
                     // 同时更新会话列表中的对应会话
                     const conversationIndex = conversations.value.findIndex(conv => conv.id === currentConversation.value.id)
                     if (conversationIndex !== -1) {
                         conversations.value[conversationIndex] = { ...currentConversation.value }
-                        console.log('✅ ChatWindow: 会话列表中的对应会话已更新', {
-                            conversationIndex,
-                            updatedInList: true
-                        })
+                        // console.log('✅ ChatWindow: 会话列表中的对应会话已更新', {
+                        //     conversationIndex,
+                        //     updatedInList: true
+                        // })
                     }
                 } else {
-                    console.warn('⚠️ ChatWindow: 未找到对应的更新会话', {
-                        currentConversationId: currentConversation.value.id
-                    })
+                    // console.warn('⚠️ ChatWindow: 未找到对应的更新会话', {
+                    //     currentConversationId: currentConversation.value.id
+                    // })
                 }
             } else {
-                console.log('ℹ️ ChatWindow: 当前没有选中的会话，跳过更新')
+                // console.log('ℹ️ ChatWindow: 当前没有选中的会话，跳过更新')
             }
         } catch (error) {
             console.error('❌ ChatWindow: 更新会话列表信息失败:', error)
@@ -728,7 +728,7 @@ const toggleFullscreen = () => {
 const closeChat = () => {
     // 清空当前会话
     currentConversation.value = null
-    console.log('🔍 ChatWindow: 关闭聊天窗口，清空当前会话')
+    // console.log('🔍 ChatWindow: 关闭聊天窗口，清空当前会话')
     
     // 触发关闭事件
     emit('close')
@@ -802,22 +802,22 @@ const selectFriend = async (friend) => {
 }
 
 const selectConversation = async (conversation) => {
-    console.log('🔍 ChatWindow: 开始选择会话', {
-        conversationId: conversation.id,
-        conversationName: conversation.name,
-        conversationUserId: conversation.chatUserVO?.userId,
-        currentUserId: currentUserId.value,
-        previousConversationId: currentConversation.value?.id,
-        previousConversationName: currentConversation.value?.name
-    })
+    // console.log('🔍 ChatWindow: 开始选择会话', {
+    //     conversationId: conversation.id,
+    //     conversationName: conversation.name,
+    //     conversationUserId: conversation.chatUserVO?.userId,
+    //     currentUserId: currentUserId.value,
+    //     previousConversationId: currentConversation.value?.id,
+    //     previousConversationName: currentConversation.value?.name
+    // })
     
     currentConversation.value = conversation
     
-    console.log('✅ ChatWindow: 当前会话已设置', {
-        newConversationId: currentConversation.value.id,
-        newConversationName: currentConversation.value.name,
-        newConversationUserId: currentConversation.value.chatUserVO?.userId
-    })
+    // console.log('✅ ChatWindow: 当前会话已设置', {
+    //     newConversationId: currentConversation.value.id,
+    //     newConversationName: currentConversation.value.name,
+    //     newConversationUserId: currentConversation.value.chatUserVO?.userId
+    // })
     
     // 初始化状态记录
     previousConversationStatus.value = conversation.status
@@ -842,41 +842,41 @@ const selectConversation = async (conversation) => {
                 const unreadMessages = messages.filter(msg => !msg.read && typeof msg.id === 'number' && !msg.isMine)
                 if (unreadMessages.length > 0) {
                     const messageIds = unreadMessages.map(msg => msg.id)
-                    console.log('🔍 ChatWindow: 开始批量标记消息为已读——打开会话时（对方发送）', {
-                        conversationId: conversation.id,
-                        conversationName: conversation.name,
-                        messageIds,
-                        unreadCount: unreadMessages.length,
-                        messages: unreadMessages.map(msg => ({
-                            id: msg.id,
-                            content: msg.content.substring(0, 30) + (msg.content.length > 30 ? '...' : ''),
-                            isMine: msg.isMine
-                        }))
-                    })
+                    // console.log('🔍 ChatWindow: 开始批量标记消息为已读——打开会话时（对方发送）', {
+                    //     conversationId: conversation.id,
+                    //     conversationName: conversation.name,
+                    //     messageIds,
+                    //     unreadCount: unreadMessages.length,
+                    //     messages: unreadMessages.map(msg => ({
+                    //         id: msg.id,
+                    //         content: msg.content.substring(0, 30) + (msg.content.length > 30 ? '...' : ''),
+                    //         isMine: msg.isMine
+                    //     }))
+                    // })
                     
                     const markSuccess = await markAsRead({ messageIds })
-                    console.log('✅ ChatWindow: 批量标记消息为已读结果', {
-                        conversationId: conversation.id,
-                        messageIds,
-                        success: markSuccess,
-                        timestamp: new Date().toISOString()
-                    })
+                    // console.log('✅ ChatWindow: 批量标记消息为已读结果', {
+                    //     conversationId: conversation.id,
+                    //     messageIds,
+                    //     success: markSuccess,
+                    //     timestamp: new Date().toISOString()
+                    // })
                     
                     if (markSuccess) {
-                        console.log('🔄 ChatWindow: 批量标记成功，开始重新获取会话列表')
+                        // console.log('🔄 ChatWindow: 批量标记成功，开始重新获取会话列表')
                         // 重新获取会话列表以更新未读计数（会自动发送未读数量更新）
                         await fetchConversations()
-                        console.log('✅ ChatWindow: 会话列表重新获取完成')
+                        // console.log('✅ ChatWindow: 会话列表重新获取完成')
                         
                         // 更新当前会话的未读计数
                         const refreshedConversation = conversations.value.find(conv => conv.id === conversation.id)
                         if (refreshedConversation) {
                             conversation.unreadCount = refreshedConversation.unreadCount
-                            console.log('📊 ChatWindow: 更新当前会话未读计数', {
-                                conversationId: conversation.id,
-                                oldUnreadCount: unreadMessages.length,
-                                newUnreadCount: conversation.unreadCount
-                            })
+                            // console.log('📊 ChatWindow: 更新当前会话未读计数', {
+                            //     conversationId: conversation.id,
+                            //     oldUnreadCount: unreadMessages.length,
+                            //     newUnreadCount: conversation.unreadCount
+                            // })
                         }
                     } else {
                         console.error('❌ ChatWindow: 批量标记消息为已读失败', {
@@ -886,13 +886,13 @@ const selectConversation = async (conversation) => {
                         })
                     }
                 } else {
-                    console.log('ℹ️ ChatWindow: 会话内没有对方发送的未读消息，无需标记', {
-                        conversationId: conversation.id,
-                        conversationName: conversation.name,
-                        totalMessages: messages.length,
-                        totalUnreadMessages: messages.filter(msg => !msg.read && typeof msg.id === 'number').length,
-                        unreadMessagesFromOthers: messages.filter(msg => !msg.read && typeof msg.id === 'number' && !msg.isMine).length
-                    })
+                    // console.log('ℹ️ ChatWindow: 会话内没有对方发送的未读消息，无需标记', {
+                    //     conversationId: conversation.id,
+                    //     conversationName: conversation.name,
+                    //     totalMessages: messages.length,
+                    //     totalUnreadMessages: messages.filter(msg => !msg.read && typeof msg.id === 'number').length,
+                    //     unreadMessagesFromOthers: messages.filter(msg => !msg.read && typeof msg.id === 'number' && !msg.isMine).length
+                    // })
                 }
             }
         } catch (error) {
@@ -1001,7 +1001,7 @@ const fetchConversations = async () => {
     try {
         const conversationList = await listConversations()
         
-        console.log('🔍 fetchConversations: 原始会话列表数据', conversationList)
+        // console.log('🔍 fetchConversations: 原始会话列表数据', conversationList)
         
         if (conversationList && conversationList.length > 0) {
             // 转换会话数据格式，使用接口返回的新字段
@@ -1020,25 +1020,25 @@ const fetchConversations = async () => {
                 updatedAt: conv.updatedAt
             }))
             
-            console.log('🔍 fetchConversations: 转换后的会话数据', convertedConversations.map(conv => ({
-                id: conv.id,
-                name: conv.name,
-                unreadCount: conv.unreadCount
-            })))
+            // console.log('🔍 fetchConversations: 转换后的会话数据', convertedConversations.map(conv => ({
+            //     id: conv.id,
+            //     name: conv.name,
+            //     unreadCount: conv.unreadCount
+            // })))
             
             conversations.value = convertedConversations
             
             // 直接计算总未读数量，不依赖computed属性
             const calculatedUnreadCount = convertedConversations.reduce((total, conv) => total + (conv.unreadCount || 0), 0)
             
-            console.log('🔍 fetchConversations: 直接计算总未读数量', {
-                conversationsLength: convertedConversations.length,
-                conversationsUnreadCounts: convertedConversations.map(conv => conv.unreadCount),
-                calculatedUnreadCount: calculatedUnreadCount
-            })
+            // console.log('🔍 fetchConversations: 直接计算总未读数量', {
+            //     conversationsLength: convertedConversations.length,
+            //     conversationsUnreadCounts: convertedConversations.map(conv => conv.unreadCount),
+            //     calculatedUnreadCount: calculatedUnreadCount
+            // })
             
             emit('unread-count-update', calculatedUnreadCount)
-            console.log('已成功向父组件发送',calculatedUnreadCount)
+            // console.log('已成功向父组件发送',calculatedUnreadCount)
         } else {
             conversations.value = []
             emit('unread-count-update', 0)
@@ -1057,13 +1057,13 @@ watch(() => props.visible, (newVisible, oldVisible) => {
     if (!newVisible && oldVisible) {
         // 聊天窗口从显示变为隐藏时，清空当前会话
         currentConversation.value = null
-        console.log('🔍 ChatWindow: 聊天窗口隐藏，清空当前会话')
+        // console.log('🔍 ChatWindow: 聊天窗口隐藏，清空当前会话')
     }
 })
 
 // 生命周期
 onMounted(async () => {
-    console.log('ChatWindow组件挂载')
+    // console.log('ChatWindow组件挂载')
     
     // 监听聊天消息事件
     window.addEventListener('chatMessageReceived', (event) => {
@@ -1121,7 +1121,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-    console.log('ChatWindow组件卸载')
+    // console.log('ChatWindow组件卸载')
     
     // 清理事件监听
     document.removeEventListener('mousemove', onDrag)
@@ -1177,7 +1177,7 @@ const reconnectWebSocket = () => {
         return
     }
     
-    console.log('用户手动点击重连WebSocket')
+    // console.log('用户手动点击重连WebSocket')
     
     // 检查是否已经有连接，避免重复连接
     if (websocketManager.isConnected()) {
