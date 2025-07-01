@@ -14,13 +14,36 @@
                                 <div class="header-container">
                                     <div class="title-section">
                                         <div class="header-title">{{ questionData.questionTitle }}</div>
-                                        <!-- 问题点赞按钮 -->
-                                        <div class="question-like-section">
+                                        <!-- 问题操作按钮区域 -->
+                                        <div class="question-action-section">
+                                            <!-- 关注问题按钮 -->
+                                            <el-button 
+                                                size="small" 
+                                                :type="isFollowed ? 'success' : 'info'"
+                                                @click="toggleFollow"
+                                                :loading="followLoading"
+                                                class="follow-button"
+                                            >
+                                                <i class="el-icon" v-if="isFollowed">
+                                                    <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" data-v-029747aa="">
+                                                        <path fill="currentColor" d="M406.656 706.944 195.84 496.256a32 32 0 1 0-45.248 45.248l256 256 512-512a32 32 0 0 0-45.248-45.248L406.592 706.944z"></path>
+                                                    </svg>
+                                                </i>
+                                                <i class="el-icon" v-else>
+                                                    <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" data-v-029747aa="">
+                                                        <path fill="currentColor" d="M512 64a448 448 0 1 1 0 896 448 448 0 0 1 0-896zm-38.4 409.6H326.4a38.4 38.4 0 1 0 0 76.8h147.2v147.2a38.4 38.4 0 0 0 76.8 0V550.4h147.2a38.4 38.4 0 0 0 0-76.8H550.4V326.4a38.4 38.4 0 1 0-76.8 0v147.2z"></path>
+                                                    </svg>
+                                                </i>
+                                                {{ isFollowed ? '已关注' : '关注问题' }}
+                                            </el-button>
+                                            
+                                            <!-- 问题点赞按钮 -->
                                             <el-button 
                                                 size="small" 
                                                 :type="questionLiked ? 'danger' : 'default'"
                                                 @click="handleQuestionLike"
                                                 :loading="questionLikeLoading"
+                                                class="like-button"
                                             >
                                                 {{ questionLiked ? '❤️ 已点赞' : '🤍 点赞' }} ({{ questionLikeCount }})
                                             </el-button>
@@ -326,7 +349,7 @@
 import ProblemSideComponent from "./side-component/index.vue";
 import { defineComponent, ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer, deleteAnswer, updateAnswer, AnswerUpdateRequest, likeQuestion, cancelLikeQuestion, getQuestionLikeCount, isQuestionLiked } from "@/api/question";
+import { getQuestionDetail, createAnswer, likeAnswer, cancelLikeAnswer, getAnswerLikeCount, acceptAnswer, deleteAnswer, updateAnswer, AnswerUpdateRequest, likeQuestion, cancelLikeQuestion, getQuestionLikeCount, isQuestionLiked, followQuestion, cancelFollowQuestion, isQuestionFollowed } from "@/api/question";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { 
     Thumb, 
@@ -382,6 +405,10 @@ export default defineComponent({
         const questionLikeCount = ref(0);
         const questionLikeLoading = ref(false);
         
+        // 问题关注相关
+        const isFollowed = ref(false);
+        const followLoading = ref(false);
+        
         // 判断是否是当前用户的回答
         const isCurrentUserAnswer = (answer) => {
             return currentUserId.value && answer.userId === currentUserId.value;
@@ -411,6 +438,9 @@ export default defineComponent({
                         
                         // 加载问题点赞状态
                         await loadQuestionLikeStatus();
+                        
+                        // 加载问题关注状态
+                        await checkFollowStatus();
                     } else {
                         questionData.value = null;
                         // 不再显示弹窗提示，只保留页面内的提示
@@ -437,6 +467,59 @@ export default defineComponent({
                 }, 3000);
             } finally {
                 loading.value = false;
+            }
+        };
+        
+        // 检查关注状态
+        const checkFollowStatus = async () => {
+            const userId = store.getters.getId;
+            if (!userId || !questionId.value) return;
+            
+            try {
+                const followed = await isQuestionFollowed(userId, questionId.value);
+                isFollowed.value = followed;
+            } catch (error) {
+                // console.error('获取关注状态失败:', error);
+            }
+        };
+        
+        // 切换关注状态
+        const toggleFollow = async () => {
+            const userId = store.getters.getId;
+            if (!userId) {
+                ElMessage.warning('请先登录后再关注问题');
+                return;
+            }
+            
+            if (!questionId.value) {
+                ElMessage.warning('问题ID不存在');
+                return;
+            }
+            
+            try {
+                followLoading.value = true;
+                let success = false;
+                
+                if (isFollowed.value) {
+                    // 取消关注
+                    success = await cancelFollowQuestion(userId, questionId.value);
+                    if (success) {
+                        isFollowed.value = false;
+                        ElMessage.success('已取消关注');
+                    }
+                } else {
+                    // 关注问题
+                    success = await followQuestion(userId, questionId.value);
+                    if (success) {
+                        isFollowed.value = true;
+                        ElMessage.success('已关注问题');
+                    }
+                }
+            } catch (error) {
+                // console.error('关注操作失败:', error);
+                ElMessage.error('操作失败，请稍后重试');
+            } finally {
+                followLoading.value = false;
             }
         };
         
@@ -765,7 +848,11 @@ export default defineComponent({
             questionLikeCount,
             questionLikeLoading,
             handleQuestionLike,
-            // 新增
+            // 问题关注相关
+            isFollowed,
+            followLoading,
+            toggleFollow,
+            // 其他
             goToHome
         };
     }
@@ -837,8 +924,8 @@ export default defineComponent({
 
 .title-section {
     display: flex;
-    justify-content: flex-start;
-    align-items: center;
+    justify-content: space-between;
+    align-items: flex-start;
     margin-bottom: 16px;
     gap: 12px;
 }
@@ -849,17 +936,43 @@ export default defineComponent({
     line-height: 1.3;
     color: #2c3e50;
     text-align: left;
+    flex: 1;
+}
+
+.question-action-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.follow-button {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.follow-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.like-button {
+    border-radius: 20px;
+    transition: all 0.3s ease;
+}
+
+.like-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .info-container {
     margin-bottom: 20px;
     text-align: left;
-}
-
-.question-like-section {
-    flex-shrink: 0;
-    display: flex;
-    align-items: flex-start;
 }
 
 .detail-info {
@@ -894,6 +1007,11 @@ export default defineComponent({
     border-radius: 6px;
     border-left: 4px solid #409eff;
     text-align: left;
+}
+
+.el-icon {
+    margin-right: 4px;
+    font-size: 16px;
 }
 
 .side-container {

@@ -566,4 +566,31 @@ export async function isQuestionLiked(uid: number, questionId: number): Promise<
     // console.error("检查问题点赞状态失败:", error);
     return false;
   }
+}
+
+/**
+ * 检查是否关注该问题
+ * @param uid 用户ID
+ * @param questionId 问题ID
+ * @returns 是否已关注
+ */
+export async function isQuestionFollowed(uid: number, questionId: number): Promise<boolean> {
+  try {
+    const response = await axios.post<{ code: number; data: boolean; message: string }>('/question/follow/is_follow', null, {
+      params: { uid, questionId },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+    });
+    
+    if (response.status === 200 && response.data.code === 0) {
+      return response.data.data;
+    } else {
+      // console.error("检查问题关注状态失败:", response.data.message);
+      return false;
+    }
+  } catch (error) {
+    // console.error("检查问题关注状态失败:", error);
+    return false;
+  }
 } 

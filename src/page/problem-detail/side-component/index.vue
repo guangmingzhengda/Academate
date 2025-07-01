@@ -70,10 +70,11 @@
 </template>
 
 <script lang="js">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { getQuestionDetail } from '@/api/question';
 import { Check } from '@element-plus/icons-vue';
+import store from '@/store';
 
 export default {
     name: "ProblemSideComponent",
@@ -166,8 +167,17 @@ export default {
             }
         };
         
+        // 监听问题ID变化
+        watch(() => props.questionId, () => {
+            if (props.questionId) {
+                fetchQuestionDetail();
+            }
+        });
+        
         // 页面加载时获取数据
-        fetchQuestionDetail();
+        onMounted(() => {
+            fetchQuestionDetail();
+        });
         
         // 格式化日期
         const formatDate = (dateStr) => {
