@@ -640,12 +640,25 @@ export default {
         const duplicateTipVisible = ref(false)
         const duplicateTipText = ref('')
         const forceAddMode = ref(false)
+        const duplicateOutcomeId = ref(null)
 
         // 保存成果
         const saveAchievement = async () => {
             if (saveLoading.value) return // 防止重复提交
             try {
                 saveLoading.value = true // 开始加载
+                // forceAddMode下，直接调用autoAddResearchOutcomes
+                if (forceAddMode.value && duplicateOutcomeId.value) {
+                    const res = await autoAddResearchOutcomes([duplicateOutcomeId.value])
+                    if (res && res.code === 0) {
+                        callSuccess('添加成功')
+                        emit('refresh')
+                        closeDialog()
+                    } else {
+                        callError(res?.message || '添加失败')
+                    }
+                    return
+                }
                 await formRef.value.validate()
                 // 检查数据完整性
                 if (!checkDataIntegrity(formData.value)) {
@@ -715,6 +728,7 @@ export default {
                                 formData.value[key] = res.data[key]
                             }
                         })
+                        duplicateOutcomeId.value = res.data.outcomeId || res.data.id || null
                     }
                 } else if (res && res.code === 50000) {
                     closeDialog()
@@ -738,6 +752,7 @@ export default {
             duplicateTipVisible.value = false
             duplicateTipText.value = ''
             forceAddMode.value = false
+            duplicateOutcomeId.value = null
         }
 
         // 分页处理
@@ -1161,7 +1176,8 @@ export default {
             isFormDisabled,
             duplicateTipVisible,
             duplicateTipText,
-            forceAddMode
+            forceAddMode,
+            duplicateOutcomeId
         }
     }
 }
