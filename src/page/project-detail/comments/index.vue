@@ -205,7 +205,7 @@ export default {
             try {
                 loading.value = true;
                 const result = await getProjectComments(projectId.value);
-                console.log("获取评论结果:", result);
+                // console.log("获取评论结果:", result);
                 
                 if (result && result.code === 0 && result.data) {
                     // 添加额外的字段以支持交互

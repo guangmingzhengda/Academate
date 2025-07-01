@@ -275,7 +275,7 @@ export async function uploadResearchFile(outcomeId: number, file: File): Promise
     });
     
     if (response.status === 200 && response.data.code === 0) {
-      callSuccess("文件上传成功");
+      // callSuccess("文件上传成功");
       return response.data.data;
     } else {
       callError("文件上传失败: " + (response.data.message || "未知错误"));

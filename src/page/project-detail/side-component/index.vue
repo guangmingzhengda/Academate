@@ -152,7 +152,7 @@ export default defineComponent({
 
         // 调试信息
         watch(() => props.work?.projectDetail?.isPublic, (newValue) => {
-            console.log("侧边栏组件接收到的项目可见性:", newValue);
+            // console.log("侧边栏组件接收到的项目可见性:", newValue);
         }, { immediate: true });
 
         const goToUserProfile = (userId) => {
@@ -171,7 +171,7 @@ export default defineComponent({
             
             visibilityLoading.value = true;
             try {
-                console.log("尝试更新项目可见性为:", value);
+                // console.log("尝试更新项目可见性为:", value);
                 const success = await updateProjectVisibility(
                     props.work.projectDetail.projectId,
                     value
@@ -180,9 +180,9 @@ export default defineComponent({
                 if (success) {
                     // 通知父组件可见性已更改
                     emit('visibility-changed', value);
-                    console.log("项目可见性更新成功:", value);
+                    // console.log("项目可见性更新成功:", value);
                 } else {
-                    console.log("项目可见性更新失败");
+                    // console.log("项目可见性更新失败");
                 }
             } catch (error) {
                 console.error('更新项目可见性出错:', error);

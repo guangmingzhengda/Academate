@@ -45,7 +45,6 @@ import navigator from "@/nav/index.vue";
 import {computed, ref, onMounted, onUnmounted, watch} from "vue";
 import store from "@/store";
 import {callError, callInfo} from "@/call";
-import TestAI from "@/page/achievement-detail/testAI/index.vue";
 import MessageSidebar from "@/components/MessageSidebar.vue";
 import ChatWindow from "@/page/chat/index.vue";
 import { ChatLineRound, ChatDotRound } from '@element-plus/icons-vue';
@@ -53,7 +52,7 @@ import websocketManager from '@/utils/websocketManager';
 
 export default {
     name: 'App',
-    components: {TestAI, navigator, MessageSidebar, ChatWindow},
+    components: {navigator, MessageSidebar, ChatWindow},
     setup() {
         const navOpen = computed(() => store.state.navOpen);
         const tokenSet = computed(() => store.state.token);

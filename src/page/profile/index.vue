@@ -185,7 +185,12 @@
                             <!-- 项目/学术成果 -->
                             <div v-if="activeTab === 'projects'" class="tab-panel">
                                 <project-manager :user-id="userId" :is-own-profile="isOwnProfile" />
-                                <achievement-manager :research-outcomes="userInfo.research.researchOutcomes" @refresh="fetchUserDetail" :is-own-profile="isOwnProfile" />
+                                <achievement-manager 
+                                    :research-outcomes="userInfo.research.researchOutcomes" 
+                                    @refresh="fetchUserDetail" 
+                                    @update:paperCount="updatePaperCount"
+                                    :is-own-profile="isOwnProfile" 
+                                />
                             </div>
                             
                             <!-- 关注列表 -->
@@ -275,7 +280,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, provide } from 'vue'
 import { Camera, Edit, Plus, Check } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 import editDialog from './components/editDialog/index.vue'
@@ -330,6 +335,9 @@ export default {
                 researchOutcomes: []
             }
         })
+        
+        // 提供userInfo给子组件使用
+        provide('userInfo', userInfo)
 
         // 判断是否是当前登录用户的页面
         const isOwnProfile = computed(() => {
@@ -400,8 +408,10 @@ export default {
             editData.value = {}
             // 重置编辑资料对话框状态
             editProfileDialogVisible.value = false
-            // 滚动到页面顶部
-            window.scrollTo({ top: 0, behavior: 'smooth' })
+            // 只在首次加载或切换用户时滚动到页面顶部
+            if (!userInfo.value.name) {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
             
             try {
                 const userDetail = await get_user_detail({ userId: parseInt(userId) })
@@ -857,6 +867,14 @@ export default {
             }
         });
 
+        // 直接更新成果数量
+        const updatePaperCount = (newCount) => {
+            if (userInfo.value && userInfo.value.research) {
+                userInfo.value.research.paperCount = newCount;
+                console.log('父组件更新成果数量：', newCount);
+            }
+        };
+
         return {
             userInfo,
             loading,
@@ -888,7 +906,8 @@ export default {
             profileWordCount,
             onProfileInput,
             editProfileFormRef,
-            editProfileRules
+            editProfileRules,
+            updatePaperCount
         }
     }
 }
