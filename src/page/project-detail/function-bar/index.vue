@@ -378,17 +378,17 @@ export default {
                 
                 const title = props.work?.projectDetail?.title || '';
                 
-                console.log(projectId, userId, title);
+                // console.log(projectId, userId, title);
                 
                 const result = await applyJoinProject({
                     applicant: userId,
                     projectId: Number(projectId),
                     title: title
                 });
-                console.log(result);
+                // console.log(result);
                 if (result && result.code === 0) {
                     // 申请成功的消息已在API中显示
-                    console.log('申请加入项目成功');
+                    // console.log('申请加入项目成功');
                     loginVisible.value = false;
                 }
             } catch (error) {
