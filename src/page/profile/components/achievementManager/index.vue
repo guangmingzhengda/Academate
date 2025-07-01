@@ -363,7 +363,7 @@
 </template>
 
 <script>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, inject } from 'vue'
 import { Plus, Edit, Delete, Upload, UploadFilled, Search, DocumentAdd, Document, Download } from '@element-plus/icons-vue'
 import { callSuccess, callWarning, callInfo, callError } from '@/call'
 import { ElMessageBox } from 'element-plus'
@@ -385,9 +385,12 @@ export default {
             default: false
         }
     },
-    emits: ['refresh'],
+    emits: ['refresh', 'update:paperCount'],
     setup(props, { emit }) {
         const router = useRouter()
+        
+        // 获取父组件的userInfo引用（注意：父组件提供的是ref对象）
+        const userInfo = inject('userInfo', null)
         
         // 分页相关
         const currentPage = ref(1)
@@ -676,11 +679,25 @@ export default {
                     }
                     achievements.value.unshift(newAchievement)
                     callSuccess('添加成功')
+                    
+                    // 安全地更新本地成果数量并确保响应式更新
+                    if (userInfo && userInfo.value && userInfo.value.research) {
+                        const newCount = (userInfo.value.research.paperCount || 0) + 1
+                        userInfo.value.research = {
+                            ...userInfo.value.research,
+                            paperCount: newCount
+                        }
+                        console.log('手动添加后更新成果数量：', userInfo.value.research.paperCount)
+                        
+                        // 直接触发父组件刷新数据
+                        emit('update:paperCount', newCount)
+                    }
+                    
+                    closeDialog()
                 } else {
                     callError(res?.message || '添加失败')
                     return
                 }
-                closeDialog()
             } catch {
                 callWarning('请填写完整信息')
             } finally {
@@ -899,6 +916,19 @@ export default {
                         failCount++
                     }
                 }
+                // 安全地更新本地成果数量并确保响应式更新
+                if (userInfo && userInfo.value && userInfo.value.research && successCount > 0) {
+                    const newCount = (userInfo.value.research.paperCount || 0) + successCount
+                    userInfo.value.research = {
+                        ...userInfo.value.research,
+                        paperCount: newCount
+                    }
+                    console.log('Excel导入后更新成果数量：', userInfo.value.research.paperCount)
+                    
+                    // 直接触发父组件刷新数据
+                    emit('update:paperCount', newCount)
+                }
+                
                 callSuccess(`批量导入完成，成功${successCount}条，失败${failCount}条`)
                 emit('refresh')
             } catch {
@@ -971,6 +1001,19 @@ export default {
                     // 如果成功数量小于选择数量，显示警告
                     if (successCount < selectedCount) {
                         callWarning('未添加成功的成果作者不包含当前用户')
+                    }
+                    
+                    // 安全地更新本地成果数量并确保响应式更新
+                    if (userInfo && userInfo.value && userInfo.value.research && successCount > 0) {
+                        const newCount = (userInfo.value.research.paperCount || 0) + successCount
+                        userInfo.value.research = {
+                            ...userInfo.value.research,
+                            paperCount: newCount
+                        }
+                        console.log('从库中选择后更新成果数量：', userInfo.value.research.paperCount)
+                        
+                        // 直接触发父组件刷新数据
+                        emit('update:paperCount', newCount)
                     }
                     
                     // 关闭对话框
