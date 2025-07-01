@@ -73,14 +73,14 @@ export async function getAllOutcomes(pageNum: number = 1, pageSize: number = 5):
 /**
  * 获取热门推荐
  * 根据prompt.md实现
- * 接口地址：/api/recommendation/popular
+ * 接口地址：/api/recommendation/for-user
  * 请求方式：GET
  */
 export async function getPopularRecommendations(pageNum: number = 1, pageSize: number = 8): Promise<PageResultResourceOutcomeSearchVO | null> {
     try {
         console.log(`开始获取热门推荐: pageNum=${pageNum}, pageSize=${pageSize}`);
         
-        const response = await axios.get<BaseResponsePageResultResourceOutcomeSearchVO>('/recommendation/popular', {
+        const response = await axios.get<BaseResponsePageResultResourceOutcomeSearchVO>('/recommendation/for-user', {
             params: {
                 pageSize: pageSize,
                 pageNum: pageNum

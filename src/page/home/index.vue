@@ -275,7 +275,8 @@ export default {
                         startDate: item.startDate,
                         status: item.status
                     }));
-                    projectTotal.value = publicProjects.length;
+                    // 使用API返回的总数量，而不是当前页过滤后的数量
+                    projectTotal.value = result.total || result.size || 0;
                     console.log(`成功加载 ${projects.value.length} 条公开项目数据，总计 ${projectTotal.value} 条`);
                 } else {
                     projects.value = [];

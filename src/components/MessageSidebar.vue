@@ -49,6 +49,9 @@
                                 <!-- 项目邀请操作按钮/状态 -->
                                 <div v-if="message.type === 'project_invite'">
                                     <div v-if="message.status === null" class="message-actions">
+                                        <el-button type="primary" size="small" @click="handleViewProject(message.projectId)">
+                                            查看项目
+                                        </el-button>
                                         <el-button type="default" size="small" @click="handleProjectInvite(message.id, true)">
                                             同意
                                         </el-button>
@@ -56,8 +59,13 @@
                                             拒绝
                                         </el-button>
                                     </div>
-                                    <div v-else class="message-status" :class="message.status">
-                                        {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                    <div v-else class="message-actions">
+                                        <el-button type="primary" size="small" @click="handleViewProject(message.projectId)">
+                                            查看项目
+                                        </el-button>
+                                        <div class="message-status" :class="message.status">
+                                            {{ message.status === 'accepted' ? '已同意' : '已拒绝' }}
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -201,7 +209,7 @@
         </div>
         <template #footer>
             <span class="dialog-footer">
-                <el-button @click="uploadDialogVisible = false">取消</el-button>
+                <el-button @click="cancelUpload">取消</el-button>
                 <el-button 
                     type="primary" 
                     @click="handleUploadConfirm"
@@ -416,7 +424,7 @@
         
         <template #footer>
             <span class="dialog-footer">
-                <el-button @click="copyrightDialogVisible = false">取消</el-button>
+                <el-button @click="cancelCopyrightTerms">取消</el-button>
                 <el-button 
                     type="primary" 
                     @click="confirmCopyrightTerms"
@@ -427,12 +435,67 @@
             </span>
         </template>
     </el-dialog>
+    
+    <!-- 项目详情弹窗 -->
+    <el-dialog
+        v-model="projectDetailDialogVisible"
+        title="项目详情"
+        width="600px"
+        :close-on-click-modal="false"
+    >
+        <div class="project-detail-content" v-loading="projectDetailLoading">
+            <div v-if="currentProjectDetail">
+                <!-- 项目基本信息 -->
+                <div class="project-info-section">
+                    <h3>{{ currentProjectDetail.title }}</h3>
+                    
+                    <div class="project-field">
+                        <label>项目简介：</label>
+                        <div class="project-description">
+                            {{ currentProjectDetail.description || '暂无简介' }}
+                        </div>
+                    </div>
+                    
+                    <div class="project-field" v-if="currentProjectDetail.collaborationRequirement">
+                        <label>合作条件：</label>
+                        <div class="project-collaboration">
+                            {{ currentProjectDetail.collaborationRequirement }}
+                        </div>
+                    </div>
+                    
+                    <div class="project-field">
+                        <label>项目状态：</label>
+                        <span class="project-status" :class="currentProjectDetail.status">
+                            {{ formatProjectStatus(currentProjectDetail.status) }}
+                        </span>
+                    </div>
+                    
+                    <div class="project-field" v-if="currentProjectDetail.startDate">
+                        <label>开始时间：</label>
+                        <span>{{ formatDate(currentProjectDetail.startDate) }}</span>
+                    </div>
+                    
+                    <div class="project-field">
+                        <label>可见性：</label>
+                        <span>{{ currentProjectDetail.isPublic ? '公开' : '私密' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <template #footer>
+            <span class="dialog-footer">
+                <el-button @click="projectDetailDialogVisible = false">关闭</el-button>
+            </span>
+        </template>
+    </el-dialog>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { Close, UploadFilled } from '@element-plus/icons-vue'
 import { agree_project_invite, reject_project_invite } from '@/api/project'
+import { getProjectDetail } from '@/page/project-detail/api/api'
 import { pullAllMessages, MessageVO, markAsRead, handleApplyAgree, ApplyAgreeRequest, confirmCopyright, markAsConsumed, MessageMarkConsumedRequest } from '@/api/msg'
 import { get_user_detail } from '@/api/profile'
 import { getFavoritePage, addOutcomeToFavorite, Favorite, createFavorite } from '@/api/favorite'
@@ -494,6 +557,11 @@ const currentResearcherUpdateMessage = ref(null) // 当前处理的研究更新�
 const copyrightDialogVisible = ref(false)
 const copyrightTermsAgreed = ref(false)
 const currentCopyrightMessage = ref(null) // 当前处理的版权确认消息
+
+// 项目详情弹窗相关状态
+const projectDetailDialogVisible = ref(false)
+const projectDetailLoading = ref(false)
+const currentProjectDetail = ref(null)
 
 // 过滤消息，只显示别人发给我的消息
 const filteredMessages = computed(() => {
@@ -958,10 +1026,11 @@ const handleDataRequest = async (messageId, accepted) => {
     }
     
     if (accepted) {
-        // 同意：弹出文件上传对话框
+        // 同意：先显示版权确认弹窗
         currentDataRequestMessage.value = message
-        uploadDialogVisible.value = true
-        resetUploadDialog()
+        currentCopyrightMessage.value = message
+        copyrightTermsAgreed.value = false
+        copyrightDialogVisible.value = true
     } else {
         // 拒绝：直接调用后端接口
         try {
@@ -1035,6 +1104,14 @@ const processCopyrightConfirm = async (messageId, accepted) => {
     }
 }
 
+// 取消版权确认
+const cancelCopyrightTerms = () => {
+    copyrightDialogVisible.value = false
+    currentCopyrightMessage.value = null
+    currentDataRequestMessage.value = null
+    copyrightTermsAgreed.value = false
+}
+
 // 确认版权条款
 const confirmCopyrightTerms = async () => {
     if (!copyrightTermsAgreed.value) {
@@ -1047,13 +1124,74 @@ const confirmCopyrightTerms = async () => {
         return
     }
     
-    // 调用实际的版权确认处理
-    await processCopyrightConfirm(currentCopyrightMessage.value.id, true)
+    // 根据消息类型执行不同的后续操作
+    if (currentCopyrightMessage.value.type === 'data_request') {
+        // 数据请求类型：关闭版权弹窗，打开文件上传弹窗
+        copyrightDialogVisible.value = false
+        uploadDialogVisible.value = true
+        resetUploadDialog()
+        // 注意：不清空currentCopyrightMessage，因为文件上传时还需要用到
+    } else if (currentCopyrightMessage.value.type === 'agree_url') {
+        // 版权确认类型：直接调用版权确认处理
+        await processCopyrightConfirm(currentCopyrightMessage.value.id, true)
+        
+        // 关闭弹窗并清空状态
+        copyrightDialogVisible.value = false
+        currentCopyrightMessage.value = null
+        copyrightTermsAgreed.value = false
+    } else {
+        // 其他类型的处理（如果有的话）
+        callError('未知的消息类型')
+        copyrightDialogVisible.value = false
+        currentCopyrightMessage.value = null
+        copyrightTermsAgreed.value = false
+    }
+}
+
+// 处理查看项目详情
+const handleViewProject = async (projectId) => {
+    if (!projectId) {
+        callError('项目ID不存在')
+        return
+    }
     
-    // 关闭弹窗
-    copyrightDialogVisible.value = false
-    currentCopyrightMessage.value = null
-    copyrightTermsAgreed.value = false
+    projectDetailDialogVisible.value = true
+    projectDetailLoading.value = true
+    currentProjectDetail.value = null
+    
+    try {
+        const response = await getProjectDetail(projectId)
+        if (response && response.code === 0) {
+            currentProjectDetail.value = response.data
+        } else {
+            callError(response?.message || '获取项目详情失败')
+            projectDetailDialogVisible.value = false
+        }
+    } catch (error) {
+        console.error('获取项目详情失败:', error)
+        callError('获取项目详情失败')
+        projectDetailDialogVisible.value = false
+    } finally {
+        projectDetailLoading.value = false
+    }
+}
+
+// 格式化项目状态
+const formatProjectStatus = (status) => {
+    const statusMap = {
+        'active': '进行中',
+        'completed': '已完成',
+        'paused': '已暂停',
+        'cancelled': '已取消'
+    }
+    return statusMap[status] || status
+}
+
+// 格式化日期
+const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('zh-CN')
 }
 
 // 处理研究人员更新消息（入库或标记已读）
@@ -1270,6 +1408,19 @@ const resetUploadDialog = () => {
     uploadLoading.value = false
 }
 
+// 取消文件上传
+const cancelUpload = () => {
+    uploadDialogVisible.value = false
+    resetUploadDialog()
+    
+    // 如果是从版权确认跳转过来的，清空版权相关状态
+    if (currentCopyrightMessage.value && currentCopyrightMessage.value.type === 'data_request') {
+        currentCopyrightMessage.value = null
+        currentDataRequestMessage.value = null
+        copyrightTermsAgreed.value = false
+    }
+}
+
 // 处理文件选择变化
 const handleFileChange = (file, fileList) => {
     // console.log('文件选择变化:', file, fileList)
@@ -1321,6 +1472,10 @@ const handleUploadConfirm = async () => {
             callSuccess('文件上传成功，已同意数据请求')
             uploadDialogVisible.value = false
             resetUploadDialog()
+            
+            // 清空版权相关状态
+            currentCopyrightMessage.value = null
+            copyrightTermsAgreed.value = false
         }
     } catch (error) {
         console.error('上传文件失败:', error)
@@ -2269,5 +2424,79 @@ onUnmounted(() => {
 
 .terms-agreement .el-checkbox__label {
     font-weight: 500;
+}
+
+/* 项目详情弹窗样式 */
+.project-detail-content {
+    padding: 20px 0;
+    text-align: left;
+}
+
+.project-info-section h3 {
+    font-size: 20px;
+    color: #333;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #409eff;
+    font-weight: 600;
+    text-align: left;
+}
+
+.project-field {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.project-field label {
+    font-weight: 600;
+    color: #606266;
+    margin-right: 12px;
+    min-width: 80px;
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.project-description,
+.project-collaboration {
+    flex: 1;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f8f9fa;
+    padding: 12px;
+    border-radius: 4px;
+    border-left: 3px solid #409eff;
+    white-space: pre-wrap;
+    word-break: break-word;
+    text-align: left;
+}
+
+.project-status {
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.project-status.active {
+    background-color: #e1f5fe;
+    color: #0277bd;
+}
+
+.project-status.completed {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+}
+
+.project-status.paused {
+    background-color: #fff3e0;
+    color: #f57c00;
+}
+
+.project-status.cancelled {
+    background-color: #ffebee;
+    color: #c62828;
 }
 </style> 

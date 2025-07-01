@@ -1,12 +1,12 @@
 <template>
     <div class="bg-container"/>
     
-    <div style="display: flex; justify-content: center; width: 100%; height: 100%;">
-    <div class="profile-container">
-        <div class="profile-content">
-            
-            <!-- 用户基本信息区域 -->
-            <div class="user-basic-info">
+    <div class="profile-wrapper">
+        <div class="profile-container">
+            <div class="profile-content">
+                
+                <!-- 用户基本信息区域 -->
+                <div class="user-basic-info">
                 <!-- 加载状态 -->
                 <div v-if="loading" class="loading-overlay">
                     <el-icon class="is-loading" style="font-size: 24px; color: #409eff;">
@@ -218,7 +218,10 @@
 
         </div>
     </div>
-    </div>
+
+    <!-- 底部装饰 -->
+    <home-bottom/>
+</div>
     <!-- 编辑对话框 -->
     <edit-dialog
         v-model="editDialogVisible"
@@ -289,6 +292,7 @@ import achievementManager from './components/achievementManager/index.vue'
 import followManager from './components/followManager/index.vue'
 import libraryManager from './components/libraryManager/index.vue'
 import reportManager from './components/reportManager/index.vue'
+import homeBottom from '@/page/home/component/homeBottom/index.vue'
 import { callSuccess, callInfo, callError } from '@/call'
 import { ElMessage } from 'element-plus'
 import { get_user_detail, upload_user_avatar, update_user_info, get_user_projects } from '@/api/profile'
@@ -304,7 +308,8 @@ export default {
         achievementManager,
         followManager,
         libraryManager,
-        reportManager
+        reportManager,
+        homeBottom
     },
     setup() {
         const route = useRoute();
@@ -925,9 +930,14 @@ export default {
     background-size: cover;
 }
 
-.profile-container {
-    min-height: 100vh;
+.profile-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     margin-top: 100px;
+}
+
+.profile-container {
     display: flex;
     justify-content: center;
     width: 1200px;

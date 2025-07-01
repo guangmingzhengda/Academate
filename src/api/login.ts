@@ -44,7 +44,7 @@ export async function sendEmail(email : string){
         {
             if (response.data.code == 0) callSuccess('发送成功');
             else {
-                // callError(response.data.message);
+                callError(response.data.message);
             }
         }
         else {
