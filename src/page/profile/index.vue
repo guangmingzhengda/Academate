@@ -408,8 +408,10 @@ export default {
             editData.value = {}
             // 重置编辑资料对话框状态
             editProfileDialogVisible.value = false
-            // 滚动到页面顶部
-            window.scrollTo({ top: 0, behavior: 'smooth' })
+            // 只在首次加载或切换用户时滚动到页面顶部
+            if (!userInfo.value.name) {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+            }
             
             try {
                 const userDetail = await get_user_detail({ userId: parseInt(userId) })
