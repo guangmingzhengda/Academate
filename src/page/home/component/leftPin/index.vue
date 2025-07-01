@@ -11,10 +11,38 @@
                 </div>
                 <hr>
                 <div :style="listStyle">
-                    <recommend-button v-if="rTitle === 'recommend'" style="margin-top: 0"
-                    v-for="item in recommendList" :r-name="item.name"
-                                      :abstract="item.abstract ? item.abstract : 'there is no abstract here...'"
-                    />
+                    <!-- 加载状态 -->
+                    <div v-if="loading" class="loading-state">
+                        正在加载推荐内容...
+                    </div>
+                    
+                    <!-- 空状态 -->
+                    <div v-else-if="recommendList.length === 0" class="empty-state">
+                        暂无推荐内容
+                    </div>
+                    
+                    <!-- 推荐列表 -->
+                    <div 
+                        v-else
+                        v-for="item in recommendList" 
+                        :key="item.outcomeId"
+                        class="recommend-item"
+                        @click="goToDetail(item)"
+                    >
+                        <div class="recommend-content">
+                            <div class="recommend-header">
+                                <span class="recommend-type" :class="item.type">
+                                    {{ typeLabels[item.type] || item.type }}
+                                </span>
+                                <div class="recommend-title">{{ truncateTitle(item.title) }}</div>
+                            </div>
+                            <div class="recommend-meta">
+                                <div v-if="item.authors || item.journal" class="meta-item">
+                                    {{ truncateMetaText(item.authors, item.journal) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             </div>
@@ -23,63 +51,122 @@
 </template>
 
 <script>
-
+import { ref, onMounted, computed } from "vue";
+import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
 import fadeBox from "@/page/home/component/fadeBox/index.vue";
-import recommendButton from "@/page/home/component/recommendButton/index.vue";
-import router from "@/router";
 
 export default {
     name: "leftPin",
-    components:{fadeBox, recommendButton},
+    components:{fadeBox},
     props: ['rTitle'],
+    setup(){
+        const router = useRouter();
+        const store = useStore();
+        
+        // 响应式数据
+        const loading = ref(false);
+        
+        // 从 Vuex 获取推荐数据
+        const recommendList = computed(() => store.getters.getRecommendationList);
+        
+        // 样式配置
+        const listStyle = {
+            width: '100%',
+            borderRadius: '2px',
+            backgroundColor: 'rgba(205, 205, 205, 0.2)',
+            overflowY: 'auto',
+            flexGrow: '1',
+            marginBottom: '20px'
+        };
+        
+        // 成果类型标签
+        const typeLabels = {
+            '期刊论文': '期刊',
+            '会议论文': '会议', 
+            '专利': '专利',
+            '书': '书',
+            '技术报告': '报告',
+            '海报': '海报',
+            '数据': '数据',
+            '其他': '其他'
+        };
+        
+        // 加载推荐数据（使用 Vuex 缓存）
+        const loadRecommendations = async () => {
+            loading.value = true;
+            try {
+                await store.dispatch('fetchRecommendations');
+                console.log(`使用 Vuex 缓存机制加载推荐数据，当前数据量: ${recommendList.value.length}`);
+            } catch (error) {
+                console.error('加载推荐数据失败:', error);
+            } finally {
+                loading.value = false;
+            }
+        };
+        
+        // 格式化日期
+        const formatDate = (timestamp) => {
+            if (!timestamp) return '';
+            const date = new Date(timestamp);
+            return date.getFullYear() + '-' + 
+                   String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(date.getDate()).padStart(2, '0');
+        };
+        
+        // 跳转到详情页
+        const goToDetail = (item) => {
+            router.push(`/outcome-detail/${item.outcomeId}`);
+        };
+        
+        // 截断标题
+        const truncateTitle = (title) => {
+            if (!title) return '';
+            const maxLength = 25; // 最大显示字符数
+            return title.length > maxLength ? title.substring(0, maxLength) + '...' : title;
+        };
+        
+        // 截断元信息文本（作者和期刊）
+        const truncateMetaText = (authors, journal) => {
+            let metaText = '';
+            if (authors && journal) {
+                metaText = `作者：${authors} | 刊物：${journal}`;
+            } else if (authors) {
+                metaText = `作者：${authors}`;
+            } else if (journal) {
+                metaText = `刊物：${journal}`;
+            }
+            
+            const maxLength = 35; // 最大显示字符数（增加以适应标签）
+            return metaText.length > maxLength ? metaText.substring(0, maxLength) + '...' : metaText;
+        };
+        
+        onMounted(() => {
+            loadRecommendations();
+        });
+        
+        return {
+            recommendList,
+            loading,
+            listStyle,
+            typeLabels,
+            loadRecommendations,
+            formatDate,
+            goToDetail,
+            truncateTitle,
+            truncateMetaText
+        };
+    },
     data(){
         return{
-            listStyle:{
-                width: '100%',
-                borderRadius: '2px',
-                backgroundColor: 'rgba(205, 205, 205, 0.2)',
-                overflowY: 'auto',
-                flexGrow: '1',
-                marginBottom: '20px'
-            },
-            offsetT : 0,
-            recommendList: [
-                {
-                    name: '人工智能与机器学习',
-                    abstract: "研究如何让计算机模拟人类智能，包括学习、推理和自适应，广泛应用于图像识别、自然语言处理等领域。"
-                },
-                {
-                    name: '量子计算',
-                    abstract: "探索利用量子叠加、纠缠等物理现象进行信息处理的新型计算模式，有望在密码学、材料科学等领域实现突破性进展。"
-                },
-                {
-                    name: '环境可持续发展',
-                    abstract: "关注气候变化、可再生能源、碳中和等议题，致力于推动绿色技术和可持续管理，减缓人类活动对环境的影响。"
-                },
-                {
-                    name: '脑科学与脑机接口',
-                    abstract: "研究大脑结构与功能，开发脑机接口技术，实现大脑与外部设备的直接交互，助力神经疾病治疗与人机融合。"
-                },
-                {
-                    name: '网络安全与密码学',
-                    abstract: "保护信息系统免受网络攻击，研究加密算法与安全协议，保障数据隐私和数字经济安全。"
-                },
-                {
-                    name: '新能源技术',
-                    abstract: "开发太阳能、风能等清洁能源，推动储能与智能电网创新，助力能源结构转型与碳减排。"
-                },
-                {
-                    name: '机器人与自动化',
-                    abstract: "设计和制造能够自主或半自主完成任务的机器人系统，推动制造、医疗、服务等行业的智能化升级。"
-                }
-            ]
+            offsetT : 0
         }
     },
     methods:{
         callSearch(content){
-            router.push(`/blank/`);
+            this.$router.push(`/blank/`);
             setTimeout(()=>{
-                router.push(`/search/${content}/${0}/null`);
+                this.$router.push(`/search/${content}/${0}/null`);
             }, 100);
         },
         calcOffset(){
@@ -158,4 +245,114 @@ hr{
     height: 100%;
     display: flex;
 }
+
+/* 新增样式 */
+.loading-state, .empty-state {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #999;
+    padding: 20px;
+    font-size: 14px;
+    text-align: center;
+}
+
+.recommend-item {
+    padding: 8px 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.recommend-item:hover {
+    background-color: rgba(0, 158, 255, 0.1);
+}
+
+.recommend-item:last-child {
+    border-bottom: none;
+}
+
+.recommend-content {
+    width: 100%;
+    text-align: left;
+}
+
+.recommend-header {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.recommend-title {
+    font-family: 'Microsoft YaHei', sans-serif;
+    font-size: 13px;
+    font-weight: bold;
+    color: #2c3e50;
+    line-height: 1.2;
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.recommend-type {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 9px;
+    font-weight: bold;
+    color: white;
+    flex-shrink: 0;
+}
+
+.recommend-type.期刊论文 {
+    background-color: #67c23a;
+}
+
+.recommend-type.会议论文 {
+    background-color: #409eff;
+}
+
+.recommend-type.专利 {
+    background-color: #e6a23c;
+}
+
+.recommend-type.书 {
+    background-color: #909399;
+}
+
+.recommend-type.技术报告 {
+    background-color: #8e44ad;
+}
+
+.recommend-type.海报 {
+    background-color: #e67e22;
+}
+
+.recommend-type.数据 {
+    background-color: #1abc9c;
+}
+
+.recommend-type.其他 {
+    background-color: #95a5a6;
+}
+
+.recommend-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.meta-item {
+    font-size: 10px;
+    color: #666;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+}
+
 </style>
