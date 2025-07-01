@@ -480,7 +480,7 @@ export default {
             volume: 0,
             issue: 0,
             pages: '',
-            publishDate: 0,
+            publishDate: '',  // 确保初始值为空字符串而不是数字0
             doi: '',
             patentNumber: '',
             abstractContent: ''
@@ -569,7 +569,7 @@ export default {
                 volume: 0,
                 issue: 0,
                 pages: '',
-                publishDate: 0,
+                publishDate: '',  // 确保初始值为空字符串而不是数字0
                 doi: '',
                 patentNumber: '',
                 abstractContent: ''
@@ -608,6 +608,11 @@ export default {
         // 检查数据完整性
         const checkDataIntegrity = (data) => {
             const errors = []
+            
+            // 检查发表时间是否存在
+            if (!data.publishDate) {
+                errors.push('发表/授权时间')
+            }
             
             if (data.type === '期刊论文') {
                 if (!data.journal) errors.push('期刊名称')
@@ -655,7 +660,10 @@ export default {
                         payload.publishDate = dayjs(payload.publishDate).format('YYYY-MM-DD HH:mm:ss')
                     }
                 } else {
-                    payload.publishDate = ''
+                    // 如果没有发表时间，直接返回，不继续提交
+                    callError('发表/授权时间为必填项')
+                    saveLoading.value = false
+                    return
                 }
                 // 只保留后端需要的字段
                 const requestData = {
@@ -691,6 +699,9 @@ export default {
                         
                         // 直接触发父组件刷新数据
                         emit('update:paperCount', newCount)
+                        
+                        // 触发父组件刷新成果列表
+                        emit('refresh')
                     }
                     
                     closeDialog()
@@ -898,8 +909,8 @@ export default {
                             }
                         }
                     })
-                    // 必填校验（最少有类型、标题、作者）
-                    if (!mapped.type || !mapped.title || !mapped.authors) {
+                    // 必填校验（最少有类型、标题、作者、发表时间）
+                    if (!mapped.type || !mapped.title || !mapped.authors || !mapped.publishDate) {
                         failCount++
                         continue
                     }
@@ -930,6 +941,8 @@ export default {
                 }
                 
                 callSuccess(`批量导入完成，成功${successCount}条，失败${failCount}条`)
+                
+                // 无论成功与否，都重新请求更新成果列表
                 emit('refresh')
             } catch {
                 callWarning('批量导入失败，请检查网络连接')
