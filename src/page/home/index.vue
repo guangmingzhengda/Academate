@@ -203,6 +203,8 @@ export default {
         const showSplashCursor = ref(true);
         const pageContentVisible = ref(false);
         const fullSplashText = 'Academate Platform 2025';
+        const SPLASH_CACHE_KEY = 'academate_splash_timestamp';
+        const SPLASH_CACHE_DURATION = 5 * 60 * 1000; // 5分钟（毫秒）
 
         // 项目相关数据
         const projectCurrentPage = ref(1);
@@ -389,6 +391,35 @@ export default {
             router.push(`/outcome-detail/${achievement.id}`)
         }
 
+        // 检查是否需要显示过场动画
+        const shouldShowSplash = () => {
+            try {
+                const lastSplashTime = localStorage.getItem(SPLASH_CACHE_KEY);
+                if (!lastSplashTime) {
+                    // 第一次访问，显示过场动画
+                    return true;
+                }
+                
+                const currentTime = Date.now();
+                const timeDiff = currentTime - parseInt(lastSplashTime);
+                
+                // 如果距离上次播放超过5分钟，显示过场动画
+                return timeDiff > SPLASH_CACHE_DURATION;
+            } catch (error) {
+                console.error('检查过场动画缓存失败:', error);
+                return true; // 出错时默认显示
+            }
+        };
+
+        // 记录过场动画播放时间
+        const recordSplashTime = () => {
+            try {
+                localStorage.setItem(SPLASH_CACHE_KEY, Date.now().toString());
+            } catch (error) {
+                console.error('记录过场动画时间失败:', error);
+            }
+        };
+
         // 过场动画打字机效果
         const splashTypeWriter = async () => {
             for (let i = 0; i <= fullSplashText.length; i++) {
@@ -405,13 +436,16 @@ export default {
             // 1. 隐藏导航栏
             setNav(false);
             
-            // 2. 开始打字机效果（约1.5秒）
+            // 2. 记录过场动画播放时间
+            recordSplashTime();
+            
+            // 3. 开始打字机效果（约1.5秒）
             await splashTypeWriter();
             
-            // 3. 开始淡出过场动画
+            // 4. 开始淡出过场动画
             splashFadingOut.value = true;
             
-            // 4. 淡出完成后显示导航栏和页面内容
+            // 5. 淡出完成后显示导航栏和页面内容
             setTimeout(() => {
                 showSplash.value = false;
                 setNav(true);
@@ -419,15 +453,34 @@ export default {
             }, 600); // 等待淡出动画完成（600ms）
         };
 
+        // 跳过过场动画，直接显示页面内容
+        const skipSplashAndShowContent = () => {
+            showSplash.value = false;
+            setNav(true);
+            pageContentVisible.value = true;
+        };
+
         onMounted(async () => {
-            // 启动过场动画序列
-            startSplashSequence();
-            
-            // 立即开始预加载数据（在过场动画期间）
-            setTimeout(async () => {
-                await loadProjects();
-                await loadAchievements();
-            }, 200); // 更早开始加载数据
+            // 检查是否需要显示过场动画
+            if (shouldShowSplash()) {
+                // 显示过场动画
+                startSplashSequence();
+                
+                // 在过场动画期间预加载数据
+                setTimeout(async () => {
+                    await loadProjects();
+                    await loadAchievements();
+                }, 200);
+            } else {
+                // 跳过过场动画，直接显示页面内容
+                skipSplashAndShowContent();
+                
+                // 立即加载数据
+                setTimeout(async () => {
+                    await loadProjects();
+                    await loadAchievements();
+                }, 100);
+            }
         });
 
         return {
