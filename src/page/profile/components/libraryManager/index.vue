@@ -54,9 +54,9 @@
                     
                     <div v-else>
                         <!-- 收藏夹列表 -->
-                        <div v-if="folders.length > 0" class="folders-section">
+                        <div class="folders-section">
                             <div class="section-title">所含收藏夹</div>
-                            <div class="folders-grid">
+                            <div v-if="folders.length > 0" class="folders-grid">
                                 <div 
                                     v-for="folder in currentPageFolders" 
                                     :key="folder.favoriteId" 
@@ -93,14 +93,14 @@
                                     </div>
                                 </div>
                             </div>
-                            
+                            <div v-else class="empty-state">暂无收藏夹</div>
                             <!-- 收藏夹分页 -->
                             <el-pagination
                                 v-if="total > folderPageSize"
                                 v-model:current-page="folderCurrentPage"
                                 :page-size="folderPageSize"
                                 :total="total"
-                                layout="prev, pager, next"
+                                layout="prev, pager, next, total"
                                 class="pagination"
                                 small
                                 @current-change="handleFolderPageChange"
@@ -108,9 +108,28 @@
                         </div>
 
                         <!-- 文献列表 -->
-                        <div v-if="outcomes.length > 0" class="outcomes-section">
+                        <div v-if="currentParentId !== 0" class="outcomes-section">
                             <div class="section-title">所含文献</div>
-                            <div class="outcomes-grid">
+                            <!-- 搜索框 -->
+                            <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                                <el-input
+                                    v-if="outcomes.length > 0"
+                                    v-model="keyword"
+                                    placeholder="支持输入关键词搜索文献"
+                                    clearable
+                                    style="width: 350px;"
+                                    @keyup.enter="onKeywordSearch"
+                                    @clear="onKeywordSearch"
+                                >
+                                    <template #append>
+                                        <el-button @click="onKeywordSearch">
+                                            <el-icon><Search /></el-icon>
+                                            &nbsp;搜索
+                                        </el-button>
+                                    </template>
+                                </el-input>
+                            </div>
+                            <div v-if="outcomes.length > 0" class="outcomes-grid">
                                 <div 
                                     v-for="outcome in currentPageOutcomes" 
                                     :key="outcome.outcomeId" 
@@ -150,14 +169,14 @@
                                     </div>
                                 </div>
                             </div>
-                            
+                            <div v-else class="empty-state">暂无文献</div>
                             <!-- 文献分页 -->
                             <el-pagination
                                 v-if="outcomesTotal > outcomePageSize"
                                 v-model:current-page="outcomeCurrentPage"
                                 :page-size="outcomePageSize"
                                 :total="outcomesTotal"
-                                layout="prev, pager, next"
+                                layout="prev, pager, next, total"
                                 class="pagination"
                                 small
                                 @current-change="handleOutcomePageChange"
@@ -210,7 +229,7 @@
 <script>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft, Document, Star } from '@element-plus/icons-vue'
+import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft, Document, Star, Search } from '@element-plus/icons-vue'
 import { callSuccess, callInfo, callWarning } from '@/call'
 import { ElMessageBox } from 'element-plus'
 import { getFavoritePage, createFavorite, deleteFavorite, updateFavorite, getFavoriteOutcomePage, removeOutcomeFromFavorite } from '@/api/favorite'
@@ -278,6 +297,9 @@ export default {
         const currentPageOutcomes = computed(() => {
             return outcomes.value
         })
+        
+        // 新增：关键词搜索
+        const keyword = ref("");
         
         // 格式化成果类型
         const formatType = (type) => {
@@ -361,7 +383,8 @@ export default {
                 const result = await getFavoriteOutcomePage({
                     pageSize: outcomePageSize.value,
                     pageNum: outcomeCurrentPage.value,
-                    favoriteId: favoriteId
+                    favoriteId: favoriteId,
+                    keyword: keyword.value
                 })
                 
                 if (result) {
@@ -622,6 +645,12 @@ export default {
             }
         }
         
+        // 新增：关键词搜索方法
+        const onKeywordSearch = () => {
+            outcomeCurrentPage.value = 1;
+            loadOutcomes(currentParentId.value);
+        };
+        
         // 组件挂载时加载数据
         onMounted(() => {
             loadCurrentLevelData(0)
@@ -662,7 +691,9 @@ export default {
             removeOutcome,
             handleOutcomePageChange,
             goToOutcomeDetail,
-            createFolderTooltip
+            createFolderTooltip,
+            keyword,
+            onKeywordSearch
         }
     }
 }
