@@ -271,7 +271,7 @@
             :close-on-press-escape="!saveLoading"
             :show-close="!saveLoading"
         >
-            <el-form :model="formData" :rules="rules" ref="formRef" label-width="120px">
+            <el-form :model="formData" :rules="rules" ref="formRef" label-width="120px" :disabled="isFormDisabled">
                 <el-form-item label="成果类型" prop="type">
                     <el-select v-model="formData.type" placeholder="请选择成果类型" style="width: 100%;" @change="onTypeChange">
                         <el-option label="期刊论文" value="期刊论文" />
@@ -351,11 +351,15 @@
                     </div>
                 </el-form-item>
             </el-form>
-            
+            <div v-if="duplicateTipVisible" style="color: #e6a23c; margin: 10px 0; white-space: pre-line;">
+                {{ duplicateTipText }}
+            </div>
             <template #footer>
                 <div class="dialog-footer-right">
                     <el-button @click="closeDialog" :disabled="saveLoading">取消</el-button>
-                    <el-button type="primary" @click="saveAchievement" :loading="saveLoading">保存</el-button>
+                    <el-button type="primary" @click="saveAchievement" :loading="saveLoading">
+                        {{ forceAddMode ? '添加' : '保存' }}
+                    </el-button>
                 </div>
             </template>
         </el-dialog>
@@ -480,7 +484,7 @@ export default {
             volume: 0,
             issue: 0,
             pages: '',
-            publishDate: '',  // 确保初始值为空字符串而不是数字0
+            publishDate: 0,
             doi: '',
             patentNumber: '',
             abstractContent: ''
@@ -569,7 +573,7 @@ export default {
                 volume: 0,
                 issue: 0,
                 pages: '',
-                publishDate: '',  // 确保初始值为空字符串而不是数字0
+                publishDate: 0,
                 doi: '',
                 patentNumber: '',
                 abstractContent: ''
@@ -609,11 +613,6 @@ export default {
         const checkDataIntegrity = (data) => {
             const errors = []
             
-            // 检查发表时间是否存在
-            if (!data.publishDate) {
-                errors.push('发表/授权时间')
-            }
-            
             if (data.type === '期刊论文') {
                 if (!data.journal) errors.push('期刊名称')
                 if (!data.volume) errors.push('卷号')
@@ -636,10 +635,15 @@ export default {
             return true
         }
 
+        // 新增：特殊状态控制
+        const isFormDisabled = ref(false)
+        const duplicateTipVisible = ref(false)
+        const duplicateTipText = ref('')
+        const forceAddMode = ref(false)
+
         // 保存成果
         const saveAchievement = async () => {
             if (saveLoading.value) return // 防止重复提交
-            
             try {
                 saveLoading.value = true // 开始加载
                 await formRef.value.validate()
@@ -654,16 +658,12 @@ export default {
                 // publishDate 转为数据库datetime格式
                 if (payload.publishDate) {
                     if (typeof payload.publishDate === 'string' && payload.publishDate.length <= 10) {
-                        // 只有日期，补全为 00:00:00
                         payload.publishDate = dayjs(payload.publishDate).format('YYYY-MM-DD 00:00:00')
                     } else {
                         payload.publishDate = dayjs(payload.publishDate).format('YYYY-MM-DD HH:mm:ss')
                     }
                 } else {
-                    // 如果没有发表时间，直接返回，不继续提交
-                    callError('发表/授权时间为必填项')
-                    saveLoading.value = false
-                    return
+                    payload.publishDate = ''
                 }
                 // 只保留后端需要的字段
                 const requestData = {
@@ -699,12 +699,26 @@ export default {
                         
                         // 直接触发父组件刷新数据
                         emit('update:paperCount', newCount)
-                        
-                        // 触发父组件刷新成果列表
-                        emit('refresh')
                     }
                     
                     closeDialog()
+                } else if (res && res.code === 50002) {
+                    // 库中已有类似成果
+                    isFormDisabled.value = true
+                    duplicateTipVisible.value = true
+                    duplicateTipText.value = '库中已有类似成果，信息如上，是否添加到成果库？\n如确须添加相近成果请联系管理员'
+                    forceAddMode.value = true
+                    // 用返回的data填充表单
+                    if (res.data) {
+                        Object.keys(formData.value).forEach(key => {
+                            if (res.data[key] !== undefined) {
+                                formData.value[key] = res.data[key]
+                            }
+                        })
+                    }
+                } else if (res && res.code === 50000) {
+                    closeDialog()
+                    callError('您已添加过该成果，请检查学术成果库')
                 } else {
                     callError(res?.message || '添加失败')
                     return
@@ -716,10 +730,14 @@ export default {
             }
         }
 
-        // 关闭对话框
+        // 关闭对话框时重置特殊状态
         const closeDialog = () => {
             dialogVisible.value = false
             formRef.value?.clearValidate()
+            isFormDisabled.value = false
+            duplicateTipVisible.value = false
+            duplicateTipText.value = ''
+            forceAddMode.value = false
         }
 
         // 分页处理
@@ -909,8 +927,8 @@ export default {
                             }
                         }
                     })
-                    // 必填校验（最少有类型、标题、作者、发表时间）
-                    if (!mapped.type || !mapped.title || !mapped.authors || !mapped.publishDate) {
+                    // 必填校验（最少有类型、标题、作者）
+                    if (!mapped.type || !mapped.title || !mapped.authors) {
                         failCount++
                         continue
                     }
@@ -941,8 +959,6 @@ export default {
                 }
                 
                 callSuccess(`批量导入完成，成功${successCount}条，失败${failCount}条`)
-                
-                // 无论成功与否，都重新请求更新成果列表
                 emit('refresh')
             } catch {
                 callWarning('批量导入失败，请检查网络连接')
@@ -1141,7 +1157,11 @@ export default {
             excelPreviewFieldKeys,
             abstractWordCount,
             onAbstractInput,
-            importLoading
+            importLoading,
+            isFormDisabled,
+            duplicateTipVisible,
+            duplicateTipText,
+            forceAddMode
         }
     }
 }
