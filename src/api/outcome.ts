@@ -229,6 +229,61 @@ export interface LikeCountResponse {
 }
 
 /**
+ * PDF文件上传并自动提取元数据
+ * @param file PDF文件对象
+ * @param options 其他可选参数
+ * @returns 上传结果及元数据信息
+ */
+export interface PdfUploadResultVO {
+  /** 是否上传成功 */
+  success: boolean;
+  /** 成果ID */
+  outcomeId: number;
+  /** 标题 */
+  title: string;
+  /** 作者 */
+  authors: string;
+  /** 摘要 */
+  abstractContent: string;
+  /** 类型 */
+  type: string;
+  /** 期刊 */
+  journal: string;
+  /** DOI */
+  doi: string;
+  /** 发布日期 */
+  publishDate: string;
+  /** PDF链接 */
+  pdfUrl: string;
+  /** 文件大小（MB） */
+  fileSizeMB: number;
+  /** 元数据提取状态 */
+  metadataStatus: string;
+  /** 错误信息 */
+  errorMessage: string;
+  /** 是否为新文档 */
+  isNewDocument: boolean;
+}
+
+export interface BaseResponsePdfUploadResultVO {
+  code: number;
+  data: PdfUploadResultVO;
+  message: string;
+}
+
+export interface PdfUploadOptions {
+  autoExtractMetadata?: boolean;
+  overwriteIfExists?: boolean;
+  customTitle?: string;
+  customAuthors?: string;
+  customAbstract?: string;
+  type?: string;
+  journal?: string;
+  doi?: string;
+  publishDate?: string;
+}
+
+/**
  * 根据成果ID获取研究成果信息
  * @param outcomeId 成果ID
  * @returns 研究成果信息
@@ -651,5 +706,49 @@ export async function deleteOutcome(outcomeId: number): Promise<boolean> {
       callError("删除成果失败: " + (error.message || error));
     }
     return false;
+  }
+}
+
+/**
+ * 上传PDF文件并自动提取元数据
+ * @param file PDF文件对象
+ * @param options 其他可选参数
+ * @returns 上传结果及元数据信息
+ */
+export async function uploadPdfAndExtractMetadata(
+  file: File,
+  options: PdfUploadOptions = {}
+): Promise<any> {
+  try {
+    if (!file.type.includes('pdf')) {
+      callError('只支持上传PDF格式文件');
+      return null;
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    // 附加可选参数
+    Object.entries(options).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        formData.append(key, String(value));
+      }
+    });
+    const response = await axios.post<BaseResponsePdfUploadResultVO>(
+      '/research_outcome/upload_pdf',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    if (response.status === 200 && response.data.code === 0) {
+      callSuccess('PDF上传成功');
+    } else {
+      callError('PDF上传失败: ' + (response.data.message || '未知错误'));
+    }
+    return response;
+  } catch (error: any) {
+    callError('PDF上传失败: ' + (error.message || error));
+    return null;
   }
 }

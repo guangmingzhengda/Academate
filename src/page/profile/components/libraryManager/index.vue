@@ -17,9 +17,16 @@
                             <el-icon><ArrowLeft /></el-icon>
                             返回上一级
                         </el-button>
+                        <!-- 新增：手动上传PDF文献按钮，放在返回上一级和arXiv订阅管理之间 -->
+                        <el-tooltip :content="uploadPdfTooltip" placement="bottom">
+                            <el-button v-if="currentParentId !== 0" type="primary" style="font-family: 'Meiryo', sans-serif;" @click="manualUploadDialogVisible = true">
+                                <el-icon><Plus /></el-icon>
+                                手动上传PDF文献
+                            </el-button>
+                        </el-tooltip>
                         <!-- arXiv订阅管理按钮 -->
                         <ArxivSubscriptionManager />
-                        <el-tooltip :content="createFolderTooltip" placement="right">
+                        <el-tooltip :content="createFolderTooltip" placement="bottom">
                             <el-button type="primary" @click="openCreateFolderDialog" style="font-family: 'Meiryo', sans-serif;">
                                 <el-icon><Plus /></el-icon>
                                 新建收藏夹
@@ -110,10 +117,9 @@
                         <!-- 文献列表 -->
                         <div v-if="currentParentId !== 0" class="outcomes-section">
                             <div class="section-title">所含文献</div>
-                            <!-- 搜索框 -->
+                            <!-- 搜索框：无论是否有文献都显示 -->
                             <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
                                 <el-input
-                                    v-if="outcomes.length > 0"
                                     v-model="keyword"
                                     placeholder="支持输入关键词搜索文献"
                                     clearable
@@ -223,18 +229,140 @@
                 </div>
             </template>
         </el-dialog>
+
+        <!-- 新增：手动上传PDF文献弹窗（两步tab结构） -->
+        <el-dialog v-model="manualUploadDialogVisible" title="手动上传PDF文献" width="650px">
+            <el-tabs v-model="uploadActiveTab">
+                <el-tab-pane label="版权与隐私确认" name="terms" class="terms-tab-pane">
+                    <div class="terms-container">
+                        <h3>版权声明与隐私确认</h3>
+                        <div class="terms-section">
+                            <h4><i class="el-icon-document"></i> 版权确认条款</h4>
+                            <div class="terms-quote">
+                                "我确认我有权利公开分享此文档，我理解并同意本网站的上传条件。我保证上传的内容不侵犯任何第三方的版权或其他知识产权。如果我上传的内容包含他人的受版权保护的材料，我已获得必要的许可。"
+                            </div>
+                        </div>
+                        <div class="terms-section">
+                            <h4><i class="el-icon-lock"></i> 隐私保护</h4>
+                            <ul>
+                                <li>用户需确认上传内容不包含任何个人隐私信息或敏感数据</li>
+                                <li>对于涉及人类受试者的研究，需确认已获得必要的伦理审查和参与者同意</li>
+                            </ul>
+                        </div>
+                        <div class="terms-section">
+                            <h4><i class="el-icon-refresh"></i> 回溯确认</h4>
+                            <ul>
+                                <li>对于本政策实施前已上传的全文，系统将通知相关用户在30天内完成版权确认</li>
+                                <li>未在规定时间内确认的全文将被转为"仅元数据"可见状态</li>
+                            </ul>
+                        </div>
+                        <div class="terms-section">
+                            <h4><i class="el-icon-s-claim"></i> 权利与责任</h4>
+                            <div class="terms-subsection">
+                                <h5>用户权利</h5>
+                                <ul>
+                                    <li>随时可以撤回已上传的全文（元数据将保留）</li>
+                                    <li>可以更新或更正已上传成果的信息</li>
+                                </ul>
+                            </div>
+                            <div class="terms-subsection">
+                                <h5>网站权利</h5>
+                                <ul>
+                                    <li>有权移除任何涉嫌侵权或不符合政策的内容</li>
+                                    <li>保留展示成果元数据的权利，即使全文被撤回</li>
+                                </ul>
+                            </div>
+                            <div class="terms-subsection">
+                                <h5>免责声明</h5>
+                                <ul>
+                                    <li>网站不承担用户上传内容引发的版权纠纷责任</li>
+                                    <li>用户需自行确保上传内容的合法性和适当性</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="terms-section">
+                            <h4><i class="el-icon-s-operation"></i> 实施条款</h4>
+                            <ol>
+                                <li>本条件自发布之日起生效</li>
+                                <li>所有用户上传行为视为已阅读并同意本条件</li>
+                                <li>网站保留修改本条件的权利，修改后将通过公告通知用户</li>
+                            </ol>
+                        </div>
+                        <div class="terms-agreement">
+                            <el-checkbox v-model="termsAgreed">我已阅读并同意上述版权声明与隐私确认条款</el-checkbox>
+                        </div>
+                    </div>
+                </el-tab-pane>
+                <el-tab-pane label="上传文件" name="upload" :disabled="!termsAgreed">
+                    <el-form :model="manualUploadForm" :rules="manualUploadRules" ref="manualUploadFormRef" label-width="120px" enctype="multipart/form-data" :disabled="formDisabled">
+                        <el-form-item label="文献类型" prop="type">
+                            <el-radio-group v-model="manualUploadForm.type" :disabled="formDisabled">
+                                <el-radio label="期刊论文">期刊论文</el-radio>
+                                <el-radio label="会议论文">会议论文</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item label="标题" prop="customTitle">
+                            <el-input v-model="manualUploadForm.customTitle" placeholder="请输入标题" :disabled="formDisabled" />
+                        </el-form-item>
+                        <el-form-item label="作者" prop="customAuthors">
+                            <el-input v-model="manualUploadForm.customAuthors" placeholder="请输入作者（多个作者用逗号分隔）" :disabled="formDisabled" />
+                        </el-form-item>
+                        <el-form-item label="摘要" prop="customAbstract">
+                            <el-input type="textarea" v-model="manualUploadForm.customAbstract" placeholder="请输入摘要" :disabled="formDisabled" />
+                        </el-form-item>
+                        <el-form-item label="期刊/会议名称" prop="journal">
+                            <el-input v-model="manualUploadForm.journal" placeholder="请输入期刊或会议名称" :disabled="formDisabled" />
+                        </el-form-item>
+                        <el-form-item label="DOI" prop="doi">
+                            <el-input v-model="manualUploadForm.doi" placeholder="请输入DOI（可选）" :disabled="formDisabled" />
+                        </el-form-item>
+                        <el-form-item label="发表日期" prop="publishDate">
+                            <el-date-picker v-model="manualUploadForm.publishDate" type="date" placeholder="选择日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" :disabled="formDisabled" />
+                        </el-form-item>
+                        <el-form-item label="PDF文件" prop="file">
+                            <el-upload
+                                drag
+                                :auto-upload="false"
+                                :show-file-list="true"
+                                :before-upload="beforePdfUpload"
+                                :on-change="handleFileChange"
+                                :file-list="manualUploadForm.fileList"
+                                accept="application/pdf"
+                                class="custom-upload"
+                                :disabled="formDisabled"
+                            >
+                                <el-icon class="el-icon--upload"><upload-filled /></el-icon>
+                                <div class="el-upload__text">将PDF文件拖到此处，或 <em>点击上传</em></div>
+                            </el-upload>
+                        </el-form-item>
+                    </el-form>
+                    <div v-if="duplicateTipVisible" style="color:#e67c00;margin-top:16px;line-height:1.7;white-space:pre-line;">
+                        库中已有类似成果，信息如上，无法加到文献？
+                        <br>如确须添加相近成果请联系管理员
+                    </div>
+                </el-tab-pane>
+            </el-tabs>
+            <template #footer>
+                <div class="dialog-footer">
+                    <el-button @click="resetManualUploadDialog">取消</el-button>
+                    <el-button v-if="uploadActiveTab === 'terms'" type="primary" @click="proceedToUpload" :disabled="!termsAgreed">继续</el-button>
+                    <el-button v-else type="primary" :loading="manualUploadLoading" @click="handleManualUpload" v-show="!duplicateTipVisible">确定</el-button>
+                </div>
+            </template>
+        </el-dialog>
     </div>
 </template>
 
 <script>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft, Document, Star, Search } from '@element-plus/icons-vue'
 import { callSuccess, callInfo, callWarning } from '@/call'
 import { ElMessageBox } from 'element-plus'
-import { getFavoritePage, createFavorite, deleteFavorite, updateFavorite, getFavoriteOutcomePage, removeOutcomeFromFavorite } from '@/api/favorite'
+import { getFavoritePage, createFavorite, deleteFavorite, updateFavorite, getFavoriteOutcomePage, removeOutcomeFromFavorite, addOutcomeToFavorite } from '@/api/favorite'
 import { checkFavoriteHasSubscription } from '@/api/arxiv'
 import ArxivSubscriptionManager from './ArxivSubscriptionManager.vue'
+import { uploadPdfAndExtractMetadata } from '@/api/outcome'
 
 export default {
     name: 'libraryManager',
@@ -301,6 +429,40 @@ export default {
         // 新增：关键词搜索
         const keyword = ref("");
         
+        // 新增：手动上传PDF文献弹窗相关
+        const manualUploadDialogVisible = ref(false)
+        const manualUploadLoading = ref(false)
+        const manualUploadFormRef = ref()
+        const manualUploadForm = ref({
+            type: '',
+            customTitle: '',
+            customAuthors: '',
+            customAbstract: '',
+            journal: '',
+            doi: '',
+            publishDate: '',
+            file: null,
+            fileList: []
+        })
+        const manualUploadRules = {
+            type: [{ required: true, message: '请选择文献类型', trigger: 'change' }],
+            customTitle: [{ required: true, message: '请输入标题', trigger: 'blur' }],
+            customAuthors: [{ required: true, message: '请输入作者', trigger: 'blur' }],
+            customAbstract: [{ required: true, message: '请输入摘要', trigger: 'blur' }],
+            journal: [{ required: true, message: '请输入期刊/会议名称', trigger: 'blur' }],
+            publishDate: [{ required: true, message: '请选择发表日期', trigger: 'change' }],
+            file: [{ required: true, message: '请上传PDF文件', trigger: 'change' }]
+        }
+        
+        // 新增tab相关ref
+        const uploadActiveTab = ref('terms')
+        const termsAgreed = ref(false)
+        
+        // 新增：表单禁用和库中已有提示
+        const formDisabled = ref(false)
+        const duplicateInfo = ref('')
+        const duplicateTipVisible = ref(false)
+        
         // 格式化成果类型
         const formatType = (type) => {
             const typeMap = {
@@ -350,6 +512,12 @@ export default {
             return `在"${currentName}"下新建收藏夹`;
         });
         
+        // 计算属性：手动上传PDF文献的tooltip内容
+        const uploadPdfTooltip = computed(() => {
+            const currentName = getCurrentFolderName();
+            return `在"${currentName}"下手动上传PDF文献`;
+        });
+        
         // 加载收藏夹数据
         const loadFolders = async (parentId = 0) => {
             loading.value = true
@@ -390,6 +558,7 @@ export default {
                 if (result) {
                     outcomes.value = result.list
                     outcomesTotal.value = result.total
+                    console.log(outcomes.value)
                 } else {
                     outcomes.value = []
                     outcomesTotal.value = 0
@@ -651,6 +820,132 @@ export default {
             loadOutcomes(currentParentId.value);
         };
         
+        // 只允许上传PDF
+        const beforePdfUpload = (file) => {
+            const isPDF = file.type === 'application/pdf'
+            if (!isPDF) {
+                callWarning('只能上传PDF文件')
+            }
+            return isPDF
+        }
+        
+        // 处理文件选择
+        const handleFileChange = (fileObj) => {
+            manualUploadForm.value.file = fileObj.raw
+            manualUploadForm.value.fileList = [fileObj]
+        }
+        
+        // 提交上传
+        const handleManualUpload = () => {
+            manualUploadFormRef.value.validate(async (valid) => {
+                if (!valid) return
+                manualUploadLoading.value = true
+                try {
+                    const { type, customTitle, customAuthors, customAbstract, journal, doi, publishDate, file } = manualUploadForm.value
+                    const uploadResponse = await uploadPdfAndExtractMetadata(file, {
+                        autoExtractMetadata: false,
+                        type,
+                        customTitle,
+                        customAuthors,
+                        customAbstract,
+                        journal,
+                        doi,
+                        publishDate
+                    })
+                    console.log(uploadResponse)
+                    const uploadResult = uploadResponse?.data?.data;
+                    if (uploadResponse?.data?.code === 50001) {
+                        // 库中已有类似成果
+                        // 填充表单并禁用
+                        manualUploadForm.value = {
+                            type: uploadResult.type || '',
+                            customTitle: uploadResult.title || '',
+                            customAuthors: uploadResult.authors || '',
+                            customAbstract: uploadResult.abstractContent || '',
+                            journal: uploadResult.journal || '',
+                            doi: uploadResult.doi || '',
+                            publishDate: uploadResult.publishDate || '',
+                            file: null,
+                            fileList: []
+                        }
+                        formDisabled.value = true
+                        duplicateInfo.value = uploadResult
+                        duplicateTipVisible.value = true
+                        manualUploadLoading.value = false
+                        return
+                    }
+                    if (uploadResult && uploadResult.outcomeId) {
+                        // 添加到当前收藏夹
+                        const addResult = await addOutcomeToFavorite({
+                            favoriteId: currentParentId.value,
+                            outcomeId: uploadResult.outcomeId
+                        })
+                        if (addResult) {
+                            callSuccess('文献上传并添加到收藏夹成功')
+                            manualUploadDialogVisible.value = false
+                            // 重置表单
+                            manualUploadForm.value = {
+                                type: '',
+                                customTitle: '',
+                                customAuthors: '',
+                                customAbstract: '',
+                                journal: '',
+                                doi: '',
+                                publishDate: '',
+                                file: null,
+                                fileList: []
+                            }
+                            formDisabled.value = false
+                            duplicateTipVisible.value = false
+                            // 刷新文献列表
+                            await loadOutcomes(currentParentId.value)
+                        }
+                    }
+                } catch (e) {
+                    callWarning('上传失败，请重试')
+                } finally {
+                    manualUploadLoading.value = false
+                }
+            })
+        }
+        
+        // 切换到上传tab
+        const proceedToUpload = () => {
+            if (termsAgreed.value) uploadActiveTab.value = 'upload'
+        }
+        
+        // 打开弹窗时重置tab
+        watch(manualUploadDialogVisible, (val) => {
+            if (val) {
+                uploadActiveTab.value = 'terms'
+                termsAgreed.value = false
+            }
+        })
+        
+        // 关闭上传弹窗时重置所有状态
+        const resetManualUploadDialog = () => {
+            manualUploadDialogVisible.value = false
+            manualUploadForm.value = {
+                type: '',
+                customTitle: '',
+                customAuthors: '',
+                customAbstract: '',
+                journal: '',
+                doi: '',
+                publishDate: '',
+                file: null,
+                fileList: []
+            }
+            formDisabled.value = false
+            duplicateTipVisible.value = false
+            duplicateInfo.value = ''
+            uploadActiveTab.value = 'terms'
+            termsAgreed.value = false
+            manualUploadLoading.value = false
+            // 清除校验
+            manualUploadFormRef.value?.clearValidate?.()
+        }
+        
         // 组件挂载时加载数据
         onMounted(() => {
             loadCurrentLevelData(0)
@@ -692,8 +987,24 @@ export default {
             handleOutcomePageChange,
             goToOutcomeDetail,
             createFolderTooltip,
+            uploadPdfTooltip,
             keyword,
-            onKeywordSearch
+            onKeywordSearch,
+            manualUploadDialogVisible,
+            manualUploadLoading,
+            manualUploadFormRef,
+            manualUploadForm,
+            manualUploadRules,
+            beforePdfUpload,
+            handleFileChange,
+            handleManualUpload,
+            uploadActiveTab,
+            termsAgreed,
+            proceedToUpload,
+            formDisabled,
+            duplicateInfo,
+            duplicateTipVisible,
+            resetManualUploadDialog,
         }
     }
 }
@@ -1083,5 +1394,163 @@ export default {
 
 .outcomes-section .section-title::after {
     background-color: #67c23a;
+}
+
+.custom-upload {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    width: 100%;
+    max-width: 500px;
+}
+/* 美化el-upload拖拽区域 */
+.custom-upload .el-upload-dragger {
+    width: 100%;
+    height: 50px;
+    border-radius: 12px;
+    background: #f8fafc;
+    border: 2px dashed #b3c0d1;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s;
+    margin-bottom: 8px;
+}
+.custom-upload .el-upload-dragger:hover {
+    border-color: #409eff;
+    background: #f0f6ff;
+}
+.custom-upload .el-upload__text {
+    font-size: 15px;
+    color: #606266;
+    margin-left: 8px;
+}
+.custom-upload .el-icon--upload {
+    font-size: 28px;
+    color: #409eff;
+}
+
+/* outcome-detail版权与隐私确认tab样式复刻 */
+.terms-container {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0 10px;
+  background-color: #ffffff;
+  border-radius: 6px;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.05);
+}
+.terms-container h3 {
+  font-size: 20px;
+  color: #333;
+  margin-bottom: 20px;
+  text-align: center;
+  border-bottom: 1px solid #eaeaea;
+  padding-bottom: 12px;
+  font-weight: 600;
+  position: relative;
+}
+.terms-container h3:after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 3px;
+  background: linear-gradient(90deg, #409eff, #67c23a);
+}
+.terms-section {
+  margin-bottom: 25px;
+  text-align: left;
+  padding: 0 5px;
+}
+.terms-section h4 {
+  font-size: 16px;
+  color: #409eff;
+  margin-bottom: 12px;
+  font-weight: 600;
+  border-left: 4px solid #409eff;
+  padding: 8px 12px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+}
+.terms-section h4 i {
+  margin-right: 8px;
+  font-size: 18px;
+}
+.terms-subsection h5 {
+  font-size: 14px;
+  color: #606266;
+  margin: 12px 0 8px;
+  font-weight: 600;
+  border-left: 3px solid #67c23a;
+  padding-left: 8px;
+}
+.terms-quote {
+  background-color: #f8f9fa;
+  border-left: 4px solid #409eff;
+  padding: 12px;
+  margin: 10px 0;
+  font-style: italic;
+  color: #606266;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+.terms-container ul, .terms-container ol {
+  padding-left: 20px;
+  margin: 10px 0;
+  line-height: 1.6;
+}
+.terms-container li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+  color: #606266;
+  position: relative;
+}
+.terms-container ul li {
+  list-style-type: none;
+  padding-left: 5px;
+}
+.terms-container ul li:before {
+  content: "•";
+  color: #409eff;
+  font-weight: bold;
+  display: inline-block;
+  width: 1em;
+  margin-left: -1em;
+  font-size: 16px;
+}
+.terms-container ol li {
+  list-style-type: decimal;
+  padding-left: 5px;
+}
+.terms-agreement {
+  margin-top: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  text-align: center;
+  border: 1px dashed #dcdfe6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+.terms-agreement:hover {
+  border-color: #409eff;
+  background-color: #ecf5ff;
+}
+.terms-agreement .el-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.terms-agreement .el-checkbox__label {
+  font-weight: 500;
+}
+.terms-tab-pane {
+  padding: 5px;
 }
 </style> 

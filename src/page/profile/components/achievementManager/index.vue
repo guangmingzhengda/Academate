@@ -85,7 +85,7 @@
         <el-dialog 
             v-model="excelDialogVisible" 
             title=""
-            width="800px"
+            width="1000px"
             @close="closeExcelDialog"
             :close-on-click-modal="!importLoading"
             :close-on-press-escape="!importLoading"
@@ -145,13 +145,26 @@
                         <el-table-column v-for="(field, idx) in excelPreviewFields" :key="field" :prop="excelPreviewFieldKeys[idx]" :label="field" />
                     </el-table>
                 </div>
+                <!-- Excel导入重复项提示区 -->
+                <div v-if="excelDuplicateRows.length > 0" style="margin: 16px 0;">
+                    <div v-for="(row, idx) in excelDuplicateRows" :key="row.index" style="border:1px solid #e6a23c;padding:12px;margin-bottom:8px;background:#fffbe6;">
+                        <div style="color:#e6a23c;white-space:pre-line;">{{ row.msg }}</div>
+                        <el-descriptions :column="2" size="small" border style="margin:8px 0;">
+                            <el-descriptions-item label="标题">{{ row.data.title }}</el-descriptions-item>
+                            <el-descriptions-item label="作者">{{ row.data.authors }}</el-descriptions-item>
+                            <el-descriptions-item label="期刊/会议">{{ row.data.journal || row.data.conference || '-' }}</el-descriptions-item>
+                            <el-descriptions-item label="发表时间">{{ row.data.publishDate }}</el-descriptions-item>
+                        </el-descriptions>
+                        <el-button v-if="row.status === 'duplicate'" type="primary" size="small" :loading="row.addLoading" @click="addDuplicateExcelRow(row, idx)">添加</el-button>
+                    </div>
+                </div>
             </div>
             
             <template #footer>
                 <div class="dialog-footer">
                     <div class="footer-actions">
                         <el-button @click="closeExcelDialog" :disabled="importLoading">取消</el-button>
-                        <el-button type="primary" @click="importExcelData" :loading="importLoading">批量导入</el-button>
+                        <el-button v-if="excelImportBtnVisible" type="primary" @click="importExcelData" :loading="importLoading">批量导入</el-button>
                     </div>
                 </div>
             </template>
@@ -531,8 +544,9 @@ export default {
             // 根据类型添加特定验证规则
             if (formData.value.type === '期刊论文') {
                 baseRules.journal = [{ required: true, message: '请输入期刊名称', trigger: 'blur' }]
-                baseRules.volume = [{ required: true, message: '请输入卷号', trigger: 'blur' }]
-                baseRules.issue = [{ required: true, message: '请输入期号', trigger: 'blur' }]
+                // 期号和卷号不再必填
+                // baseRules.volume = [{ required: true, message: '请输入卷号', trigger: 'blur' }]
+                // baseRules.issue = [{ required: true, message: '请输入期号', trigger: 'blur' }]
             } else if (formData.value.type === '会议论文') {
                 baseRules.conference = [{ required: true, message: '请输入会议名称', trigger: 'blur' }]
             } else if (formData.value.type === '专利') {
@@ -612,11 +626,8 @@ export default {
         // 检查数据完整性
         const checkDataIntegrity = (data) => {
             const errors = []
-            
             if (data.type === '期刊论文') {
                 if (!data.journal) errors.push('期刊名称')
-                if (!data.volume) errors.push('卷号')
-                if (!data.issue) errors.push('期号')
             } else if (data.type === '会议论文') {
                 if (!data.conference) errors.push('会议名称')
             } else if (data.type === '专利') {
@@ -806,11 +817,15 @@ export default {
             excelPreviewData.value = []
         }
 
-        // 关闭Excel上传对话框
+        // Excel批量导入按钮显示控制
+        const excelImportBtnVisible = ref(true)
+
+        // 关闭Excel上传对话框时重置按钮显示
         const closeExcelDialog = () => {
             excelDialogVisible.value = false
             excelPreviewData.value = []
             excelUploadRef.value?.clearFiles()
+            excelImportBtnVisible.value = true
         }
 
         // Excel文件上传前检查
@@ -905,10 +920,13 @@ export default {
             return Object.keys(excelPreviewData.value[0])
         })
 
+        // Excel导入重复项及提示（含50002和50000）
+        const excelDuplicateRows = ref([])
+
         // 导入Excel数据到表单（批量添加）
         const importExcelData = async () => {
             if (importLoading.value) return // 防止重复提交
-            
+            excelImportBtnVisible.value = false // 隐藏批量导入按钮
             try {
                 importLoading.value = true // 开始加载
                 const allRows = excelPreviewData.value._allRows || []
@@ -918,6 +936,7 @@ export default {
                 }
                 let successCount = 0
                 let failCount = 0
+                excelDuplicateRows.value = [] // 清空上次的
                 for (let i = 0; i < allRows.length; i++) {
                     const row = allRows[i]
                     // 字段映射
@@ -948,11 +967,34 @@ export default {
                         continue
                     }
                     try {
-                        console.log('上传参数', mapped)
                         const res = await uploadAchievementMeta(mapped)
                         if (res && res.code === 0) {
                             successCount++
                             achievements.value.unshift({ ...mapped, id: res.data || Date.now() })
+                        } else if (res && res.code === 50002) {
+                            // 收集重复项，供预览区展示
+                            excelDuplicateRows.value.push({
+                                index: i,
+                                data: res.data,
+                                mapped,
+                                outcomeId: res.data?.outcomeId || res.data?.id || null,
+                                status: 'duplicate',
+                                addLoading: false,
+                                msg: '库中已有类似成果，信息如下，是否添加到成果库？如确须添加相近成果请联系管理员'
+                            })
+                            failCount++
+                        } else if (res && res.code === 50000) {
+                            // 也展示到预览区，不弹窗
+                            excelDuplicateRows.value.push({
+                                index: i,
+                                data: mapped, // 直接展示原始数据
+                                mapped,
+                                outcomeId: null,
+                                status: 'added',
+                                addLoading: false,
+                                msg: '您已添加过该成果，请检查学术成果库'
+                            })
+                            failCount++
                         } else {
                             failCount++
                         }
@@ -967,19 +1009,35 @@ export default {
                         ...userInfo.value.research,
                         paperCount: newCount
                     }
-                    console.log('Excel导入后更新成果数量：', userInfo.value.research.paperCount)
-                    
-                    // 直接触发父组件刷新数据
                     emit('update:paperCount', newCount)
                 }
-                
+                // 统一modal提示
                 callSuccess(`批量导入完成，成功${successCount}条，失败${failCount}条`)
                 emit('refresh')
             } catch {
                 callWarning('批量导入失败，请检查网络连接')
             } finally {
                 importLoading.value = false // 结束加载
-                closeExcelDialog()
+                // 不自动关闭Excel弹窗，便于用户处理重复项
+            }
+        }
+
+        // Excel导入区单条添加
+        const addDuplicateExcelRow = async (row, idx) => {
+            if (!row.outcomeId) return
+            row.addLoading = true
+            try {
+                const res = await autoAddResearchOutcomes([row.outcomeId])
+                if (res && res.code === 0) {
+                    callSuccess('添加成功')
+                    // 移除该条
+                    excelDuplicateRows.value.splice(idx, 1)
+                    emit('refresh')
+                } else {
+                    callError(res?.message || '添加失败')
+                }
+            } finally {
+                row.addLoading = false
             }
         }
 
@@ -1177,7 +1235,10 @@ export default {
             duplicateTipVisible,
             duplicateTipText,
             forceAddMode,
-            duplicateOutcomeId
+            duplicateOutcomeId,
+            excelDuplicateRows,
+            addDuplicateExcelRow,
+            excelImportBtnVisible
         }
     }
 }
