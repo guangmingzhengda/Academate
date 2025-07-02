@@ -138,7 +138,7 @@
                   <div v-if="outcomeData.url" class="link-item">
                     <span class="link-label">原文链接</span>
                     <el-button type="primary" size="small" @click="openUrl(outcomeData.url)" plain>
-                      🔗 访问原文
+                      🔗 下载原文
                     </el-button>
                   </div>
                   <div v-if="outcomeData.url" class="link-item">
