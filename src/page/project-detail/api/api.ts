@@ -1,5 +1,5 @@
 import axios from "axios";
-import {callError, callSuccess} from "@/call";
+import {callError, callInfo, callSuccess} from "@/call";
 
 export async function addWorkAPI(favoriteId,workId) {
     try{
@@ -229,6 +229,10 @@ export async function likeComment(uid: number, commentId: number) {
         if (response.status === 200 && response.data.code === 0) {
             return true;
         } else {
+            if(response.data.message.includes("java.sql.SQLIntegrityConstraintViolationException: Duplicate entry")) {
+                callInfo("点赞失败，您已点赞，请刷新后查看");
+                return false;
+              }
             callError("点赞失败：" + response.data.message);
             return false;
         }

@@ -82,7 +82,7 @@
                                         @click="showFileDialog = true" 
                                         class="file-button"
                                     >
-                                        查看文件
+                                        {{ role === 'creator' ? '管理文件' : '查看文件' }}
                                     </el-button>
                                 </div>
                                 <div class="info-card-content">
