@@ -103,7 +103,7 @@
                             <div v-else class="empty-state">暂无收藏夹</div>
                             <!-- 收藏夹分页 -->
                             <el-pagination
-                                v-if="total > folderPageSize"
+                                v-if="total > 0"
                                 v-model:current-page="folderCurrentPage"
                                 :page-size="folderPageSize"
                                 :total="total"
@@ -178,7 +178,7 @@
                             <div v-else class="empty-state">暂无文献</div>
                             <!-- 文献分页 -->
                             <el-pagination
-                                v-if="outcomesTotal > outcomePageSize"
+                                v-if="outcomesTotal > 0"
                                 v-model:current-page="outcomeCurrentPage"
                                 :page-size="outcomePageSize"
                                 :total="outcomesTotal"
@@ -189,18 +189,6 @@
                             />
                         </div>
                     </div>
-                    
-                    <!-- 分页 -->
-                    <el-pagination
-                        v-if="total > pageSize || outcomesTotal > pageSize"
-                        v-model:current-page="currentPage"
-                        :page-size="pageSize"
-                        :total="total + outcomesTotal"
-                        layout="prev, pager, next"
-                        class="pagination"
-                        small
-                        @current-change="handlePageChange"
-                    />
                 </div>
             </div>
         </div>
@@ -337,8 +325,13 @@
                         </el-form-item>
                     </el-form>
                     <div v-if="duplicateTipVisible" style="color:#e67c00;margin-top:16px;line-height:1.7;white-space:pre-line;">
-                        库中已有类似成果，信息如上，无法加到文献？
-                        <br>如确须添加相近成果请联系管理员
+                        库中已有类似成果，信息如上。
+                        <template v-if="canAddToCurrentFavorite">
+                            <br>该文献尚未加入当前收藏夹，可点击确定将其添加到本收藏夹。
+                        </template>
+                        <template v-else>
+                            <br>该文献已在当前收藏夹，无法重复添加。
+                        </template>
                     </div>
                 </el-tab-pane>
             </el-tabs>
@@ -346,7 +339,7 @@
                 <div class="dialog-footer">
                     <el-button @click="resetManualUploadDialog">取消</el-button>
                     <el-button v-if="uploadActiveTab === 'terms'" type="primary" @click="proceedToUpload" :disabled="!termsAgreed">继续</el-button>
-                    <el-button v-else type="primary" :loading="manualUploadLoading" @click="handleManualUpload" v-show="!duplicateTipVisible">确定</el-button>
+                    <el-button v-else type="primary" :loading="manualUploadLoading" @click="handleManualUpload" v-show="!duplicateTipVisible || canAddToCurrentFavorite">确定</el-button>
                 </div>
             </template>
         </el-dialog>
@@ -359,7 +352,7 @@ import { useRouter } from 'vue-router'
 import { Plus, Folder, MoreFilled, Edit, Delete, ArrowLeft, Document, Star, Search } from '@element-plus/icons-vue'
 import { callSuccess, callInfo, callWarning } from '@/call'
 import { ElMessageBox } from 'element-plus'
-import { getFavoritePage, createFavorite, deleteFavorite, updateFavorite, getFavoriteOutcomePage, removeOutcomeFromFavorite, addOutcomeToFavorite } from '@/api/favorite'
+import { getFavoritePage, createFavorite, deleteFavorite, updateFavorite, getFavoriteOutcomePage, removeOutcomeFromFavorite, addOutcomeToFavorite, findFavoriteByOutcome } from '@/api/favorite'
 import { checkFavoriteHasSubscription } from '@/api/arxiv'
 import ArxivSubscriptionManager from './ArxivSubscriptionManager.vue'
 import { uploadPdfAndExtractMetadata } from '@/api/outcome'
@@ -462,6 +455,7 @@ export default {
         const formDisabled = ref(false)
         const duplicateInfo = ref('')
         const duplicateTipVisible = ref(false)
+        const canAddToCurrentFavorite = ref(false)
         
         // 格式化成果类型
         const formatType = (type) => {
@@ -837,6 +831,24 @@ export default {
         
         // 提交上传
         const handleManualUpload = () => {
+            // 50001且可添加时，直接收藏，无需校验
+            if (canAddToCurrentFavorite.value && duplicateInfo.value && duplicateInfo.value.outcomeId) {
+                manualUploadLoading.value = true
+                addOutcomeToFavorite({
+                    favoriteId: currentParentId.value,
+                    outcomeId: duplicateInfo.value.outcomeId
+                }).then(async (addResult) => {
+                    if (addResult) {
+                        callSuccess('文献已成功添加到当前收藏夹')
+                        resetManualUploadDialog()
+                        await loadOutcomes(currentParentId.value)
+                    }
+                }).finally(() => {
+                    manualUploadLoading.value = false
+                })
+                return
+            }
+            // 正常上传流程
             manualUploadFormRef.value.validate(async (valid) => {
                 if (!valid) return
                 manualUploadLoading.value = true
@@ -870,7 +882,17 @@ export default {
                         }
                         formDisabled.value = true
                         duplicateInfo.value = uploadResult
+                        // 检查该成果是否已在当前收藏夹
+                        const outcomeId = uploadResult.outcomeId
+                        let alreadyInCurrentFavorite = false
+                        if (outcomeId) {
+                            const favoriteIds = await findFavoriteByOutcome(outcomeId)
+                            if (favoriteIds && favoriteIds.includes(currentParentId.value)) {
+                                alreadyInCurrentFavorite = true
+                            }
+                        }
                         duplicateTipVisible.value = true
+                        canAddToCurrentFavorite.value = !alreadyInCurrentFavorite
                         manualUploadLoading.value = false
                         return
                     }
@@ -1005,6 +1027,7 @@ export default {
             duplicateInfo,
             duplicateTipVisible,
             resetManualUploadDialog,
+            canAddToCurrentFavorite,
         }
     }
 }
