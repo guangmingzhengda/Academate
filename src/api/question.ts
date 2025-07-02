@@ -1,5 +1,5 @@
 import axios from "axios";
-import { callError } from "@/call";
+import { callError, callInfo } from "@/call";
 
 interface AnswerVO {
     answerId: number;
@@ -224,6 +224,10 @@ export async function likeAnswer(uid: number, answerId: number): Promise<boolean
     if (response.status === 200 && response.data.code === 0) {
       return true;
     } else {
+      if(response.data.message.includes("java.sql.SQLIntegrityConstraintViolationException: Duplicate entry")) {
+        callInfo("点赞失败，您已点赞，请刷新后查看");
+        return false;
+      }
       callError(response.data.message || "点赞失败");
       return false;
     }
@@ -505,6 +509,10 @@ export async function likeQuestion(uid: number, questionId: number): Promise<boo
     if (response.status === 200 && response.data.code === 0) {
       return true;
     } else {
+      if(response.data.message.includes("java.sql.SQLIntegrityConstraintViolationException: Duplicate entry")) {
+        callInfo("点赞失败，您已点赞，请刷新后查看");
+        return false;
+      }
       callError(response.data.message || "点赞问题失败");
       return false;
     }
