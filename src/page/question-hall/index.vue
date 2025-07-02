@@ -280,6 +280,12 @@ export default {
             const date = new Date(dateString)
             const now = new Date()
             const diff = now - date
+            
+            // 如果时间差为负数（创建时间晚于当前时间），直接显示"刚刚"
+            if (diff < 0) {
+                return '刚刚'
+            }
+            
             const days = Math.floor(diff / (1000 * 60 * 60 * 24))
             
             if (days === 0) {
