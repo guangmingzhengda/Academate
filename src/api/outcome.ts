@@ -688,10 +688,10 @@ export async function deleteOutcome(outcomeId: number): Promise<boolean> {
     // console.log('删除成果响应:', response);
     
     if (response.status === 200 && response.data.code === 0) {
-      callSuccess("成果已删除");
+      // callSuccess("成果已删除");
       return true;
     } else {
-      callError("删除成果失败: " + (response.data.message || "未知错误"));
+      // callError("删除成果失败: " + (response.data.message || "未知错误"));
       return false;
     }
   } catch (error: any) {

@@ -35,6 +35,9 @@ const router = createRouter({
             path: '/graph',
             name: 'graph',
             component: defineAsyncComponent(() => import(`../page/graph/index.vue`)),
+            meta: {
+                title: '知识图谱',
+            },
         },
 
         // 空白页
