@@ -54,17 +54,6 @@
                             >
                                 {{ isFollowing ? '已关注' : '+关注' }}
                             </el-button>
-                            <el-button 
-                                class="message-btn"
-                                type="primary" 
-                                plain
-                                size="small"
-                                @click="openChatWithUser"
-                                :disabled="loading"
-                                v-if="!isOwnProfile && isFollowing"
-                            >
-                                私信
-                            </el-button>
                         </div>
                     </div>
                     <div class="user-email">{{ userInfo.email || '未填写' }}</div>
@@ -188,7 +177,6 @@
                                 <achievement-manager 
                                     :research-outcomes="userInfo.research.researchOutcomes" 
                                     @refresh="fetchUserDetail" 
-                                    @update:paperCount="updatePaperCount"
                                     :is-own-profile="isOwnProfile" 
                                 />
                             </div>
@@ -294,10 +282,8 @@ import libraryManager from './components/libraryManager/index.vue'
 import reportManager from './components/reportManager/index.vue'
 import homeBottom from '@/page/home/component/homeBottom/index.vue'
 import { callSuccess, callInfo, callError } from '@/call'
-import { ElMessage } from 'element-plus'
 import { get_user_detail, upload_user_avatar, update_user_info, get_user_projects } from '@/api/profile'
 import { followUser, unfollowUser, getFollowedUsers } from '@/api/follow'
-import { listConversations, createConversation } from '@/api/chat'
 import store from '@/store'
 
 export default {
@@ -702,45 +688,7 @@ export default {
             activeTab.value = tabKey
         }
 
-        // 打开与用户的聊天
-        const openChatWithUser = async () => {
-            try {
-                // 获取当前会话列表
-                const conversations = await listConversations()
-                
-                // 检查是否已有与该用户的对话
-                const existingConversation = conversations?.find(conv => conv.chatUserVO.userId === userId.value)
-                
-                if (existingConversation) {
-                    // 如果已有对话，通过全局事件通知聊天组件跳转到该对话
-                    window.dispatchEvent(new CustomEvent('openChatWithConversation', {
-                        detail: { conversationId: existingConversation.id }
-                    }))
-                    ElMessage.success(`已跳转到与 ${userInfo.value.name} 的对话`)
-                } else {
-                    // 如果没有对话，创建新对话
-                    const newConversationData = await createConversation(userId.value)
-                    
-                    if (newConversationData) {
-                        // 通过全局事件通知聊天组件创建新对话并跳转
-                        window.dispatchEvent(new CustomEvent('openChatWithConversation', {
-                            detail: { conversationId: newConversationData.id }
-                        }))
-                        ElMessage.success(`已创建与 ${userInfo.value.name} 的新对话`)
-                    } else {
-                        ElMessage.error('创建会话失败')
-                        return
-                    }
-                }
-                
-                // 通过全局事件打开聊天窗口
-                window.dispatchEvent(new CustomEvent('openChatWindow'))
-                
-            } catch (error) {
-                console.error('打开聊天失败:', error)
-                ElMessage.error('打开聊天失败，请重试')
-            }
-        }
+
 
         // 编辑资料对话框相关
         const editProfileDialogVisible = ref(false)
@@ -872,13 +820,7 @@ export default {
             }
         });
 
-        // 直接更新成果数量
-        const updatePaperCount = (newCount) => {
-            if (userInfo.value && userInfo.value.research) {
-                userInfo.value.research.paperCount = newCount;
-                console.log('父组件更新成果数量：', newCount);
-            }
-        };
+
 
         return {
             userInfo,
@@ -897,7 +839,6 @@ export default {
             saveData,
             toggleFollow,
             switchTab,
-            openChatWithUser,
             editProfileDialogVisible,
             editProfileForm,
             openEditProfileDialog,
@@ -911,8 +852,7 @@ export default {
             profileWordCount,
             onProfileInput,
             editProfileFormRef,
-            editProfileRules,
-            updatePaperCount
+            editProfileRules
         }
     }
 }
@@ -1110,24 +1050,7 @@ export default {
     border-color: #82848a;
 }
 
-/* 私信按钮 - 与关注按钮样式一致 */
-.message-btn {
-    font-family: 'Meiryo', sans-serif;
-    border-radius: 16px;
-    padding: 6px 16px;
-    font-size: 13px;
-    transition: all 0.3s ease;
-    border: 1px solid #d0d0d0;
-    background-color: #f5f5f5;
-    color: #666;
-    height: 32px;
-}
 
-.message-btn:hover {
-    background-color: #e8e8e8;
-    border-color: #bbb;
-    transform: translateY(-1px);
-}
 
 /* 编辑资料按钮 */
 .edit-profile-btn {
@@ -1424,38 +1347,5 @@ export default {
     }
 }
 
-/* 私信对话框样式 */
-.message-dialog {
-    padding: 20px 0;
-}
 
-.recipient-info {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
-    padding: 15px;
-    background: #f8f9fa;
-    border-radius: 8px;
-}
-
-.recipient-avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    object-fit: cover;
-}
-
-.recipient-name {
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
-    text-align: left;
-}
-
-.recipient-org {
-    font-size: 14px;
-    color: #666;
-    text-align: left;
-}
 </style> 
