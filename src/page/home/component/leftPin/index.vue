@@ -51,10 +51,10 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from 'vue-router';
-import { useStore } from 'vuex';
 import fadeBox from "@/page/home/component/fadeBox/index.vue";
+import axios from 'axios';
 
 export default {
     name: "leftPin",
@@ -62,13 +62,10 @@ export default {
     props: ['rTitle'],
     setup(){
         const router = useRouter();
-        const store = useStore();
         
         // 响应式数据
         const loading = ref(false);
-        
-        // 从 Vuex 获取推荐数据
-        const recommendList = computed(() => store.getters.getRecommendationList);
+        const recommendList = ref([]);
         
         // 样式配置
         const listStyle = {
@@ -92,14 +89,30 @@ export default {
             '其他': '其他'
         };
         
-        // 加载推荐数据（使用 Vuex 缓存）
+        // 直接从后端加载推荐数据（不使用缓存）
         const loadRecommendations = async () => {
             loading.value = true;
             try {
-                await store.dispatch('fetchRecommendations');
-                console.log(`使用 Vuex 缓存机制加载推荐数据，当前数据量: ${recommendList.value.length}`);
+                console.log('每次都从后端重新获取推荐数据');
+                
+                // 直接调用API获取数据
+                const response = await axios.get('/recommendation/popular', {
+                    params: {
+                        pageSize: 8,
+                        pageNum: 1
+                    }
+                });
+
+                if (response.status === 200 && response.data.code === 0) {
+                    recommendList.value = response.data.data.list || [];
+                    console.log(`成功获取 ${recommendList.value.length} 条推荐数据`);
+                } else {
+                    console.error('获取推荐数据失败:', response.data.message);
+                    recommendList.value = [];
+                }
             } catch (error) {
                 console.error('加载推荐数据失败:', error);
+                recommendList.value = [];
             } finally {
                 loading.value = false;
             }

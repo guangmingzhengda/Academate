@@ -705,27 +705,13 @@ export default {
                 }
                 const res = await uploadAchievementMeta(requestData)
                 if (res && res.code === 0) {
-                    const newAchievement = {
-                        ...formData.value,
-                        id: res.data || Date.now()
-                    }
-                    achievements.value.unshift(newAchievement)
                     callSuccess('添加成功')
                     
-                    // 安全地更新本地成果数量并确保响应式更新
-                    if (userInfo && userInfo.value && userInfo.value.research) {
-                        const newCount = (userInfo.value.research.paperCount || 0) + 1
-                        userInfo.value.research = {
-                            ...userInfo.value.research,
-                            paperCount: newCount
-                        }
-                        console.log('手动添加后更新成果数量：', userInfo.value.research.paperCount)
-                        
-                        // 直接触发父组件刷新数据
-                        emit('update:paperCount', newCount)
-                    }
-                    
+                    // 关闭对话框
                     closeDialog()
+                    
+                    // 触发父组件刷新数据，重新从后端获取成果列表
+                    emit('refresh')
                 } else if (res && res.code === 50002) {
                     // 库中已有类似成果
                     isFormDisabled.value = true
@@ -970,7 +956,7 @@ export default {
                         const res = await uploadAchievementMeta(mapped)
                         if (res && res.code === 0) {
                             successCount++
-                            achievements.value.unshift({ ...mapped, id: res.data || Date.now() })
+                            // 不在前端添加数据，等待后续统一刷新
                         } else if (res && res.code === 50002) {
                             // 收集重复项，供预览区展示
                             excelDuplicateRows.value.push({
@@ -1002,18 +988,13 @@ export default {
                         failCount++
                     }
                 }
-                // 安全地更新本地成果数量并确保响应式更新
-                if (userInfo && userInfo.value && userInfo.value.research && successCount > 0) {
-                    const newCount = (userInfo.value.research.paperCount || 0) + successCount
-                    userInfo.value.research = {
-                        ...userInfo.value.research,
-                        paperCount: newCount
-                    }
-                    emit('update:paperCount', newCount)
-                }
                 // 统一modal提示
                 callSuccess(`批量导入完成，成功${successCount}条，失败${failCount}条`)
-                emit('refresh')
+                
+                // 如果有成功添加的数据，触发刷新
+                if (successCount > 0) {
+                    emit('refresh')
+                }
             } catch {
                 callWarning('批量导入失败，请检查网络连接')
             } finally {
@@ -1105,25 +1086,15 @@ export default {
                         callWarning('未添加成功的成果作者不包含当前用户')
                     }
                     
-                    // 安全地更新本地成果数量并确保响应式更新
-                    if (userInfo && userInfo.value && userInfo.value.research && successCount > 0) {
-                        const newCount = (userInfo.value.research.paperCount || 0) + successCount
-                        userInfo.value.research = {
-                            ...userInfo.value.research,
-                            paperCount: newCount
-                        }
-                        console.log('从库中选择后更新成果数量：', userInfo.value.research.paperCount)
-                        
-                        // 直接触发父组件刷新数据
-                        emit('update:paperCount', newCount)
-                    }
-                    
                     // 关闭对话框
                     closeSelectDialog()
                     // 清空选中项
                     selectedAchievements.value = []
-                    // 触发父组件刷新数据
-                    emit('refresh')
+                    
+                    // 如果有成功添加的数据，触发父组件刷新数据
+                    if (successCount > 0) {
+                        emit('refresh')
+                    }
                 } else {
                     callError(response?.message || '添加失败')
                 }
